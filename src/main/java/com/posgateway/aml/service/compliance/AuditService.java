@@ -4,7 +4,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.posgateway.aml.entity.compliance.AuditTrail;
 import com.posgateway.aml.repository.AuditTrailRepository;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -12,12 +11,16 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class AuditService {
 
     private final AuditTrailRepository auditTrailRepository;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
+
+    public AuditService(AuditTrailRepository auditTrailRepository, ObjectMapper objectMapper) {
+        this.auditTrailRepository = auditTrailRepository;
+        this.objectMapper = objectMapper;
+    }
 
     @Async
     @Transactional(propagation = Propagation.REQUIRES_NEW)

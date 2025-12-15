@@ -7,8 +7,8 @@ import com.posgateway.aml.dto.compliance.SarResponse;
 import com.posgateway.aml.dto.compliance.UpdateSarRequest;
 import com.posgateway.aml.entity.compliance.SuspiciousActivityReport;
 import com.posgateway.aml.model.SarStatus;
+import com.posgateway.aml.mapper.SarMapper;
 import com.posgateway.aml.repository.SuspiciousActivityReportRepository;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,12 +18,20 @@ import java.util.Map;
 import java.util.UUID;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class ComplianceReportingService {
 
     private final SuspiciousActivityReportRepository sarRepository;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
+    private final SarMapper sarMapper;
+
+    public ComplianceReportingService(SuspiciousActivityReportRepository sarRepository,
+            ObjectMapper objectMapper,
+            SarMapper sarMapper) {
+        this.sarRepository = sarRepository;
+        this.objectMapper = objectMapper;
+        this.sarMapper = sarMapper;
+    }
 
     @Transactional
     public SarResponse createSar(CreateSarRequest request) {
@@ -38,7 +46,7 @@ public class ComplianceReportingService {
                 .build();
 
         sar = sarRepository.save(sar);
-        return mapToResponse(sar);
+        return sarMapper.toResponse(sar);
     }
 
     @Transactional
@@ -54,7 +62,7 @@ public class ComplianceReportingService {
         }
 
         sar = sarRepository.save(sar);
-        return mapToResponse(sar);
+        return sarMapper.toResponse(sar);
     }
 
     @Transactional
@@ -116,15 +124,4 @@ public class ComplianceReportingService {
         }
     }
 
-    private SarResponse mapToResponse(SuspiciousActivityReport sar) {
-        return SarResponse.builder()
-                .reportId(sar.getId())
-                .caseId(sar.getComplianceCase() != null ? sar.getComplianceCase().getId() : null)
-                .status(sar.getStatus() != null ? sar.getStatus().name() : null)
-                .filingDate(sar.getFiledAt())
-                .narrative(sar.getNarrative())
-                .createdAt(sar.getCreatedAt())
-                .createdBy(sar.getCreatedBy() != null ? sar.getCreatedBy().getUsername() : null)
-                .build();
-    }
 }

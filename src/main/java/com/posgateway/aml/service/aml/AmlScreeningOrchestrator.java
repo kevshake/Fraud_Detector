@@ -11,8 +11,8 @@ import com.posgateway.aml.repository.AuditTrailRepository;
 import com.posgateway.aml.repository.ExternalAmlResponseRepository;
 import com.posgateway.aml.repository.MerchantRepository;
 import com.posgateway.aml.repository.MerchantScreeningResultRepository;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,28 +35,16 @@ import java.util.Map;
  */
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class AmlScreeningOrchestrator {
 
-    @Autowired
-    private SumsubAmlService sumsubService;
-
-    @Autowired
-    private AerospikeSanctionsScreeningService aerospikeService;
-
-    @Autowired
-    private MerchantRepository merchantRepository;
-
-    @Autowired
-    private MerchantScreeningResultRepository screeningResultRepository;
-
-    @Autowired
-    private ExternalAmlResponseRepository externalResponseRepository;
-
-    @Autowired
-    private AuditTrailRepository auditTrailRepository;
-
-    @Autowired
-    private ObjectMapper objectMapper;
+    private final SumsubAmlService sumsubService;
+    private final AerospikeSanctionsScreeningService aerospikeService;
+    private final MerchantRepository merchantRepository;
+    private final MerchantScreeningResultRepository screeningResultRepository;
+    private final ExternalAmlResponseRepository externalResponseRepository;
+    private final AuditTrailRepository auditTrailRepository;
+    private final ObjectMapper objectMapper;
 
     /**
      * Screen merchant using two-tier strategy

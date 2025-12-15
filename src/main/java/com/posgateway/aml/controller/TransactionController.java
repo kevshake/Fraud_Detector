@@ -28,7 +28,8 @@ import java.util.stream.Collectors;
 
 /**
  * Transaction Controller
- * Receives transactions from all merchants and processes them through fraud detection
+ * Receives transactions from all merchants and processes them through fraud
+ * detection
  * Optimized for high throughput with async processing
  */
 @RestController
@@ -42,30 +43,21 @@ public class TransactionController {
     private final FraudDetectionOrchestrator fraudOrchestrator;
     private final AsyncFraudDetectionOrchestrator asyncFraudOrchestrator;
     private final HighConcurrencyFraudOrchestrator highConcurrencyOrchestrator;
-    private final RequestBufferingService requestBufferingService;
-    private final RequestRateLimiter rateLimiter;
-    private final ConnectionCleanupService cleanupService;
-
-    @Value("${throughput.enable.async.processing:true}")
-    private boolean asyncEnabled;
-
-    @Value("${ultra.throughput.enabled:true}")
-    private boolean ultraThroughputEnabled;
-
-    @Value("${ultra.throughput.max.concurrent.requests:30000}")
-    private int maxConcurrentRequests;
-
-    private final AtomicInteger currentConcurrentRequests = new AtomicInteger(0);
+    private final AsyncFraudDetectionOrchestrator asyncOrchestrator;
+    private final TransactionRepository transactionRepository;
+    private final FraudDetectionMapper fraudMapper;
 
     @Autowired
     public TransactionController(TransactionIngestionService ingestionService,
-                                BatchTransactionIngestionService batchIngestionService,
-                                FraudDetectionOrchestrator fraudOrchestrator,
-                                AsyncFraudDetectionOrchestrator asyncFraudOrchestrator,
-                                HighConcurrencyFraudOrchestrator highConcurrencyOrchestrator,
-                                RequestBufferingService requestBufferingService,
-                                RequestRateLimiter rateLimiter,
-                                ConnectionCleanupService cleanupService) {
+            BatchTransactionIngestionService batchIngestionService,
+            FraudDetectionOrchestrator fraudOrchestrator,
+            AsyncFraudDetectionOrchestrator asyncFraudOrchestrator,
+            HighConcurrencyFraudOrchestrator highConcurrencyOrchestrator,
+            RequestBufferingService requestBufferingService,
+            RequestRateLimiter rateLimiter,
+            ConnectionCleanupService cleanupService,
+            TransactionRepository transactionRepository,
+            FraudDetectionMapper fraudMapper) {
         this.ingestionService = ingestionService;
         this.batchIngestionService = batchIngestionService;
         this.fraudOrchestrator = fraudOrchestrator;
@@ -74,6 +66,8 @@ public class TransactionController {
         this.requestBufferingService = requestBufferingService;
         this.rateLimiter = rateLimiter;
         this.cleanupService = cleanupService;
+        this.transactionRepository = transactionRepository;
+        this.fraudMapper = fraudMapper;
     }
 
     /**
@@ -86,22 +80,21 @@ public class TransactionController {
     @PostMapping("/ingest")
     public CompletableFuture<ResponseEntity<FraudDetectionResponseDTO>> ingestTransaction(
             @Valid @RequestBody TransactionRequestDTO requestDTO) {
-        
-        logger.debug("Received transaction ingestion request from merchant: {}", 
-            requestDTO.getMerchantId());
+
+        logger.debug("Received transaction ingestion request from merchant: {}",
+                requestDTO.getMerchantId());
 
         try {
             // Rate limiting check
             if (!rateLimiter.canProcess()) {
                 logger.warn("Rate limit exceeded, rejecting request");
                 return CompletableFuture.completedFuture(
-                    ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                        .body(createErrorResponse("Rate limit exceeded")));
+                        ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                                .body(createErrorResponse("Rate limit exceeded")));
             }
 
             // Convert DTO to service request
-            TransactionIngestionService.TransactionRequest request = 
-                convertToServiceRequest(requestDTO);
+            TransactionIngestionService.TransactionRequest request = convertToServiceRequest(requestDTO);
 
             // Step 1: Ingest transaction (store in database)
             TransactionEntity transaction = ingestionService.ingestTransaction(request);
@@ -110,52 +103,54 @@ public class TransactionController {
             int current = currentConcurrentRequests.incrementAndGet();
             try {
                 if (current > maxConcurrentRequests) {
-                    logger.warn("Max concurrent requests ({}) exceeded, current: {}", 
-                        maxConcurrentRequests, current);
+                    logger.warn("Max concurrent requests ({}) exceeded, current: {}",
+                            maxConcurrentRequests, current);
                     // Use buffering service if enabled
                     if (ultraThroughputEnabled && requestBufferingService.hasCapacity()) {
                         requestBufferingService.addRequest(requestDTO);
                         return CompletableFuture.completedFuture(
-                            ResponseEntity.accepted().build()); // 202 Accepted
+                                ResponseEntity.accepted().build()); // 202 Accepted
                     }
                     return CompletableFuture.completedFuture(
-                        ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                            .body(createErrorResponse("Service temporarily unavailable, too many concurrent requests")));
+                            ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                                    .body(createErrorResponse(
+                                            "Service temporarily unavailable, too many concurrent requests")));
                 }
 
-                // Step 2: Process through fraud detection pipeline (ultra-high throughput if enabled)
+                // Step 2: Process through fraud detection pipeline (ultra-high throughput if
+                // enabled)
                 // Optimize orchestrator selection with early returns and cached flags
                 CompletableFuture<ResponseEntity<FraudDetectionResponseDTO>> future;
-                
+
                 // Use switch-like optimization: check ultra throughput first (highest priority)
                 if (ultraThroughputEnabled) {
                     future = highConcurrencyOrchestrator.processTransactionUltra(transaction)
-                        .thenApply(result -> {
-                            FraudDetectionResponseDTO responseDTO = convertHighConcurrencyToResponseDTO(result);
-                            return ResponseEntity.ok(responseDTO);
-                        })
-                        .exceptionally(ex -> {
-                            logger.error("Error in ultra-high throughput processing", ex);
-                            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-                        });
+                            .thenApply(result -> {
+                                FraudDetectionResponseDTO responseDTO = fraudMapper.toResponse(result);
+                                return ResponseEntity.ok(responseDTO);
+                            })
+                            .exceptionally(ex -> {
+                                logger.error("Error in ultra-high throughput processing", ex);
+                                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+                            });
                 } else if (asyncEnabled) {
                     // Fallback to async processing if ultra throughput disabled
                     future = asyncFraudOrchestrator.processTransactionAsync(transaction)
-                        .thenApply(result -> {
-                            FraudDetectionResponseDTO responseDTO = convertAsyncToResponseDTO(result);
-                            return ResponseEntity.ok(responseDTO);
-                        })
-                        .exceptionally(ex -> {
-                            logger.error("Error in async processing", ex);
-                            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-                        });
+                            .thenApply(result -> {
+                                FraudDetectionResponseDTO responseDTO = fraudMapper.toResponse(result);
+                                return ResponseEntity.ok(responseDTO);
+                            })
+                            .exceptionally(ex -> {
+                                logger.error("Error in async processing", ex);
+                                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+                            });
                 } else {
                     // Synchronous fallback (lowest priority)
                     FraudDetectionResult result = fraudOrchestrator.processTransaction(transaction);
-                    FraudDetectionResponseDTO responseDTO = convertToResponseDTO(result);
+                    FraudDetectionResponseDTO responseDTO = fraudMapper.toResponse(result);
                     future = CompletableFuture.completedFuture(ResponseEntity.ok(responseDTO));
                 }
-                
+
                 // Decrement counter and cleanup resources when done
                 return future.whenComplete((response, ex) -> {
                     currentConcurrentRequests.decrementAndGet();
@@ -171,17 +166,17 @@ public class TransactionController {
                         }
                     }
                 });
-                
+
             } catch (Exception e) {
                 currentConcurrentRequests.decrementAndGet();
                 throw e;
             }
 
         } catch (Exception e) {
-            logger.error("Error processing transaction from merchant: {}", 
-                requestDTO.getMerchantId(), e);
+            logger.error("Error processing transaction from merchant: {}",
+                    requestDTO.getMerchantId(), e);
             return CompletableFuture.completedFuture(
-                ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build());
+                    ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build());
         }
     }
 
@@ -195,14 +190,14 @@ public class TransactionController {
     @PostMapping("/ingest/batch")
     public CompletableFuture<ResponseEntity<List<FraudDetectionResponseDTO>>> batchIngestTransactions(
             @Valid @RequestBody List<TransactionRequestDTO> requestDTOs) {
-        
+
         logger.info("Received batch ingestion request for {} transactions", requestDTOs.size());
 
         try {
             // Convert DTOs to service requests
             List<TransactionIngestionService.TransactionRequest> requests = requestDTOs.stream()
-                .map(this::convertToServiceRequest)
-                .collect(Collectors.toList());
+                    .map(this::convertToServiceRequest)
+                    .collect(Collectors.toList());
 
             // Batch ingest transactions
             List<TransactionEntity> transactions = batchIngestionService.batchIngestTransactions(requests);
@@ -211,54 +206,53 @@ public class TransactionController {
             // Cache flags for better performance
             final boolean useUltra = ultraThroughputEnabled;
             final boolean useAsync = asyncEnabled;
-            
+
             List<CompletableFuture<FraudDetectionResponseDTO>> futures;
-            
+
             // Optimize with early return pattern - check ultra throughput first
             if (useUltra) {
                 futures = highConcurrencyOrchestrator.processTransactionsParallel(transactions)
-                    .stream()
-                    .map(future -> future.thenApply(this::convertHighConcurrencyToResponseDTO))
-                    .collect(Collectors.toList());
+                        .stream()
+                        .map(future -> future.thenApply(fraudMapper::toResponse))
+                        .collect(Collectors.toList());
             } else if (useAsync) {
                 futures = transactions.stream()
-                    .map(txn -> asyncFraudOrchestrator.processTransactionAsync(txn)
-                        .thenApply(this::convertAsyncToResponseDTO))
-                    .collect(Collectors.toList());
+                        .map(txn -> asyncFraudOrchestrator.processTransactionAsync(txn)
+                                .thenApply(fraudMapper::toResponse))
+                        .collect(Collectors.toList());
             } else {
                 // Synchronous fallback
                 futures = transactions.stream()
-                    .map(txn -> CompletableFuture.supplyAsync(() -> {
-                        FraudDetectionResult result = fraudOrchestrator.processTransaction(txn);
-                        return convertToResponseDTO(result);
-                    }))
-                    .collect(Collectors.toList());
+                        .map(txn -> CompletableFuture.supplyAsync(() -> {
+                            FraudDetectionResult result = fraudOrchestrator.processTransaction(txn);
+                            return fraudMapper.toResponse(result);
+                        }))
+                        .collect(Collectors.toList());
             }
 
             // Wait for all futures
             return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
-                .thenApply(v -> {
-                    List<FraudDetectionResponseDTO> results = futures.stream()
-                        .map(CompletableFuture::join)
-                        .collect(Collectors.toList());
-                    return ResponseEntity.ok(results);
-                })
-                .exceptionally(ex -> {
-                    logger.error("Error in batch processing", ex);
-                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-                });
+                    .thenApply(v -> {
+                        List<FraudDetectionResponseDTO> results = futures.stream()
+                                .map(CompletableFuture::join)
+                                .collect(Collectors.toList());
+                        return ResponseEntity.ok(results);
+                    })
+                    .exceptionally(ex -> {
+                        logger.error("Error in batch processing", ex);
+                        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+                    });
 
         } catch (Exception e) {
             logger.error("Error in batch ingestion", e);
             return CompletableFuture.completedFuture(
-                ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build());
+                    ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build());
         }
     }
 
     private TransactionIngestionService.TransactionRequest convertToServiceRequest(
             TransactionRequestDTO dto) {
-        TransactionIngestionService.TransactionRequest request = 
-            new TransactionIngestionService.TransactionRequest();
+        TransactionIngestionService.TransactionRequest request = new TransactionIngestionService.TransactionRequest();
         request.setMerchantId(dto.getMerchantId());
         request.setTerminalId(dto.getTerminalId());
         request.setAmountCents(dto.getAmountCents());
@@ -268,38 +262,6 @@ public class TransactionController {
         request.setEmvTags(dto.getEmvTags());
         request.setAcquirerResponse(dto.getAcquirerResponse());
         return request;
-    }
-
-    private FraudDetectionResponseDTO convertToResponseDTO(FraudDetectionResult result) {
-        FraudDetectionResponseDTO dto = new FraudDetectionResponseDTO();
-        dto.setTxnId(result.getTxnId());
-        dto.setScore(result.getScore());
-        dto.setAction(result.getAction());
-        dto.setReasons(result.getReasons());
-        dto.setLatencyMs(result.getLatencyMs());
-        return dto;
-    }
-
-    private FraudDetectionResponseDTO convertAsyncToResponseDTO(
-            AsyncFraudDetectionOrchestrator.FraudDetectionResult result) {
-        FraudDetectionResponseDTO dto = new FraudDetectionResponseDTO();
-        dto.setTxnId(result.getTxnId());
-        dto.setScore(result.getScore());
-        dto.setAction(result.getAction());
-        dto.setReasons(result.getReasons());
-        dto.setLatencyMs(result.getLatencyMs());
-        return dto;
-    }
-
-    private FraudDetectionResponseDTO convertHighConcurrencyToResponseDTO(
-            HighConcurrencyFraudOrchestrator.FraudDetectionResult result) {
-        FraudDetectionResponseDTO dto = new FraudDetectionResponseDTO();
-        dto.setTxnId(result.getTxnId());
-        dto.setScore(result.getScore());
-        dto.setAction(result.getAction());
-        dto.setReasons(result.getReasons());
-        dto.setLatencyMs(result.getLatencyMs());
-        return dto;
     }
 
     private FraudDetectionResponseDTO createErrorResponse(String message) {
@@ -318,4 +280,3 @@ public class TransactionController {
         return ResponseEntity.ok("Transaction Service is running");
     }
 }
-

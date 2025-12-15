@@ -1,5 +1,6 @@
 package com.posgateway.aml.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.posgateway.aml.entity.TransactionEntity;
 import com.posgateway.aml.entity.TransactionFeatures;
 import com.posgateway.aml.repository.TransactionRepository;
@@ -17,7 +18,8 @@ import java.util.Map;
 
 /**
  * Batch Scoring Service
- * Performs nightly/weekly batch scoring to compute aggregates and backfill training sets
+ * Performs nightly/weekly batch scoring to compute aggregates and backfill
+ * training sets
  * Updates velocity features and computes batch metrics
  */
 @Service
@@ -29,16 +31,18 @@ public class BatchScoringService {
     private final TransactionFeaturesRepository featuresRepository;
     private final FeatureExtractionService featureExtractionService;
     private final ScoringService scoringService;
+    private final ObjectMapper objectMapper;
 
-    @Autowired
     public BatchScoringService(TransactionRepository transactionRepository,
-                              TransactionFeaturesRepository featuresRepository,
-                              FeatureExtractionService featureExtractionService,
-                              ScoringService scoringService) {
+            TransactionFeaturesRepository featuresRepository,
+            FeatureExtractionService featureExtractionService,
+            ScoringService scoringService,
+            ObjectMapper objectMapper) {
         this.transactionRepository = transactionRepository;
         this.featuresRepository = featuresRepository;
         this.featureExtractionService = featureExtractionService;
         this.scoringService = scoringService;
+        this.objectMapper = objectMapper;
     }
 
     /**
@@ -55,10 +59,10 @@ public class BatchScoringService {
         LocalDateTime endOfDay = yesterday.toLocalDate().atTime(23, 59, 59);
 
         List<TransactionEntity> transactions = transactionRepository.findAll().stream()
-            .filter(t -> t.getTxnTs() != null && 
-                        !t.getTxnTs().isBefore(startOfDay) && 
+                .filter(t -> t.getTxnTs() != null &&
+                        !t.getTxnTs().isBefore(startOfDay) &&
                         !t.getTxnTs().isAfter(endOfDay))
-            .toList();
+                .toList();
 
         logger.info("Found {} transactions to batch score", transactions.size());
 
@@ -80,26 +84,26 @@ public class BatchScoringService {
 
                 // Score transaction
                 ScoringService.ScoringResult result = scoringService.scoreTransaction(
-                    transaction.getTxnId(), features);
+                        transaction.getTxnId(), features);
 
                 // Save features
                 saveTransactionFeatures(transaction, features, result.getScore(), "BATCH");
 
                 scored++;
-                
+
                 if (scored % 100 == 0) {
                     logger.info("Batch scored {}/{} transactions", scored, transactions.size());
                 }
 
             } catch (Exception e) {
                 errors++;
-                logger.error("Error batch scoring transaction {}: {}", 
-                    transaction.getTxnId(), e.getMessage());
+                logger.error("Error batch scoring transaction {}: {}",
+                        transaction.getTxnId(), e.getMessage());
             }
         }
 
-        logger.info("Batch scoring completed: scored={}, skipped={}, errors={}", 
-            scored, skipped, errors);
+        logger.info("Batch scoring completed: scored={}, skipped={}, errors={}",
+                scored, skipped, errors);
     }
 
     /**
@@ -110,12 +114,12 @@ public class BatchScoringService {
         logger.info("Backfilling features for transactions without features (limit={})", limit);
 
         List<TransactionEntity> transactions = transactionRepository.findAll().stream()
-            .filter(t -> {
-                TransactionFeatures features = featuresRepository.findByTxnId(t.getTxnId());
-                return features == null || features.getFeatureJson() == null;
-            })
-            .limit(limit)
-            .toList();
+                .filter(t -> {
+                    TransactionFeatures features = featuresRepository.findByTxnId(t.getTxnId());
+                    return features == null || features.getFeatureJson() == null;
+                })
+                .limit(limit)
+                .toList();
 
         int processed = 0;
         for (TransactionEntity transaction : transactions) {
@@ -124,8 +128,8 @@ public class BatchScoringService {
                 saveTransactionFeatures(transaction, features, null, "BACKFILL");
                 processed++;
             } catch (Exception e) {
-                logger.error("Error backfilling features for transaction {}: {}", 
-                    transaction.getTxnId(), e.getMessage());
+                logger.error("Error backfilling features for transaction {}: {}",
+                        transaction.getTxnId(), e.getMessage());
             }
         }
 
@@ -133,10 +137,10 @@ public class BatchScoringService {
         return processed;
     }
 
-    private void saveTransactionFeatures(TransactionEntity transaction, 
-                                         Map<String, Object> features, 
-                                         Double score, 
-                                         String actionTaken) {
+    private void saveTransactionFeatures(TransactionEntity transaction,
+            Map<String, Object> features,
+            Double score,
+            String actionTaken) {
         try {
             TransactionFeatures txnFeatures = featuresRepository.findByTxnId(transaction.getTxnId());
             if (txnFeatures == null) {
@@ -144,9 +148,7 @@ public class BatchScoringService {
                 txnFeatures.setTxnId(transaction.getTxnId());
             }
 
-            // Store features as JSON
-            com.fasterxml.jackson.databind.ObjectMapper objectMapper = 
-                new com.fasterxml.jackson.databind.ObjectMapper();
+            // Store features as JSON using the injected ObjectMapper
             String featureJson = objectMapper.writeValueAsString(features);
             txnFeatures.setFeatureJson(featureJson);
 
@@ -157,9 +159,8 @@ public class BatchScoringService {
 
             featuresRepository.save(txnFeatures);
         } catch (Exception e) {
-            logger.error("Error saving transaction features for {}: {}", 
-                transaction.getTxnId(), e.getMessage());
+            logger.error("Error saving transaction features for {}: {}",
+                    transaction.getTxnId(), e.getMessage());
         }
     }
 }
-

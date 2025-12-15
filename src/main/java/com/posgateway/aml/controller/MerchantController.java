@@ -11,14 +11,18 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 /**
  * REST Controller for merchant management
+ * 
+ * Security: Role-based access for merchant operations
  */
 @RestController
 @RequestMapping("/merchants")
 @Slf4j
+@PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'SCREENING_ANALYST')")
 public class MerchantController {
 
     @Autowired
@@ -32,6 +36,7 @@ public class MerchantController {
      * POST /api/v1/merchants/onboard
      */
     @PostMapping("/onboard")
+    @PreAuthorize("hasAuthority('ONBOARD_MERCHANT')")
     public ResponseEntity<MerchantOnboardingResponse> onboardMerchant(
             @Valid @RequestBody MerchantOnboardingRequest request) {
 

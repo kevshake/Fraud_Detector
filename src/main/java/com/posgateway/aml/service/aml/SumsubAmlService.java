@@ -10,8 +10,8 @@ import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
 import io.restassured.RestAssured;
 import io.restassured.response.Response;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -36,6 +36,7 @@ import java.util.List;
  */
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class SumsubAmlService {
 
     @Value("${sumsub.enabled:false}")
@@ -53,11 +54,8 @@ public class SumsubAmlService {
     @Value("${sumsub.cost.per.check:1.85}")
     private double costPerCheck;
 
-    @Autowired
-    private ObjectMapper objectMapper;
-
-    @Autowired
-    private AerospikeSanctionsScreeningService aerospikeService; // Fallback
+    private final ObjectMapper objectMapper;
+    private final AerospikeSanctionsScreeningService aerospikeService; // Fallback
 
     /**
      * Screen merchant via Sumsub API

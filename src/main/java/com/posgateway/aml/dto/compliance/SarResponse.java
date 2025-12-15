@@ -1,13 +1,17 @@
 package com.posgateway.aml.dto.compliance;
 
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.util.Map;
 
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class SarResponse {
     private Long reportId;
     private Long merchantId;

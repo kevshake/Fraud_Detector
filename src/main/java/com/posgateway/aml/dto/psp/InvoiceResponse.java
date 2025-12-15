@@ -1,7 +1,9 @@
 package com.posgateway.aml.dto.psp;
 
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -9,6 +11,8 @@ import java.util.List;
 
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class InvoiceResponse {
     private String invoiceNumber;
     private LocalDate periodStart;
@@ -19,6 +23,8 @@ public class InvoiceResponse {
 
     @Data
     @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class LineItem {
         private String serviceType;
         private String description;

@@ -9,21 +9,29 @@ import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 /**
  * REST Controller for SAR Workflow
+ * 
+ * Security: Role-based access for SAR operations
+ * - CREATE_SAR: Investigators, Compliance Officers
+ * - APPROVE_SAR: MLRO only
+ * - FILE_SAR: MLRO only
  */
 @RestController
 @RequestMapping("/api/v1/compliance/sar/workflow")
 @RequiredArgsConstructor
 @Slf4j
+@PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'INVESTIGATOR')")
 public class SarWorkflowController {
 
     private final SarWorkflowService sarWorkflowService;
     private final UserRepository userRepository;
 
     @PostMapping("/create")
+    @PreAuthorize("hasAuthority('CREATE_SAR')")
     public ResponseEntity<SuspiciousActivityReport> createSar(@RequestBody CreateSarRequest request) {
         User creator = fetchUser(request.getCreatorUserId());
         SuspiciousActivityReport sar = new SuspiciousActivityReport();
@@ -37,6 +45,7 @@ public class SarWorkflowController {
     }
 
     @PostMapping("/submit")
+    @PreAuthorize("hasAuthority('CREATE_SAR')")
     public ResponseEntity<SuspiciousActivityReport> submitForReview(@RequestBody IdRequest request) {
         User user = fetchUser(request.getUserId());
         SuspiciousActivityReport updated = sarWorkflowService.submitForReview(request.getSarId(), user);
@@ -44,6 +53,7 @@ public class SarWorkflowController {
     }
 
     @PostMapping("/approve")
+    @PreAuthorize("hasAuthority('APPROVE_SAR')")
     public ResponseEntity<SuspiciousActivityReport> approve(@RequestBody IdRequest request) {
         User approver = fetchUser(request.getUserId());
         SuspiciousActivityReport updated = sarWorkflowService.approveSar(request.getSarId(), approver);
@@ -51,16 +61,20 @@ public class SarWorkflowController {
     }
 
     @PostMapping("/reject")
+    @PreAuthorize("hasAuthority('APPROVE_SAR')")
     public ResponseEntity<SuspiciousActivityReport> reject(@RequestBody RejectRequest request) {
         User rejector = fetchUser(request.getUserId());
-        SuspiciousActivityReport updated = sarWorkflowService.rejectSar(request.getSarId(), rejector, request.getReason());
+        SuspiciousActivityReport updated = sarWorkflowService.rejectSar(request.getSarId(), rejector,
+                request.getReason());
         return ResponseEntity.ok(updated);
     }
 
     @PostMapping("/file")
+    @PreAuthorize("hasAuthority('FILE_SAR')")
     public ResponseEntity<SuspiciousActivityReport> file(@RequestBody FileSarRequest request) {
         User filer = fetchUser(request.getUserId());
-        SuspiciousActivityReport updated = sarWorkflowService.markAsFiled(request.getSarId(), request.getFilingReference(), filer);
+        SuspiciousActivityReport updated = sarWorkflowService.markAsFiled(request.getSarId(),
+                request.getFilingReference(), filer);
         return ResponseEntity.ok(updated);
     }
 
@@ -99,4 +113,3 @@ public class SarWorkflowController {
         private String filingReference;
     }
 }
-

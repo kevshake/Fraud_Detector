@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -15,11 +16,14 @@ import java.util.Map;
 
 /**
  * REST Controller for compliance case management
+ * 
+ * Security: All endpoints require authentication + specific role/permission
  */
 @RestController
 @RequestMapping("/api/v1/compliance/cases")
 @RequiredArgsConstructor
 @Slf4j
+@PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'INVESTIGATOR', 'CASE_MANAGER', 'AUDITOR')")
 public class ComplianceCaseController {
 
     private final ComplianceCaseRepository complianceCaseRepository;
@@ -29,6 +33,7 @@ public class ComplianceCaseController {
      * GET /api/v1/compliance/cases
      */
     @GetMapping
+    @PreAuthorize("hasAuthority('VIEW_CASES')")
     public ResponseEntity<List<ComplianceCase>> getAllCases(
             @RequestParam(required = false) String status) {
 
@@ -54,6 +59,7 @@ public class ComplianceCaseController {
      * GET /api/v1/compliance/cases/{id}
      */
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('VIEW_CASES')")
     public ResponseEntity<ComplianceCase> getCaseById(@PathVariable Long id) {
         return ResponseEntity.of(complianceCaseRepository.findById(id));
     }

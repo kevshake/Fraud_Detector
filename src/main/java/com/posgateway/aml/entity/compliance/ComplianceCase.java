@@ -8,6 +8,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.envers.Audited;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -16,9 +17,12 @@ import java.util.Set;
 /**
  * Compliance Case Entity
  * Represents an investigation case for suspicious activity
+ * 
+ * @Audited: Hibernate Envers automatically tracks all changes
  */
 @Entity
 @Table(name = "compliance_cases")
+@Audited
 @Data
 @Builder
 @NoArgsConstructor
@@ -37,67 +41,63 @@ public class ComplianceCase {
 
     @Column(columnDefinition = "TEXT")
     private String description;
-    
+
     // NEW: Case workflow
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     @Builder.Default
     private CaseStatus status = CaseStatus.NEW;
-    
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     @Builder.Default
     private CasePriority priority = CasePriority.MEDIUM;
-    
+
     private LocalDateTime slaDeadline; // NEW: SLA tracking
-    
+
     private Integer daysOpen; // NEW: Case aging
-    
+
     // NEW: Assignment tracking
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "assigned_to_user_id")
     private User assignedTo;
-    
+
     @Column(name = "assigned_by_user_id")
     private Long assignedBy;
-    
+
     private LocalDateTime assignedAt;
-    
+
     // NEW: Escalation tracking
     @Builder.Default
     private Boolean escalated = false;
-    
+
     @Column(name = "escalated_to_user_id")
     private Long escalatedTo;
-    
+
     private String escalationReason;
-    
+
     private LocalDateTime escalatedAt;
-    
+
     // NEW: Case relationships
     @ManyToMany
-    @JoinTable(
-        name = "case_relationships",
-        joinColumns = @JoinColumn(name = "case_id"),
-        inverseJoinColumns = @JoinColumn(name = "related_case_id")
-    )
+    @JoinTable(name = "case_relationships", joinColumns = @JoinColumn(name = "case_id"), inverseJoinColumns = @JoinColumn(name = "related_case_id"))
     private Set<ComplianceCase> relatedCases;
-    
+
     // NEW: Evidence and documentation
     @OneToMany(mappedBy = "complianceCase", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<CaseEvidence> evidence;
-    
+
     @OneToMany(mappedBy = "complianceCase", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<CaseNote> notes;
-    
+
     // NEW: Decision tracking
     private String resolution; // CLEARED, SAR_FILED, BLOCKED, etc.
-    
+
     @Column(columnDefinition = "TEXT")
     private String resolutionNotes;
-    
+
     private Long resolvedBy;
-    
+
     private LocalDateTime resolvedAt;
 
     @Column(nullable = false, updatable = false)
@@ -109,8 +109,10 @@ public class ComplianceCase {
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
-        if (status == null) status = CaseStatus.NEW;
-        if (priority == null) priority = CasePriority.MEDIUM;
+        if (status == null)
+            status = CaseStatus.NEW;
+        if (priority == null)
+            priority = CasePriority.MEDIUM;
     }
 
     @PreUpdate

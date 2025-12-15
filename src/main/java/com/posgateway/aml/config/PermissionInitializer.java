@@ -1,0 +1,36 @@
+package com.posgateway.aml.config;
+
+import com.posgateway.aml.service.PermissionService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
+
+/**
+ * Permission Initializer
+ * Runs on application startup to initialize default role permissions
+ * 
+ * Order(10): Runs after database migrations but before main app logic
+ */
+@Component
+@RequiredArgsConstructor
+@Slf4j
+@Order(10)
+public class PermissionInitializer implements CommandLineRunner {
+
+    private final PermissionService permissionService;
+
+    @Override
+    public void run(String... args) throws Exception {
+        log.info("Initializing default role permissions...");
+
+        try {
+            permissionService.initializeDefaultPermissions();
+            log.info("Default role permissions initialized successfully");
+        } catch (Exception e) {
+            log.error("Failed to initialize permissions: {}", e.getMessage());
+            // Don't fail startup - permissions can be initialized later
+        }
+    }
+}

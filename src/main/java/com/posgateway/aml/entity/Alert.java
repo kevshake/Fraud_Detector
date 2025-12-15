@@ -1,5 +1,6 @@
 package com.posgateway.aml.entity;
 
+import com.posgateway.aml.model.AlertDisposition;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
@@ -49,6 +50,20 @@ public class Alert {
 
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
+
+    // Alert Disposition Fields
+    @Enumerated(EnumType.STRING)
+    @Column(name = "disposition")
+    private AlertDisposition disposition;
+
+    @Column(name = "disposition_reason", columnDefinition = "TEXT")
+    private String dispositionReason;
+
+    @Column(name = "disposed_by")
+    private String disposedBy; // Investigator who disposed the alert
+
+    @Column(name = "disposed_at")
+    private LocalDateTime disposedAt;
 
     @PrePersist
     protected void onCreate() {
@@ -142,5 +157,37 @@ public class Alert {
 
     public void setSeverity(String severity) {
         this.severity = severity;
+    }
+
+    public AlertDisposition getDisposition() {
+        return disposition;
+    }
+
+    public void setDisposition(AlertDisposition disposition) {
+        this.disposition = disposition;
+    }
+
+    public String getDispositionReason() {
+        return dispositionReason;
+    }
+
+    public void setDispositionReason(String dispositionReason) {
+        this.dispositionReason = dispositionReason;
+    }
+
+    public String getDisposedBy() {
+        return disposedBy;
+    }
+
+    public void setDisposedBy(String disposedBy) {
+        this.disposedBy = disposedBy;
+    }
+
+    public LocalDateTime getDisposedAt() {
+        return disposedAt;
+    }
+
+    public void setDisposedAt(LocalDateTime disposedAt) {
+        this.disposedAt = disposedAt;
     }
 }

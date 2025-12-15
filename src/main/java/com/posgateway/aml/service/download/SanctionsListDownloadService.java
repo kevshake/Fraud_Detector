@@ -4,8 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.posgateway.aml.service.sanctions.NameMatchingService;
 import io.github.resilience4j.retry.annotation.Retry;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -29,16 +29,13 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class SanctionsListDownloadService {
 
-    @Autowired
-    private NameMatchingService nameMatchingService;
-
-    @Autowired
-    private com.posgateway.aml.service.AerospikeConnectionService aerospikeService;
-
-    @Autowired
-    private ObjectMapper objectMapper;
+    private final NameMatchingService nameMatchingService;
+    private final com.posgateway.aml.service.AerospikeConnectionService aerospikeService;
+    private final ObjectMapper objectMapper;
+    private final RestTemplate restTemplate;
 
     @Value("${sanctions.download.enabled:true}")
     private boolean downloadEnabled;
@@ -51,8 +48,6 @@ public class SanctionsListDownloadService {
 
     @Value("${sanctions.opensanctions.metadata.url}")
     private String metadataUrl;
-
-    private final RestTemplate restTemplate = new RestTemplate();
 
     // Track last successful update for monitoring
     private final AtomicReference<LocalDateTime> lastSuccessfulUpdate = new AtomicReference<>(
