@@ -1,0 +1,5 @@
+com\posgateway\aml\service\risk\RiskRulesEngineTest.class
+com\posgateway\aml\service\risk\TransactionLimitServiceTest.class
+com\posgateway\aml\service\aml\SumsubAmlServiceTest.class
+com\posgateway\aml\service\psp\BillingServiceTest.class
+com\posgateway\aml\service\notification\SlackServiceTest.class

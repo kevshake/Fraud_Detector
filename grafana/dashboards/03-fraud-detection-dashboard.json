@@ -1,0 +1,200 @@
+{
+  "dashboard": {
+    "title": "AML/Fraud Detector - Fraud Detection Dashboard",
+    "tags": ["fraud", "detection", "ml"],
+    "timezone": "browser",
+    "schemaVersion": 27,
+    "version": 1,
+    "refresh": "10s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Fraud Assessments (Rate)",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "rate(fraud_assessments_total[5m])",
+            "legendFormat": "Total Assessments",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(fraud_detected_total[5m])",
+            "legendFormat": "Fraud Detected",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          {"format": "ops", "label": "Assessments/sec"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Fraud Detection Rate",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+        "targets": [
+          {
+            "expr": "sum(rate(fraud_detected_total[5m])) / sum(rate(fraud_assessments_total[5m])) * 100",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "color": {"mode": "thresholds"},
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 1, "color": "yellow"},
+                {"value": 5, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "False Positive Rate",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+        "targets": [
+          {
+            "expr": "sum(rate(fraud_false_positive_total[5m])) / sum(rate(fraud_detected_total[5m])) * 100",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "color": {"mode": "thresholds"},
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 10, "color": "yellow"},
+                {"value": 20, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Fraud Score Distribution",
+        "type": "histogram",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, sum(rate(fraud_score_distribution_bucket[5m])) by (le))",
+            "legendFormat": "P50",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(fraud_score_distribution_bucket[5m])) by (le))",
+            "legendFormat": "P95",
+            "refId": "B"
+          },
+          {
+            "expr": "histogram_quantile(0.99, sum(rate(fraud_score_distribution_bucket[5m])) by (le))",
+            "legendFormat": "P99",
+            "refId": "C"
+          }
+        ],
+        "yaxes": [
+          {"format": "short", "label": "Score"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Fraud Assessment Time",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, sum(rate(fraud_assessment_time_bucket[5m])) by (le))",
+            "legendFormat": "P50",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(fraud_assessment_time_bucket[5m])) by (le))",
+            "legendFormat": "P95",
+            "refId": "B"
+          },
+          {
+            "expr": "histogram_quantile(0.99, sum(rate(fraud_assessment_time_bucket[5m])) by (le))",
+            "legendFormat": "P99",
+            "refId": "C"
+          }
+        ],
+        "yaxes": [
+          {"format": "ms", "label": "Assessment Time"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Fraud Risk Factors",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+        "targets": [
+          {
+            "expr": "sum(rate(fraud_device_risk_total[5m]))",
+            "legendFormat": "Device Risk",
+            "refId": "A"
+          },
+          {
+            "expr": "sum(rate(fraud_ip_risk_total[5m]))",
+            "legendFormat": "IP Risk",
+            "refId": "B"
+          },
+          {
+            "expr": "sum(rate(fraud_behavioral_risk_total[5m]))",
+            "legendFormat": "Behavioral Risk",
+            "refId": "C"
+          },
+          {
+            "expr": "sum(rate(fraud_velocity_risk_total[5m]))",
+            "legendFormat": "Velocity Risk",
+            "refId": "D"
+          }
+        ],
+        "yaxes": [
+          {"format": "ops", "label": "Risk Detections/sec"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Fraud Score by Level",
+        "type": "piechart",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+        "targets": [
+          {
+            "expr": "sum(rate(fraud_score_high_total[5m]))",
+            "legendFormat": "High Score",
+            "refId": "A"
+          },
+          {
+            "expr": "sum(rate(fraud_score_medium_total[5m]))",
+            "legendFormat": "Medium Score",
+            "refId": "B"
+          },
+          {
+            "expr": "sum(rate(fraud_score_low_total[5m]))",
+            "legendFormat": "Low Score",
+            "refId": "C"
+          }
+        ]
+      }
+    ],
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    }
+  }
+}
+

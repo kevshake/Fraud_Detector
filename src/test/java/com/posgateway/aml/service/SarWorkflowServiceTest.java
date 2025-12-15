@@ -1,0 +1,75 @@
+package com.posgateway.aml.service;
+
+import com.posgateway.aml.entity.User;
+import com.posgateway.aml.entity.compliance.SuspiciousActivityReport;
+import com.posgateway.aml.model.Permission;
+import com.posgateway.aml.model.SarStatus;
+import com.posgateway.aml.model.UserRole;
+import com.posgateway.aml.repository.SuspiciousActivityReportRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+public class SarWorkflowServiceTest {
+
+    private SuspiciousActivityReportRepository sarRepository;
+    private PermissionService permissionService;
+    private SarWorkflowService sarWorkflowService;
+
+    @BeforeEach
+    void setup() {
+        sarRepository = mock(SuspiciousActivityReportRepository.class);
+        permissionService = mock(PermissionService.class);
+        sarWorkflowService = new SarWorkflowService(sarRepository, permissionService);
+    }
+
+    @Test
+    void approveSar_withPermission_andPendingReview_succeeds() {
+        User approver = new User();
+        approver.setId(1L);
+        approver.setRole(UserRole.ADMIN);
+
+        SuspiciousActivityReport sar = new SuspiciousActivityReport();
+        sar.setId(10L);
+        sar.setStatus(SarStatus.PENDING_REVIEW);
+        sar.setSarReference("SAR-1");
+
+        when(permissionService.hasPermission(UserRole.ADMIN, Permission.APPROVE_SAR)).thenReturn(true);
+        when(sarRepository.findById(10L)).thenReturn(Optional.of(sar));
+        when(sarRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        SuspiciousActivityReport updated = sarWorkflowService.approveSar(10L, approver);
+
+        assertEquals(SarStatus.APPROVED, updated.getStatus());
+        assertNotNull(updated.getApprovedAt());
+        assertEquals(approver, updated.getApprovedBy());
+    }
+
+    @Test
+    void markAsFiled_requiresApprovedStatus() {
+        User filer = new User();
+        filer.setId(2L);
+        filer.setRole(UserRole.ADMIN);
+
+        SuspiciousActivityReport sar = new SuspiciousActivityReport();
+        sar.setId(11L);
+        sar.setStatus(SarStatus.APPROVED);
+        sar.setSarReference("SAR-2");
+
+        when(permissionService.hasPermission(UserRole.ADMIN, Permission.FILE_SAR)).thenReturn(true);
+        when(sarRepository.findById(11L)).thenReturn(Optional.of(sar));
+        when(sarRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        SuspiciousActivityReport updated = sarWorkflowService.markAsFiled(11L, "REF123", filer);
+
+        assertEquals(SarStatus.FILED, updated.getStatus());
+        assertEquals("REF123", updated.getFilingReferenceNumber());
+        assertEquals(filer, updated.getFiledBy());
+        assertNotNull(updated.getFiledAt());
+    }
+}
+
