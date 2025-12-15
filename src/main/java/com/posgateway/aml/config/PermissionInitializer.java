@@ -19,14 +19,14 @@ import org.springframework.stereotype.Component;
 @Order(10)
 public class PermissionInitializer implements CommandLineRunner {
 
-    private final PermissionService permissionService;
+    private final com.posgateway.aml.service.RoleService roleService;
 
     @Override
     public void run(String... args) throws Exception {
         log.info("Initializing default role permissions...");
 
         try {
-            permissionService.initializeDefaultPermissions();
+            roleService.initDefaultRoles();
             log.info("Default role permissions initialized successfully");
         } catch (Exception e) {
             log.error("Failed to initialize permissions: {}", e.getMessage());

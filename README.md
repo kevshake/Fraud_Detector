@@ -252,6 +252,8 @@ The Java service will automatically call the Python service for scoring.
 6. **Feedback Loop**: Investigators label transactions for model retraining
 7. **Monitoring**: Tracks model performance metrics (AUC, precision@k, drift)
 8. **Batch Processing**: Nightly batch scoring and feature backfilling
+9. **User & Role Management**: RBAC with dynamic roles and PSP-level data isolation
+10. **Web Dashboard**: Modern admin interface for monitoring and management
 
 ### Feature Extraction
 
@@ -335,7 +337,7 @@ The system includes scheduled tasks that run automatically:
 1. **No Hardcoding**: All values must be configurable via properties or database
 2. **Java Only**: Use only Java and Spring Boot (convert any examples from other languages)
 3. **REST Assured**: Use REST Assured for all RESTful messaging (incoming and outgoing)
-4. **No Authentication**: Currently no authentication required (will be added later)
+4. **Security First**: All endpoints must be secured with appropriate `Permission` checks via `PermissionService`.
 5. **Configuration First**: Always use `@ConfigurationProperties` or database config
 6. **Database-Driven**: Thresholds and rules stored in `model_config` table
 7. **Validation**: Use Jakarta Validation annotations for input validation

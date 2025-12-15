@@ -5,7 +5,7 @@ import com.posgateway.aml.entity.compliance.ComplianceCase;
 import com.posgateway.aml.model.CasePriority;
 import com.posgateway.aml.model.CaseStatus;
 import com.posgateway.aml.model.Permission;
-import com.posgateway.aml.model.UserRole;
+
 import com.posgateway.aml.repository.ComplianceCaseRepository;
 import com.posgateway.aml.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,11 +35,14 @@ public class CaseWorkflowServiceTest {
 
     @Test
     void createCase_withPermission_succeeds() {
+        com.posgateway.aml.entity.Role adminRole = new com.posgateway.aml.entity.Role();
+        adminRole.setName("ADMIN");
+
         User creator = new User();
         creator.setId(1L);
-        creator.setRole(UserRole.ADMIN);
+        creator.setRole(adminRole);
 
-        when(permissionService.hasPermission(UserRole.ADMIN, Permission.CREATE_CASES)).thenReturn(true);
+        when(permissionService.hasPermission(adminRole, Permission.CREATE_CASES)).thenReturn(true);
         when(caseRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         ComplianceCase created = caseWorkflowService.createCase("CASE-1", "desc", CasePriority.HIGH, creator);
@@ -51,15 +54,18 @@ public class CaseWorkflowServiceTest {
 
     @Test
     void assignCase_withPermission_updatesAssignee() {
+        com.posgateway.aml.entity.Role adminRole = new com.posgateway.aml.entity.Role();
+        adminRole.setName("ADMIN");
+
         User assigner = new User();
         assigner.setId(10L);
-        assigner.setRole(UserRole.ADMIN);
+        assigner.setRole(adminRole);
         User assignee = new User();
         assignee.setId(20L);
 
         ComplianceCase cc = ComplianceCase.builder().id(100L).status(CaseStatus.NEW).build();
 
-        when(permissionService.hasPermission(UserRole.ADMIN, Permission.ASSIGN_CASES)).thenReturn(true);
+        when(permissionService.hasPermission(adminRole, Permission.ASSIGN_CASES)).thenReturn(true);
         when(caseRepository.findById(100L)).thenReturn(Optional.of(cc));
         when(userRepository.findById(20L)).thenReturn(Optional.of(assignee));
         when(caseRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -70,4 +76,3 @@ public class CaseWorkflowServiceTest {
         assertEquals(CaseStatus.ASSIGNED, updated.getStatus());
     }
 }
-

@@ -5,7 +5,7 @@ import com.posgateway.aml.entity.compliance.ComplianceCase;
 import com.posgateway.aml.model.CasePriority;
 import com.posgateway.aml.model.CaseStatus;
 import com.posgateway.aml.model.Permission;
-import com.posgateway.aml.model.UserRole;
+
 import com.posgateway.aml.repository.ComplianceCaseRepository;
 import com.posgateway.aml.repository.UserRepository;
 import org.slf4j.Logger;
@@ -33,9 +33,9 @@ public class CaseWorkflowService {
 
     @Autowired
     public CaseWorkflowService(ComplianceCaseRepository caseRepository,
-                               UserRepository userRepository,
-                               PermissionService permissionService,
-                               AuditLogService auditLogService) {
+            UserRepository userRepository,
+            PermissionService permissionService,
+            AuditLogService auditLogService) {
         this.caseRepository = caseRepository;
         this.userRepository = userRepository;
         this.permissionService = permissionService;
@@ -60,13 +60,14 @@ public class CaseWorkflowService {
                 .updatedAt(LocalDateTime.now())
                 .daysOpen(0)
                 .build();
-                
+
         // Calculate SLA deadline based on priority
         newCase.setSlaDeadline(calculateSlaDeadline(newCase.getPriority()));
 
         logger.info("Created new compliance case: {}", caseReference);
         ComplianceCase saved = caseRepository.save(newCase);
-        auditLogService.logAction(creator, "CREATE_CASE", "CASE", String.valueOf(saved.getId()), null, saved, null, null);
+        auditLogService.logAction(creator, "CREATE_CASE", "CASE", String.valueOf(saved.getId()), null, saved, null,
+                null);
         return saved;
     }
 
@@ -94,7 +95,7 @@ public class CaseWorkflowService {
         complianceCase.setAssignedTo(assignee);
         complianceCase.setAssignedBy(assigner.getId());
         complianceCase.setAssignedAt(LocalDateTime.now());
-        
+
         // Update status if it was NEW
         if (complianceCase.getStatus() == CaseStatus.NEW) {
             complianceCase.setStatus(CaseStatus.ASSIGNED);
@@ -102,7 +103,8 @@ public class CaseWorkflowService {
 
         logger.info("Assigned case {} to user {}", complianceCase.getCaseReference(), assignee.getUsername());
         ComplianceCase saved = caseRepository.save(complianceCase);
-        auditLogService.logAction(assigner, "ASSIGN_CASE", "CASE", String.valueOf(saved.getId()), before, saved, null, null);
+        auditLogService.logAction(assigner, "ASSIGN_CASE", "CASE", String.valueOf(saved.getId()), before, saved, null,
+                null);
         return saved;
     }
 
@@ -116,7 +118,7 @@ public class CaseWorkflowService {
 
         // Validate transition
         validateStatusTransition(complianceCase.getStatus(), newStatus);
-        
+
         // Check permissions based on transition
         checkStatusTransitionPermissions(user, newStatus);
 
@@ -126,18 +128,19 @@ public class CaseWorkflowService {
                 .build();
 
         complianceCase.setStatus(newStatus);
-        
+
         // Handle specific status logic
-        if (newStatus == CaseStatus.CLOSED_CLEARED || 
-            newStatus == CaseStatus.CLOSED_SAR_FILED || 
-            newStatus == CaseStatus.CLOSED_BLOCKED) {
+        if (newStatus == CaseStatus.CLOSED_CLEARED ||
+                newStatus == CaseStatus.CLOSED_SAR_FILED ||
+                newStatus == CaseStatus.CLOSED_BLOCKED) {
             complianceCase.setResolvedAt(LocalDateTime.now());
             complianceCase.setResolvedBy(user.getId());
         }
 
         logger.info("Updated case {} status to {}", complianceCase.getCaseReference(), newStatus);
         ComplianceCase saved = caseRepository.save(complianceCase);
-        auditLogService.logAction(user, "UPDATE_CASE_STATUS", "CASE", String.valueOf(saved.getId()), before, saved, null, null);
+        auditLogService.logAction(user, "UPDATE_CASE_STATUS", "CASE", String.valueOf(saved.getId()), before, saved,
+                null, null);
         return saved;
     }
 
@@ -168,50 +171,56 @@ public class CaseWorkflowService {
 
         logger.info("Escalated case {} to user {}", complianceCase.getCaseReference(), escalatedToUserId);
         ComplianceCase saved = caseRepository.save(complianceCase);
-        auditLogService.logAction(user, "ESCALATE_CASE", "CASE", String.valueOf(saved.getId()), before, saved, null, reason);
+        auditLogService.logAction(user, "ESCALATE_CASE", "CASE", String.valueOf(saved.getId()), before, saved, null,
+                reason);
         return saved;
     }
 
     private LocalDateTime calculateSlaDeadline(CasePriority priority) {
         LocalDateTime now = LocalDateTime.now();
         switch (priority) {
-            case CRITICAL: return now.plusHours(4);
-            case HIGH: return now.plusHours(24);
-            case MEDIUM: return now.plusDays(3);
-            case LOW: return now.plusDays(7);
-            default: return now.plusDays(5);
+            case CRITICAL:
+                return now.plusHours(4);
+            case HIGH:
+                return now.plusHours(24);
+            case MEDIUM:
+                return now.plusDays(3);
+            case LOW:
+                return now.plusDays(7);
+            default:
+                return now.plusDays(5);
         }
     }
 
     private void validateStatusTransition(CaseStatus current, CaseStatus next) {
         // Basic state machine validation
-        if (current == next) return;
-        
+        if (current == next)
+            return;
+
         if (isClosed(current) && next != CaseStatus.REOPENED) {
             throw new IllegalStateException("Cannot transition from closed state unless reopening");
         }
-        
+
         // Add more complex validation rules as needed
     }
-    
+
     private boolean isClosed(CaseStatus status) {
-        return status == CaseStatus.CLOSED_CLEARED || 
-               status == CaseStatus.CLOSED_SAR_FILED || 
-               status == CaseStatus.CLOSED_BLOCKED;
+        return status == CaseStatus.CLOSED_CLEARED ||
+                status == CaseStatus.CLOSED_SAR_FILED ||
+                status == CaseStatus.CLOSED_BLOCKED;
     }
-    
+
     private void checkStatusTransitionPermissions(User user, CaseStatus next) {
         if (isClosed(next)) {
             if (!permissionService.hasPermission(user.getRole(), Permission.CLOSE_CASES)) {
                 throw new SecurityException("User does not have permission to close cases");
             }
         }
-        
+
         if (next == CaseStatus.REOPENED) {
-             if (!permissionService.hasPermission(user.getRole(), Permission.REOPEN_CASES)) {
+            if (!permissionService.hasPermission(user.getRole(), Permission.REOPEN_CASES)) {
                 throw new SecurityException("User does not have permission to reopen cases");
             }
         }
     }
 }
-

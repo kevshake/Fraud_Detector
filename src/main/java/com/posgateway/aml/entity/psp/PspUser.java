@@ -18,6 +18,7 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Deprecated // Replaced by generic User entity with PSP association
 public class PspUser {
 
     @Id

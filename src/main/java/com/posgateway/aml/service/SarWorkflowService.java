@@ -4,7 +4,7 @@ import com.posgateway.aml.entity.User;
 import com.posgateway.aml.entity.compliance.SuspiciousActivityReport;
 import com.posgateway.aml.model.Permission;
 import com.posgateway.aml.model.SarStatus;
-import com.posgateway.aml.model.UserRole;
+
 import com.posgateway.aml.repository.SuspiciousActivityReportRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,8 +29,8 @@ public class SarWorkflowService {
 
     @Autowired
     public SarWorkflowService(SuspiciousActivityReportRepository sarRepository,
-                              PermissionService permissionService,
-                              AuditLogService auditLogService) {
+            PermissionService permissionService,
+            AuditLogService auditLogService) {
         this.sarRepository = sarRepository;
         this.permissionService = permissionService;
         this.auditLogService = auditLogService;
@@ -47,7 +47,7 @@ public class SarWorkflowService {
 
         sar.setCreatedBy(creator);
         sar.setStatus(SarStatus.DRAFT);
-        
+
         // Calculate deadline (e.g., 30 days from detection)
         sar.setFilingDeadline(LocalDateTime.now().plusDays(30));
 
@@ -65,9 +65,10 @@ public class SarWorkflowService {
         SuspiciousActivityReport sar = sarRepository.findById(sarId)
                 .orElseThrow(() -> new IllegalArgumentException("SAR not found"));
 
-        if (!sar.getCreatedBy().getId().equals(user.getId()) && 
-            !permissionService.hasPermission(user.getRole(), Permission.MANAGE_RULES)) { // Allow managers to submit too
-             // Strict check: only creator can submit, or someone with override
+        if (!sar.getCreatedBy().getId().equals(user.getId()) &&
+                !permissionService.hasPermission(user.getRole(), Permission.MANAGE_RULES)) { // Allow managers to submit
+                                                                                             // too
+            // Strict check: only creator can submit, or someone with override
         }
 
         SuspiciousActivityReport before = new SuspiciousActivityReport();
@@ -104,10 +105,11 @@ public class SarWorkflowService {
         sar.setStatus(SarStatus.APPROVED);
         sar.setApprovedBy(approver);
         sar.setApprovedAt(LocalDateTime.now());
-        
+
         logger.info("SAR {} approved by {}", sar.getSarReference(), approver.getUsername());
         SuspiciousActivityReport saved = sarRepository.save(sar);
-        auditLogService.logAction(approver, "APPROVE_SAR", "SAR", String.valueOf(saved.getId()), before, saved, null, null);
+        auditLogService.logAction(approver, "APPROVE_SAR", "SAR", String.valueOf(saved.getId()), before, saved, null,
+                null);
         return saved;
     }
 
@@ -129,10 +131,11 @@ public class SarWorkflowService {
 
         sar.setStatus(SarStatus.REJECTED);
         // Could add rejection reason to notes/audit log
-        
+
         logger.info("SAR {} rejected by {}", sar.getSarReference(), rejector.getUsername());
         SuspiciousActivityReport saved = sarRepository.save(sar);
-        auditLogService.logAction(rejector, "REJECT_SAR", "SAR", String.valueOf(saved.getId()), before, saved, null, reason);
+        auditLogService.logAction(rejector, "REJECT_SAR", "SAR", String.valueOf(saved.getId()), before, saved, null,
+                reason);
         return saved;
     }
 
@@ -167,4 +170,3 @@ public class SarWorkflowService {
         return saved;
     }
 }
-

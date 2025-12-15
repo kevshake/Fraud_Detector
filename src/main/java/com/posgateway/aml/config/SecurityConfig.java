@@ -50,10 +50,28 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/merchants/health").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
                         // Role-based access control examples
+                        // Role-based access control
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/v1/users/**").hasAnyRole("ADMIN", "MANAGE_USERS")
+                        .requestMatchers("/api/v1/roles/**").hasAnyRole("ADMIN", "MANAGE_ROLES")
+                        .requestMatchers("/api/v1/auth/**").authenticated()
                         .requestMatchers("/api/v1/cases/**").hasAnyRole("COMPLIANCE_OFFICER", "ADMIN")
-                        // TEMPORARY: Permit all requests for testing/development
-                        .anyRequest().permitAll())
+                        
+                        // Static resources
+                        .requestMatchers("/css/**", "/js/**", "/images/**", "/error").permitAll()
+                        .requestMatchers("/", "/index.html").permitAll() // Login page should be public usually, but here we use index as app. 
+                        // Assuming index.html is the protected app, checking authentication would be handled by filter or it redirects to login. 
+                        // For basic auth, we can just require auth for root.
+                        .anyRequest().authenticated()) // Secure by default
+                        .formLogin(login -> login
+                                .loginPage("/login.html") // We need a login page or basic auth
+                                .loginProcessingUrl("/perform_login")
+                                .defaultSuccessUrl("/index.html", true)
+                                .permitAll())
+                        .logout(logout -> logout
+                                .logoutUrl("/logout")
+                                .deleteCookies("JSESSIONID")
+                                .permitAll());
                 .httpBasic(basic -> {
                 });
 

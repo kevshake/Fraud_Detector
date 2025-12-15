@@ -6,21 +6,44 @@ This guide covers:
 - Roles and permissions.
 - How to navigate the application UI (by role).
 
-## Roles & Permissions (key highlights)
-- ADMIN: all permissions.
-- MLRO: approve/file SARs, close cases, audit visibility.
-- COMPLIANCE_OFFICER: create/assign cases, submit/approve SARs (if granted), view PII, screening.
-- INVESTIGATOR: view/notes/evidence on cases, submit SAR for review.
-- ANALYST: view cases, add notes.
-- SCREENING_ANALYST: screening overrides/whitelisting.
-- CASE_MANAGER: assign/reopen/close cases (where allowed).
-- AUDITOR: read-only audit/case/SAR views.
-- VIEWER: read-only limited views.
+## Roles & Permissions (Dynamic RBAC)
 
-API for roles/permissions:
-- GET `/api/v1/auth/roles`
-- GET `/api/v1/auth/permissions`
-- GET `/api/v1/auth/role-permissions?role=ADMIN`
+The system now uses a **dynamic Role-based Access Control (RBAC)** system. Roles are no longer hardcoded but can be created and managed dynamically via the UI.
+
+### System Roles (Default)
+- **ADMIN**: Global system administrator with all permissions (`MANAGE_USERS`, `MANAGE_ROLES`, `MANAGE_PSP`, etc.).
+- **VIEWER**: Read-only access to basic dashboards.
+
+### PSP-Scoped Roles
+Roles can be created specifically for a PSP (e.g., "TechFlow Analyst") and are isolated to that PSP's data.
+
+### Permissions
+Permissions are granular and include:
+- `MANAGE_USERS`, `MANAGE_ROLES`
+- `CREATE_CASES`, `ASSIGN_CASES`, `CLOSE_CASES`
+- `APPROVE_SAR`, `FILE_SAR`
+- `VIEW_PII`, `VIEW_AUDIT_LOGS`
+
+### API for Auth & Roles
+- `GET /api/v1/users` - List users (scoped to PSP)
+- `GET /api/v1/roles` - List roles (scoped to PSP)
+- `GET /api/v1/auth/permissions` - List all available permissions
+
+## UI Navigation & Dashboards
+
+### 1. Main Dashboard
+- **Stats**: Risk breakdown, SAR performance, System overview.
+- **Charts**: Interactive transaction volume charts.
+- **Recent Cases**: Quick view of latest cases.
+
+### 2. User Management
+- **List Users**: View all users within your scope.
+- **Add User**: Create new users, assigning them to a Role and PSP.
+- **Edit/Delete**: Manage existing user accounts.
+
+### 3. Role Management
+- **Create Role**: Define new roles with a custom set of permissions.
+- **PSP Awareness**: Roles can be Global (System) or PSP-specific.
 
 ## Reporting Endpoints
 Base: `/api/v1/reporting`

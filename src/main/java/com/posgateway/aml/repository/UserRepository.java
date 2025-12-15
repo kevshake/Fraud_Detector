@@ -13,4 +13,13 @@ public interface UserRepository extends JpaRepository<User, Long> {
     boolean existsByUsername(String username);
 
     boolean existsByEmail(String email);
+
+    // Find users by specific PSP
+    java.util.List<User> findByPsp(com.posgateway.aml.entity.psp.Psp psp);
+
+    // Find users by PSP and Role
+    java.util.List<User> findByPspAndRole(com.posgateway.aml.entity.psp.Psp psp, com.posgateway.aml.entity.Role role);
+
+    // Find system admins (psp is null)
+    java.util.List<User> findByPspIsNull();
 }

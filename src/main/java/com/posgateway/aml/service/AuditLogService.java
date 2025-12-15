@@ -42,8 +42,8 @@ public class AuditLogService {
      */
     @Async
     @Transactional
-    public void logAction(User user, String actionType, String entityType, String entityId, 
-                          Object beforeState, Object afterState, String ipAddress, String reason) {
+    public void logAction(User user, String actionType, String entityType, String entityId,
+            Object beforeState, Object afterState, String ipAddress, String reason) {
         try {
             String beforeJson = beforeState != null ? objectMapper.writeValueAsString(beforeState) : null;
             String afterJson = afterState != null ? objectMapper.writeValueAsString(afterState) : null;
@@ -51,7 +51,7 @@ public class AuditLogService {
             AuditLog log = AuditLog.builder()
                     .userId(user != null ? user.getId().toString() : "SYSTEM")
                     .username(user != null ? user.getUsername() : "SYSTEM")
-                    .userRole(user != null ? user.getRole().name() : "SYSTEM")
+                    .userRole(user != null ? user.getRole().getName() : "SYSTEM")
                     .actionType(actionType)
                     .entityType(entityType)
                     .entityId(entityId)
@@ -64,8 +64,8 @@ public class AuditLogService {
                     .build();
 
             // Calculate checksum for immutability
-            String contentToHash = log.getUserId() + log.getActionType() + log.getEntityType() + 
-                                   log.getEntityId() + log.getTimestamp().toString();
+            String contentToHash = log.getUserId() + log.getActionType() + log.getEntityType() +
+                    log.getEntityId() + log.getTimestamp().toString();
             String checksum = new HmacUtils(HmacAlgorithms.HMAC_SHA_256, hmacKey).hmacHex(contentToHash);
             log.setChecksum(checksum);
 
@@ -77,4 +77,3 @@ public class AuditLogService {
         }
     }
 }
-

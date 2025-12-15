@@ -1,14 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AML Fraud Detector - Admin Dashboard</title>
     <link rel="stylesheet" href="css/dashboard.css">
-    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
+
 <body>
     <!-- Sidebar -->
     <aside class="sidebar">
@@ -16,7 +19,7 @@
             <i class="fas fa-shield-halved logo-icon"></i>
             <span class="logo-text">AML Detector</span>
         </div>
-        
+
         <nav class="sidebar-nav">
             <div class="nav-section">
                 <a href="#" class="nav-item active">
@@ -30,76 +33,76 @@
                     <a href="#" class="nav-subitem">Widgets</a>
                 </div>
             </div>
-            
+
             <a href="#" class="nav-item">
                 <i class="fas fa-folder-open"></i>
                 <span>Cases</span>
                 <span class="badge badge-warning">12</span>
             </a>
-            
+
             <a href="#" class="nav-item">
                 <i class="fas fa-file-alt"></i>
                 <span>SAR Reports</span>
                 <span class="badge badge-danger">3</span>
             </a>
-            
+
             <a href="#" class="nav-item">
                 <i class="fas fa-bell"></i>
                 <span>Alerts</span>
                 <span class="badge badge-info">47</span>
             </a>
-            
+
             <a href="#" class="nav-item">
                 <i class="fas fa-building"></i>
                 <span>Merchants</span>
             </a>
-            
+
             <a href="#" class="nav-item">
                 <i class="fas fa-exchange-alt"></i>
                 <span>Transactions</span>
             </a>
-            
+
             <a href="#" class="nav-item">
                 <i class="fas fa-search"></i>
                 <span>Screening</span>
             </a>
-            
+
             <a href="#" class="nav-item">
                 <i class="fas fa-user-circle"></i>
                 <span>Profile</span>
             </a>
-            
+
             <a href="#" class="nav-item">
                 <i class="fas fa-envelope"></i>
                 <span>Messages</span>
                 <span class="badge badge-primary">9</span>
             </a>
-            
+
             <div class="nav-divider"></div>
             <span class="nav-label">ADMINISTRATION</span>
-            
+
             <a href="#" class="nav-item">
                 <i class="fas fa-cogs"></i>
                 <span>Settings</span>
             </a>
-            
+
             <a href="#" class="nav-item">
                 <i class="fas fa-users"></i>
                 <span>User Management</span>
             </a>
-            
+
             <a href="#" class="nav-item">
                 <i class="fas fa-chart-bar"></i>
                 <span>Reports</span>
             </a>
-            
+
             <a href="#" class="nav-item">
                 <i class="fas fa-history"></i>
                 <span>Audit Logs</span>
             </a>
         </nav>
     </aside>
-    
+
     <!-- Main Content -->
     <main class="main-content">
         <!-- Top Header -->
@@ -108,289 +111,327 @@
                 <i class="fas fa-search"></i>
                 <input type="text" placeholder="Search Dashboard">
             </div>
-            
+
             <div class="header-actions">
-                <a href="#" class="header-icon">
-                    <i class="fas fa-comment-dots"></i>
-                </a>
-                <a href="#" class="header-icon">
-                    <i class="fas fa-cog"></i>
-                </a>
-                <a href="#" class="header-icon">
-                    <i class="fas fa-bolt"></i>
-                </a>
-                
                 <div class="user-profile">
                     <img src="https://ui-avatars.com/api/?name=Super+Admin&background=6c5ce7&color=fff" alt="Admin">
                     <span>super.admin@aml.com</span>
-                    <span class="notification-count">13</span>
                     <i class="fas fa-chevron-down"></i>
                 </div>
             </div>
         </header>
-        
-        <!-- Page Title -->
-        <div class="page-header">
-            <h1>Analytics <span class="subtitle">Fraud Detection Performance</span></h1>
-        </div>
-        
-        <!-- Stats Row -->
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-header">
-                    <span>Cases Today</span>
-                    <button class="close-btn">&times;</button>
+
+        <!-- Dashboard View -->
+        <div id="dashboard-view">
+            <!-- Page Title -->
+            <div class="page-header">
+                <h1>Analytics <span class="subtitle">Fraud Detection Performance</span></h1>
+            </div>
+
+            <!-- Stats Row -->
+            <div class="stats-grid">
+                <!-- Existing stats content preserved -->
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <span>Cases Today</span>
+                    </div>
+                    <div class="stat-value">247</div>
                 </div>
-                <div class="stat-value">247</div>
-                <div class="stat-details">
-                    <div class="stat-detail">
-                        <span class="value">+32</span>
-                        <span class="label">New</span>
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <span>Risk Breakdown</span>
+                        <button class="close-btn">&times;</button>
                     </div>
-                    <div class="stat-detail">
-                        <span class="value">89%</span>
-                        <span class="label">Resolved</span>
+                    <div class="chart-container">
+                        <canvas id="riskPieChart"></canvas>
                     </div>
-                    <div class="stat-detail">
-                        <span class="value">2.3%</span>
-                        <span class="label">Escalated</span>
+                    <div class="chart-legend">
+                        <span class="legend-item"><i class="fas fa-square" style="color: #e74c3c;"></i> High</span>
+                        <span class="legend-item"><i class="fas fa-square" style="color: #f39c12;"></i> Medium</span>
+                        <span class="legend-item"><i class="fas fa-square" style="color: #27ae60;"></i> Low</span>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <span>SAR Performance</span>
+                        <button class="close-btn">&times;</button>
+                    </div>
+                    <div class="progress-stats">
+                        <div class="progress-item">
+                            <span class="label"><i class="fas fa-circle" style="color: #27ae60;"></i> Filed</span>
+                            <span class="value">78%</span>
+                        </div>
+                        <div class="progress-bar-container">
+                            <div class="progress-bar filed" style="width: 78%;"></div>
+                        </div>
+                        <div class="progress-item">
+                            <span class="label"><i class="fas fa-circle" style="color: #3498db;"></i> Pending
+                                Review</span>
+                            <span class="value">22%</span>
+                        </div>
+                        <div class="progress-bar-container">
+                            <div class="progress-bar pending" style="width: 22%;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <span>System Overview</span>
+                        <button class="close-btn">&times;</button>
+                    </div>
+                    <div class="system-stats">
+                        <div class="system-stat">
+                            <span class="value">99.9%</span>
+                            <span class="label">Uptime</span>
+                        </div>
+                        <div class="system-stat">
+                            <span class="value">1.2ms</span>
+                            <span class="label">Avg Response</span>
+                        </div>
+                        <div class="system-stat">
+                            <span class="value">30K+</span>
+                            <span class="label">TPS Capacity</span>
+                        </div>
                     </div>
                 </div>
             </div>
-            
-            <div class="stat-card">
-                <div class="stat-header">
-                    <span>Risk Breakdown</span>
-                    <button class="close-btn">&times;</button>
-                </div>
-                <div class="chart-container">
-                    <canvas id="riskPieChart"></canvas>
-                </div>
-                <div class="chart-legend">
-                    <span class="legend-item"><i class="fas fa-square" style="color: #e74c3c;"></i> High</span>
-                    <span class="legend-item"><i class="fas fa-square" style="color: #f39c12;"></i> Medium</span>
-                    <span class="legend-item"><i class="fas fa-square" style="color: #27ae60;"></i> Low</span>
-                </div>
-            </div>
-            
-            <div class="stat-card">
-                <div class="stat-header">
-                    <span>SAR Performance</span>
-                    <button class="close-btn">&times;</button>
-                </div>
-                <div class="progress-stats">
-                    <div class="progress-item">
-                        <span class="label"><i class="fas fa-circle" style="color: #27ae60;"></i> Filed</span>
-                        <span class="value">78%</span>
+
+            <!-- Charts Row -->
+            <div class="charts-grid">
+                <div class="chart-card wide">
+                    <div class="card-header">
+                        <h3>Daily <strong>Transaction Volume</strong></h3>
+                        <div class="chart-tabs">
+                            <button class="tab active">All</button>
+                            <button class="tab">Flagged</button>
+                            <button class="tab">Approved</button>
+                        </div>
+                        <div class="card-actions">
+                            <button><i class="fas fa-chevron-down"></i></button>
+                            <button>&times;</button>
+                        </div>
                     </div>
-                    <div class="progress-bar-container">
-                        <div class="progress-bar filed" style="width: 78%;"></div>
-                    </div>
-                    <div class="progress-item">
-                        <span class="label"><i class="fas fa-circle" style="color: #3498db;"></i> Pending Review</span>
-                        <span class="value">22%</span>
-                    </div>
-                    <div class="progress-bar-container">
-                        <div class="progress-bar pending" style="width: 22%;"></div>
+                    <div class="line-chart-container">
+                        <canvas id="transactionChart"></canvas>
                     </div>
                 </div>
             </div>
-            
-            <div class="stat-card">
-                <div class="stat-header">
-                    <span>System Overview</span>
-                    <button class="close-btn">&times;</button>
-                </div>
-                <div class="system-stats">
-                    <div class="system-stat">
-                        <span class="value">99.9%</span>
-                        <span class="label">Uptime</span>
-                    </div>
-                    <div class="system-stat">
-                        <span class="value">1.2ms</span>
-                        <span class="label">Avg Response</span>
-                    </div>
-                    <div class="system-stat">
-                        <span class="value">30K+</span>
-                        <span class="label">TPS Capacity</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Charts Row -->
-        <div class="charts-grid">
-            <div class="chart-card wide">
+
+            <!-- Cases Table -->
+            <div class="table-card">
                 <div class="card-header">
-                    <h3>Daily <strong>Transaction Volume</strong></h3>
-                    <div class="chart-tabs">
-                        <button class="tab active">All</button>
-                        <button class="tab">Flagged</button>
-                        <button class="tab">Approved</button>
-                    </div>
+                    <h3><i class="fas fa-folder-open"></i> Recent Cases</h3>
                     <div class="card-actions">
-                        <button><i class="fas fa-chevron-down"></i></button>
-                        <button>&times;</button>
+                        <button class="btn-primary"><i class="fas fa-plus"></i> New Case</button>
+                        <button class="btn-secondary"><i class="fas fa-filter"></i> Filter</button>
                     </div>
                 </div>
-                <div class="line-chart-container">
-                    <canvas id="transactionChart"></canvas>
-                </div>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Case ID</th>
+                            <th>Merchant</th>
+                            <th>Risk Score</th>
+                            <th>Status</th>
+                            <th>Assigned To</th>
+                            <th>Created</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="case-id">CASE-2024-1247</span></td>
+                            <td>TechFlow Inc.</td>
+                            <td><span class="risk-badge high">92</span></td>
+                            <td><span class="status-badge investigating">Investigating</span></td>
+                            <td>John Smith</td>
+                            <td>2 hours ago</td>
+                            <td>
+                                <button class="action-btn"><i class="fas fa-eye"></i></button>
+                                <button class="action-btn"><i class="fas fa-edit"></i></button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
-        </div>
-        
-        <!-- Cases Table -->
-        <div class="table-card">
-            <div class="card-header">
-                <h3><i class="fas fa-folder-open"></i> Recent Cases</h3>
-                <div class="card-actions">
-                    <button class="btn-primary"><i class="fas fa-plus"></i> New Case</button>
-                    <button class="btn-secondary"><i class="fas fa-filter"></i> Filter</button>
-                </div>
-            </div>
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Case ID</th>
-                        <th>Merchant</th>
-                        <th>Risk Score</th>
-                        <th>Status</th>
-                        <th>Assigned To</th>
-                        <th>Created</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td><span class="case-id">CASE-2024-1247</span></td>
-                        <td>TechFlow Inc.</td>
-                        <td><span class="risk-badge high">92</span></td>
-                        <td><span class="status-badge investigating">Investigating</span></td>
-                        <td>John Smith</td>
-                        <td>2 hours ago</td>
-                        <td>
-                            <button class="action-btn"><i class="fas fa-eye"></i></button>
-                            <button class="action-btn"><i class="fas fa-edit"></i></button>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td><span class="case-id">CASE-2024-1246</span></td>
-                        <td>Global Payments Ltd</td>
-                        <td><span class="risk-badge medium">67</span></td>
-                        <td><span class="status-badge pending">Pending Review</span></td>
-                        <td>Sarah Johnson</td>
-                        <td>5 hours ago</td>
-                        <td>
-                            <button class="action-btn"><i class="fas fa-eye"></i></button>
-                            <button class="action-btn"><i class="fas fa-edit"></i></button>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td><span class="case-id">CASE-2024-1245</span></td>
-                        <td>FastPay Solutions</td>
-                        <td><span class="risk-badge low">34</span></td>
-                        <td><span class="status-badge resolved">Resolved</span></td>
-                        <td>Mike Chen</td>
-                        <td>1 day ago</td>
-                        <td>
-                            <button class="action-btn"><i class="fas fa-eye"></i></button>
-                            <button class="action-btn"><i class="fas fa-edit"></i></button>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td><span class="case-id">CASE-2024-1244</span></td>
-                        <td>E-Commerce Hub</td>
-                        <td><span class="risk-badge high">88</span></td>
-                        <td><span class="status-badge escalated">Escalated</span></td>
-                        <td>Emily Davis</td>
-                        <td>1 day ago</td>
-                        <td>
-                            <button class="action-btn"><i class="fas fa-eye"></i></button>
-                            <button class="action-btn"><i class="fas fa-edit"></i></button>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-        
-        <!-- Alerts Section -->
-        <div class="alerts-grid">
-            <div class="alert-card">
-                <div class="card-header">
-                    <h3><i class="fas fa-bell"></i> Live Alerts</h3>
-                    <span class="live-indicator"><i class="fas fa-circle"></i> Live</span>
-                </div>
-                <div class="alerts-list">
-                    <div class="alert-item high">
-                        <div class="alert-icon"><i class="fas fa-exclamation-triangle"></i></div>
-                        <div class="alert-content">
-                            <strong>High-Risk Transaction Detected</strong>
-                            <p>Unusual pattern from Merchant #4521 - $45,000 transfer</p>
-                            <span class="alert-time">2 minutes ago</span>
+
+            <!-- Alerts Section -->
+            <div class="alerts-grid">
+                <div class="alert-card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-bell"></i> Live Alerts</h3>
+                        <span class="live-indicator"><i class="fas fa-circle"></i> Live</span>
+                    </div>
+                    <div class="alerts-list">
+                        <div class="alert-item high">
+                            <div class="alert-icon"><i class="fas fa-exclamation-triangle"></i></div>
+                            <div class="alert-content">
+                                <strong>High-Risk Transaction Detected</strong>
+                                <p>Unusual pattern from Merchant #4521 - $45,000 transfer</p>
+                                <span class="alert-time">2 minutes ago</span>
+                            </div>
                         </div>
                     </div>
-                    <div class="alert-item medium">
-                        <div class="alert-icon"><i class="fas fa-info-circle"></i></div>
-                        <div class="alert-content">
-                            <strong>Sanctions Match Found</strong>
-                            <p>Potential match: "Global Trade LLC" against OFAC list</p>
-                            <span class="alert-time">15 minutes ago</span>
-                        </div>
+                </div>
+
+                <div class="activity-card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-history"></i> Recent Activity</h3>
                     </div>
-                    <div class="alert-item low">
-                        <div class="alert-icon"><i class="fas fa-check-circle"></i></div>
-                        <div class="alert-content">
-                            <strong>SAR Successfully Filed</strong>
-                            <p>SAR-2024-0089 submitted to FinCEN</p>
-                            <span class="alert-time">1 hour ago</span>
+                    <div class="activity-timeline">
+                        <div class="activity-item">
+                            <div class="activity-dot"></div>
+                            <div class="activity-content">
+                                <span class="activity-user">John Smith</span> assigned case CASE-2024-1247
+                                <span class="activity-time">10m ago</span>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-            
-            <div class="activity-card">
-                <div class="card-header">
-                    <h3><i class="fas fa-history"></i> Recent Activity</h3>
+
+            <!-- User Management View -->
+            <div id="user-management-view" style="display: none;">
+                <div class="page-header">
+                    <h1>User Management <span class="subtitle">Manage System and PSP Users</span></h1>
+                    <div class="header-actions">
+                        <button class="btn-primary" onclick="openAddUserModal()"><i class="fas fa-plus"></i> Add
+                            User</button>
+                    </div>
                 </div>
-                <div class="activity-timeline">
-                    <div class="activity-item">
-                        <div class="activity-dot"></div>
-                        <div class="activity-content">
-                            <span class="activity-user">John Smith</span> assigned case CASE-2024-1247
-                            <span class="activity-time">10m ago</span>
-                        </div>
-                    </div>
-                    <div class="activity-item">
-                        <div class="activity-dot"></div>
-                        <div class="activity-content">
-                            <span class="activity-user">System</span> generated 5 new alerts
-                            <span class="activity-time">25m ago</span>
-                        </div>
-                    </div>
-                    <div class="activity-item">
-                        <div class="activity-dot"></div>
-                        <div class="activity-content">
-                            <span class="activity-user">Sarah Johnson</span> approved SAR-2024-0089
-                            <span class="activity-time">1h ago</span>
-                        </div>
-                    </div>
-                    <div class="activity-item">
-                        <div class="activity-dot"></div>
-                        <div class="activity-content">
-                            <span class="activity-user">Mike Chen</span> resolved case CASE-2024-1245
-                            <span class="activity-time">2h ago</span>
-                        </div>
-                    </div>
+
+                <div class="table-card">
+                    <table class="data-table" id="users-table">
+                        <thead>
+                            <tr>
+                                <th>User ID</th>
+                                <th>Username</th>
+                                <th>Email</th>
+                                <th>Role</th>
+                                <th>PSP</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
                 </div>
             </div>
-        </div>
+
+            <!-- Role Management View -->
+            <div id="role-management-view" style="display: none;">
+                <div class="page-header">
+                    <h1>Role Management <span class="subtitle">Configure Roles and Permissions</span></h1>
+                    <div class="header-actions">
+                        <button class="btn-primary" onclick="openAddRoleModal()"><i class="fas fa-plus"></i> Create
+                            Role</button>
+                    </div>
+                </div>
+                <div class="table-card">
+                    <table class="data-table" id="roles-table">
+                        <thead>
+                            <tr>
+                                <th>Role Name</th>
+                                <th>Description</th>
+                                <th>PSP Scope</th>
+                                <th>Permissions</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
     </main>
-    
+
+    <!-- Add User Modal -->
+    <div id="addUserModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeAddUserModal()">&times;</span>
+            <h2>Add New User</h2>
+            <form id="addUserForm">
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" name="username" required>
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label>First Name</label>
+                    <input type="text" name="firstName">
+                </div>
+                <div class="form-group">
+                    <label>Last Name</label>
+                    <input type="text" name="lastName">
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" name="password" required>
+                </div>
+                <div class="form-group">
+                    <label>Role</label>
+                    <select name="roleId" id="userRoleSelect" required>
+                        <!-- Populated by JS -->
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>PSP</label>
+                    <select name="pspId" id="userPspSelect">
+                        <option value="">System (Global)</option>
+                        <!-- Populated by JS -->
+                    </select>
+                </div>
+                <button type="submit" class="btn-primary">Create User</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Role Modal -->
+    <div id="addRoleModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeAddRoleModal()">&times;</span>
+            <h2>Create New Role</h2>
+            <form id="addRoleForm">
+                <div class="form-group">
+                    <label>Role Name</label>
+                    <input type="text" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea name="description"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>PSP Scope</label>
+                    <select name="pspId" id="rolePspSelect">
+                        <option value="">System (Global)</option>
+                        <!-- Populated by JS -->
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Permissions</label>
+                    <div id="permissionsCheckboxes" class="checkbox-grid">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+                <button type="submit" class="btn-primary">Create Role</button>
+            </form>
+        </div>
+    </div>
+
     <!-- Settings Widget -->
     <div class="settings-widget">
         <i class="fas fa-cog"></i>
     </div>
-    
+
     <script src="js/dashboard.js"></script>
 </body>
+
 </html>

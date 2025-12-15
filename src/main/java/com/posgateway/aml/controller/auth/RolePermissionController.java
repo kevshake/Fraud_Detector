@@ -1,8 +1,9 @@
 package com.posgateway.aml.controller.auth;
 
+import com.posgateway.aml.entity.Role;
 import com.posgateway.aml.model.Permission;
-import com.posgateway.aml.model.UserRole;
-import com.posgateway.aml.service.PermissionService;
+import com.posgateway.aml.repository.RoleRepository;
+import com.posgateway.aml.service.RoleService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,11 +20,14 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class RolePermissionController {
 
-    private final PermissionService permissionService;
+    private final RoleService roleService;
+    private final RoleRepository roleRepository;
 
     @GetMapping("/roles")
-    public ResponseEntity<List<UserRole>> getRoles() {
-        return ResponseEntity.ok(Arrays.asList(UserRole.values()));
+    public ResponseEntity<List<Role>> getRoles() {
+        // By default return system roles.
+        // TODO: Pass query param for PSP specific roles
+        return ResponseEntity.ok(roleService.getSystemRoles());
     }
 
     @GetMapping("/permissions")
@@ -32,8 +36,9 @@ public class RolePermissionController {
     }
 
     @GetMapping("/role-permissions")
-    public ResponseEntity<Set<Permission>> getRolePermissions(@RequestParam("role") UserRole role) {
-        return ResponseEntity.ok(permissionService.getPermissionsForRole(role));
+    public ResponseEntity<Set<Permission>> getRolePermissions(@RequestParam("roleId") Long roleId) {
+        Role role = roleRepository.findById(roleId)
+                .orElseThrow(() -> new IllegalArgumentException("Role not found"));
+        return ResponseEntity.ok(role.getPermissions());
     }
 }
-

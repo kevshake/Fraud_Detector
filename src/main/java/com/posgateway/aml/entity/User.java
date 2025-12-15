@@ -1,6 +1,5 @@
 package com.posgateway.aml.entity;
 
-import com.posgateway.aml.model.UserRole;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -35,9 +34,19 @@ public class User implements UserDetails {
     @Column(unique = true, nullable = false)
     private String email;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private UserRole role;
+    @Column(name = "first_name")
+    private String firstName;
+
+    @Column(name = "last_name")
+    private String lastName;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "role_id", nullable = false)
+    private Role role;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "psp_id")
+    private com.posgateway.aml.entity.psp.Psp psp; // Nullable for Platform admins
 
     @Builder.Default
     private boolean enabled = true;
@@ -48,7 +57,15 @@ public class User implements UserDetails {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
+        // Map Role's permissions to Authorities
+        // You might want to include the Role Name itself as an authority too
+        List<SimpleGrantedAuthority> authorities = new java.util.ArrayList<>();
+        authorities.add(new SimpleGrantedAuthority("ROLE_" + role.getName().toUpperCase()));
+
+        if (role.getPermissions() != null) {
+            role.getPermissions().forEach(permission -> authorities.add(new SimpleGrantedAuthority(permission.name())));
+        }
+        return authorities;
     }
 
     @Override
@@ -74,5 +91,12 @@ public class User implements UserDetails {
     @Override
     public boolean isEnabled() {
         return enabled;
+    }
+
+    public String getFullName() {
+        if (firstName != null && lastName != null) {
+            return firstName + " " + lastName;
+        }
+        return username;
     }
 }

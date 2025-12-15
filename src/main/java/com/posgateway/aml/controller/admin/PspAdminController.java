@@ -2,7 +2,7 @@ package com.posgateway.aml.controller.admin;
 
 import com.posgateway.aml.entity.psp.Psp;
 import com.posgateway.aml.model.Permission;
-import com.posgateway.aml.model.UserRole;
+
 import com.posgateway.aml.repository.PspRepository;
 import com.posgateway.aml.service.PermissionService;
 import lombok.Data;
@@ -79,8 +79,8 @@ public class PspAdminController {
 
     @PutMapping("/{pspId}/theme")
     public ResponseEntity<Psp> updateTheme(@PathVariable Long pspId,
-                                           @RequestBody ThemeRequest req,
-                                           @RequestHeader("X-User-Role") String role) {
+            @RequestBody ThemeRequest req,
+            @RequestHeader("X-User-Role") String role) {
         ensurePspAdmin(role);
         Psp psp = pspRepository.findById(pspId).orElseThrow(() -> new IllegalArgumentException("PSP not found"));
         psp.setLogoUrl(req.getLogoUrl());
@@ -103,10 +103,10 @@ public class PspAdminController {
         return ResponseEntity.noContent().build();
     }
 
-    private void ensurePspAdmin(String role) {
-        UserRole r = UserRole.valueOf(role);
-        if (!permissionService.hasPermission(r, Permission.MANAGE_PSP)) {
-            throw new SecurityException("Not authorized");
+    private void ensurePspAdmin(String role) { // role param ignored now, preserved for signature compatibility if
+                                               // needed, but safer to ignore.
+        if (!permissionService.hasPermission(Permission.MANAGE_PSP)) {
+            throw new SecurityException("Not authorized - requires MANAGE_PSP permission");
         }
     }
 
@@ -138,4 +138,3 @@ public class PspAdminController {
         private String navStyle;
     }
 }
-
