@@ -6,8 +6,6 @@ import com.posgateway.aml.model.RiskLevel;
 import com.posgateway.aml.repository.ComplianceCaseRepository;
 import com.posgateway.aml.repository.MerchantRepository;
 import com.posgateway.aml.service.notification.NotificationService;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,8 +16,8 @@ import java.util.List;
 import java.util.Map;
 
 @Service
-@RequiredArgsConstructor
-@Slf4j
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(@Service.class);
 public class WorkflowAutomationService {
 
     private final MerchantRepository merchantRepository;

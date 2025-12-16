@@ -2,14 +2,15 @@ package com.posgateway.aml.mapper;
 
 import com.posgateway.aml.dto.psp.PspResponse;
 import com.posgateway.aml.dto.psp.PspUserResponse;
+import com.posgateway.aml.entity.Role;
+import com.posgateway.aml.entity.User;
 import com.posgateway.aml.entity.psp.Psp;
-import com.posgateway.aml.entity.psp.PspUser;
 import javax.annotation.processing.Generated;
 import org.springframework.stereotype.Component;
 
 @Generated(
     value = "org.mapstruct.ap.MappingProcessor",
-    date = "2025-12-15T17:42:28+0300",
+    date = "2025-12-16T17:02:47+0300",
     comments = "version: 1.5.5.Final, compiler: Eclipse JDT (IDE) 3.44.0.v20251118-1623, environment: Java 21.0.9 (Eclipse Adoptium)"
 )
 @Component
@@ -21,31 +22,47 @@ public class PspMapperImpl implements PspMapper {
             return null;
         }
 
-        PspResponse pspResponse = new PspResponse();
+        PspResponse.PspResponseBuilder pspResponse = PspResponse.builder();
 
-        pspResponse.setId( psp.getPspId() );
-        pspResponse.setPspCode( psp.getPspCode() );
-        pspResponse.setLegalName( psp.getLegalName() );
-        pspResponse.setStatus( psp.getStatus() );
-        pspResponse.setBillingPlan( psp.getBillingPlan() );
+        pspResponse.id( psp.getPspId() );
+        pspResponse.pspCode( psp.getPspCode() );
+        pspResponse.legalName( psp.getLegalName() );
+        pspResponse.status( psp.getStatus() );
+        pspResponse.billingPlan( psp.getBillingPlan() );
 
-        return pspResponse;
+        return pspResponse.build();
     }
 
     @Override
-    public PspUserResponse toResponse(PspUser user) {
+    public PspUserResponse toResponse(User user) {
         if ( user == null ) {
             return null;
         }
 
-        PspUserResponse pspUserResponse = new PspUserResponse();
+        PspUserResponse.PspUserResponseBuilder pspUserResponse = PspUserResponse.builder();
 
-        pspUserResponse.setId( user.getUserId() );
-        pspUserResponse.setEmail( user.getEmail() );
-        pspUserResponse.setFullName( user.getFullName() );
-        pspUserResponse.setRole( user.getRole() );
-        pspUserResponse.setStatus( user.getStatus() );
+        pspUserResponse.id( user.getId() );
+        pspUserResponse.role( userRoleName( user ) );
+        pspUserResponse.email( user.getEmail() );
 
-        return pspUserResponse;
+        pspUserResponse.fullName( user.getFullName() );
+        pspUserResponse.status( user.isEnabled() ? "ACTIVE" : "INACTIVE" );
+
+        return pspUserResponse.build();
+    }
+
+    private String userRoleName(User user) {
+        if ( user == null ) {
+            return null;
+        }
+        Role role = user.getRole();
+        if ( role == null ) {
+            return null;
+        }
+        String name = role.getName();
+        if ( name == null ) {
+            return null;
+        }
+        return name;
     }
 }

@@ -1,0 +1,632 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] -----------------< com.posgateway:aml-fraud-detector >------------------
+[INFO] Building AML Fraud Detector 1.0.0-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- clean:3.3.2:clean (default-clean) @ aml-fraud-detector ---
+[INFO] Deleting D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\target
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ aml-fraud-detector ---
+[INFO] Copying 3 resources from src\main\resources to target\classes
+[INFO] Copying 18 resources from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.11.0:compile (default-compile) @ aml-fraud-detector ---
+[INFO] Changes detected - recompiling the module! :source
+[INFO] Compiling 222 source files with javac [debug release 17] to target\classes
+[INFO] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/config/RedisConfig.java: D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\config\RedisConfig.java uses or overrides a deprecated API.
+[INFO] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/config/RedisConfig.java: Recompile with -Xlint:deprecation for details.
+[INFO] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java: Some input files use unchecked or unsafe operations.
+[INFO] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java: Recompile with -Xlint:unchecked for details.
+[INFO] -------------------------------------------------------------
+[ERROR] COMPILATION ERROR : 
+[INFO] -------------------------------------------------------------
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/entity/psp/Psp.java:[138,18] cannot find symbol
+  symbol:   class PspUser
+  location: class com.posgateway.aml.entity.psp.Psp
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/repository/PspRepository.java:[32,13] method existsByPspCode(java.lang.String) is already defined in interface com.posgateway.aml.repository.PspRepository
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/mapper/InvoiceMapper.java:[17,56] cannot find symbol
+  symbol:   class LineItem
+  location: class com.posgateway.aml.entity.psp.Invoice
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/controller/TransactionController.java:[47,19] cannot find symbol
+  symbol:   class TransactionRepository
+  location: class com.posgateway.aml.controller.TransactionController
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/controller/TransactionController.java:[48,19] cannot find symbol
+  symbol:   class FraudDetectionMapper
+  location: class com.posgateway.aml.controller.TransactionController
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/controller/TransactionController.java:[59,13] cannot find symbol
+  symbol:   class TransactionRepository
+  location: class com.posgateway.aml.controller.TransactionController
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/controller/TransactionController.java:[60,13] cannot find symbol
+  symbol:   class FraudDetectionMapper
+  location: class com.posgateway.aml.controller.TransactionController
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/TransactionIngestionService.java:[84,33] cannot find symbol
+  symbol:   method getPsp()
+  location: variable merchant of type com.posgateway.aml.entity.merchant.Merchant
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/TransactionIngestionService.java:[85,54] cannot find symbol
+  symbol:   method getPsp()
+  location: variable merchant of type com.posgateway.aml.entity.merchant.Merchant
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/risk/rules/RiskRuleDefinitions.java:[60,60] cannot find symbol
+  symbol:   method getWebsite()
+  location: variable m of type com.posgateway.aml.entity.merchant.Merchant
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/risk/rules/RiskRuleDefinitions.java:[62,89] cannot find symbol
+  symbol:   method getWebsite()
+  location: variable m of type com.posgateway.aml.entity.merchant.Merchant
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/risk/rules/RiskRuleDefinitions.java:[78,66] cannot find symbol
+  symbol:   method getMcc()
+  location: variable m of type com.posgateway.aml.entity.merchant.Merchant
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/risk/rules/RiskRuleDefinitions.java:[80,66] cannot find symbol
+  symbol:   method getMcc()
+  location: variable m of type com.posgateway.aml.entity.merchant.Merchant
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/risk/rules/RiskRuleDefinitions.java:[137,42] cannot find symbol
+  symbol:   method isPep()
+  location: variable m of type com.posgateway.aml.entity.merchant.Merchant
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[31,9] cannot find symbol
+  symbol:   variable log
+  location: class com.posgateway.aml.service.psp.ApiUsageTrackingService
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[31,57] cannot find symbol
+  symbol:   method getPspId()
+  location: variable event of type com.posgateway.aml.dto.psp.ApiUsageEvent
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[34,51] cannot find symbol
+  symbol:   method getPspId()
+  location: variable event of type com.posgateway.aml.dto.psp.ApiUsageEvent
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[35,94] cannot find symbol
+  symbol:   method getPspId()
+  location: variable event of type com.posgateway.aml.dto.psp.ApiUsageEvent
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[38,22] cannot find symbol
+  symbol:   method getUserId()
+  location: variable event of type com.posgateway.aml.dto.psp.ApiUsageEvent
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[39,53] cannot find symbol
+  symbol:   method getUserId()
+  location: variable event of type com.posgateway.aml.dto.psp.ApiUsageEvent
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[43,70] cannot find symbol
+  symbol:   method getPspId()
+  location: variable event of type com.posgateway.aml.dto.psp.ApiUsageEvent
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[43,88] cannot find symbol
+  symbol:   method getServiceType()
+  location: variable event of type com.posgateway.aml.dto.psp.ApiUsageEvent
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[45,47] cannot find symbol
+  symbol:   method builder()
+  location: class com.posgateway.aml.entity.psp.ApiUsageLog
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[48,36] cannot find symbol
+  symbol:   method getEndpoint()
+  location: variable event of type com.posgateway.aml.dto.psp.ApiUsageEvent
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[49,38] cannot find symbol
+  symbol:   method getHttpMethod()
+  location: variable event of type com.posgateway.aml.dto.psp.ApiUsageEvent
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[50,44] cannot find symbol
+  symbol:   method getTimestamp()
+  location: variable event of type com.posgateway.aml.dto.psp.ApiUsageEvent
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[51,42] cannot find symbol
+  symbol:   method getResponseStatus()
+  location: variable event of type com.posgateway.aml.dto.psp.ApiUsageEvent
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[52,42] cannot find symbol
+  symbol:   method getResponseTimeMs()
+  location: variable event of type com.posgateway.aml.dto.psp.ApiUsageEvent
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[53,39] cannot find symbol
+  symbol:   method getServiceType()
+  location: variable event of type com.posgateway.aml.dto.psp.ApiUsageEvent
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[57,37] cannot find symbol
+  symbol:   method getRequestId()
+  location: variable event of type com.posgateway.aml.dto.psp.ApiUsageEvent
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[58,38] cannot find symbol
+  symbol:   method getMerchantId()
+  location: variable event of type com.posgateway.aml.dto.psp.ApiUsageEvent
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[59,37] cannot find symbol
+  symbol:   method getIpAddress()
+  location: variable event of type com.posgateway.aml.dto.psp.ApiUsageEvent
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[60,37] cannot find symbol
+  symbol:   method getUserAgent()
+  location: variable event of type com.posgateway.aml.dto.psp.ApiUsageEvent
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[61,44] cannot find symbol
+  symbol:   method getExternalProvider()
+  location: variable event of type com.posgateway.aml.dto.psp.ApiUsageEvent
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[62,40] cannot find symbol
+  symbol:   method getExternalCost()
+  location: variable event of type com.posgateway.aml.dto.psp.ApiUsageEvent
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[63,44] cannot find symbol
+  symbol:   method getRequestSizeBytes()
+  location: variable event of type com.posgateway.aml.dto.psp.ApiUsageEvent
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[64,45] cannot find symbol
+  symbol:   method getResponseSizeBytes()
+  location: variable event of type com.posgateway.aml.dto.psp.ApiUsageEvent
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[65,40] cannot find symbol
+  symbol:   method getErrorMessage()
+  location: variable event of type com.posgateway.aml.dto.psp.ApiUsageEvent
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[71,13] cannot find symbol
+  symbol:   variable log
+  location: class com.posgateway.aml.service.psp.ApiUsageTrackingService
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/entity/User.java:[22,8] com.posgateway.aml.entity.User is not abstract and does not override abstract method getUsername() in org.springframework.security.core.userdetails.UserDetails
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/entity/User.java:[63,66] cannot find symbol
+  symbol:   method getName()
+  location: variable role of type com.posgateway.aml.entity.Role
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/entity/User.java:[65,17] cannot find symbol
+  symbol:   method getPermissions()
+  location: variable role of type com.posgateway.aml.entity.Role
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/entity/User.java:[66,17] cannot find symbol
+  symbol:   method getPermissions()
+  location: variable role of type com.posgateway.aml.entity.Role
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/BillingService.java:[51,38] cannot find symbol
+  symbol:   method getPricingModel()
+  location: variable rate of type com.posgateway.aml.entity.psp.BillingRate
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/BillingService.java:[51,65] cannot find symbol
+  symbol:   method getBaseRate()
+  location: variable rate of type com.posgateway.aml.entity.psp.BillingRate
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/BillingService.java:[52,24] cannot find symbol
+  symbol:   method getBaseRate()
+  location: variable rate of type com.posgateway.aml.entity.psp.BillingRate
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/BillingService.java:[53,40] cannot find symbol
+  symbol:   method getPricingModel()
+  location: variable rate of type com.posgateway.aml.entity.psp.BillingRate
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/BillingService.java:[60,29] cannot find symbol
+  symbol:   method getBaseRate()
+  location: variable rate of type com.posgateway.aml.entity.psp.BillingRate
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/BillingService.java:[63,29] cannot find symbol
+  symbol:   method getBaseRate()
+  location: variable rate of type com.posgateway.aml.entity.psp.BillingRate
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/BillingService.java:[65,44] cannot find symbol
+  symbol:   method getBaseRate()
+  location: variable rate of type com.posgateway.aml.entity.psp.BillingRate
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/BillingService.java:[84,9] cannot find symbol
+  symbol:   variable log
+  location: class com.posgateway.aml.service.psp.BillingService
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/BillingService.java:[84,74] cannot find symbol
+  symbol:   method getPspCode()
+  location: variable psp of type com.posgateway.aml.entity.psp.Psp
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/BillingService.java:[91,44] cannot find symbol
+  symbol:   method getPspCode()
+  location: variable psp of type com.posgateway.aml.entity.psp.Psp
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/BillingService.java:[89,34] cannot find symbol
+  symbol:   method builder()
+  location: class com.posgateway.aml.entity.psp.Invoice
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/BillingService.java:[96,48] cannot find symbol
+  symbol:   method getPaymentTerms()
+  location: variable psp of type com.posgateway.aml.entity.psp.Psp
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/BillingService.java:[97,30] cannot find symbol
+  symbol:   method getCurrency()
+  location: variable psp of type com.posgateway.aml.entity.psp.Psp
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/BillingService.java:[113,51] cannot find symbol
+  symbol:   method builder()
+  location: class com.posgateway.aml.entity.psp.InvoiceLineItem
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/BillingService.java:[129,16] cannot find symbol
+  symbol:   method setSubtotal(java.math.BigDecimal)
+  location: variable invoice of type com.posgateway.aml.entity.psp.Invoice
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/BillingService.java:[131,16] cannot find symbol
+  symbol:   method setTotalAmount(java.math.BigDecimal)
+  location: variable invoice of type com.posgateway.aml.entity.psp.Invoice
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/entity/psp/Invoice.java:[126,17] cannot find symbol
+  symbol:   method setInvoice(com.posgateway.aml.entity.psp.Invoice)
+  location: variable lineItem of type com.posgateway.aml.entity.psp.InvoiceLineItem
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/analytics/LinkAnalysisService.java:[33,9] cannot find symbol
+  symbol:   variable log
+  location: class com.posgateway.aml.service.analytics.LinkAnalysisService
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/analytics/LinkAnalysisService.java:[41,53] cannot find symbol
+  symbol:   method getMerchantId()
+  location: variable merchant of type com.posgateway.aml.entity.merchant.Merchant
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/analytics/LinkAnalysisService.java:[48,53] cannot find symbol
+  symbol:   method getMerchantId()
+  location: variable merchant of type com.posgateway.aml.entity.merchant.Merchant
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/analytics/LinkAnalysisService.java:[64,51] cannot find symbol
+  symbol:   method getStatus()
+  location: variable linkedMerchant of type com.posgateway.aml.entity.merchant.Merchant
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/analytics/LinkAnalysisService.java:[66,25] cannot find symbol
+  symbol:   variable log
+  location: class com.posgateway.aml.service.analytics.LinkAnalysisService
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/controller/ComplianceReportingController.java:[24,9] cannot find symbol
+  symbol:   variable log
+  location: class com.posgateway.aml.controller.ComplianceReportingController
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/controller/ComplianceReportingController.java:[24,64] cannot find symbol
+  symbol:   method getMerchantId()
+  location: variable request of type com.posgateway.aml.dto.compliance.CreateSarRequest
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/controller/ComplianceReportingController.java:[30,9] cannot find symbol
+  symbol:   variable log
+  location: class com.posgateway.aml.controller.ComplianceReportingController
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/controller/ComplianceReportingController.java:[36,9] cannot find symbol
+  symbol:   variable log
+  location: class com.posgateway.aml.controller.ComplianceReportingController
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/controller/ComplianceReportingController.java:[42,9] cannot find symbol
+  symbol:   variable log
+  location: class com.posgateway.aml.controller.ComplianceReportingController
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[52,9] cannot find symbol
+  symbol:   variable log
+  location: class com.posgateway.aml.service.compliance.ComplianceReportingService
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[52,71] cannot find symbol
+  symbol:   method getCaseId()
+  location: variable request of type com.posgateway.aml.dto.compliance.CreateSarRequest
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[52,92] cannot find symbol
+  symbol:   method getMerchantId()
+  location: variable request of type com.posgateway.aml.dto.compliance.CreateSarRequest
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[55,43] cannot find symbol
+  symbol:   method getPsp()
+  location: variable user of type com.posgateway.aml.entity.User
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[55,68] cannot find symbol
+  symbol:   method getPsp()
+  location: variable user of type com.posgateway.aml.entity.User
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[73,64] cannot find symbol
+  symbol:   method builder()
+  location: class com.posgateway.aml.entity.compliance.SuspiciousActivityReport
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[76,35] cannot find symbol
+  symbol:   method getNarrative()
+  location: variable request of type com.posgateway.aml.dto.compliance.CreateSarRequest
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[92,43] cannot find symbol
+  symbol:   method getPsp()
+  location: variable user of type com.posgateway.aml.entity.User
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[92,68] cannot find symbol
+  symbol:   method getPsp()
+  location: variable user of type com.posgateway.aml.entity.User
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[94,47] cannot find symbol
+  symbol:   method getPspId()
+  location: variable sar of type com.posgateway.aml.entity.compliance.SuspiciousActivityReport
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[98,20] cannot find symbol
+  symbol:   method getStatus()
+  location: variable request of type com.posgateway.aml.dto.compliance.UpdateSarRequest
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[99,52] cannot find symbol
+  symbol:   method getStatus()
+  location: variable request of type com.posgateway.aml.dto.compliance.UpdateSarRequest
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[101,20] cannot find symbol
+  symbol:   method getNarrative()
+  location: variable request of type com.posgateway.aml.dto.compliance.UpdateSarRequest
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[102,37] cannot find symbol
+  symbol:   method getNarrative()
+  location: variable request of type com.posgateway.aml.dto.compliance.UpdateSarRequest
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[115,43] cannot find symbol
+  symbol:   method getPsp()
+  location: variable user of type com.posgateway.aml.entity.User
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[115,68] cannot find symbol
+  symbol:   method getPsp()
+  location: variable user of type com.posgateway.aml.entity.User
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[117,47] cannot find symbol
+  symbol:   method getPspId()
+  location: variable sar of type com.posgateway.aml.entity.compliance.SuspiciousActivityReport
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[121,16] cannot find symbol
+  symbol:   method getStatus()
+  location: variable sar of type com.posgateway.aml.entity.compliance.SuspiciousActivityReport
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[125,12] cannot find symbol
+  symbol:   method setStatus(com.posgateway.aml.model.SarStatus)
+  location: variable sar of type com.posgateway.aml.entity.compliance.SuspiciousActivityReport
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[126,12] cannot find symbol
+  symbol:   method setFiledAt(java.time.LocalDateTime)
+  location: variable sar of type com.posgateway.aml.entity.compliance.SuspiciousActivityReport
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[129,9] cannot find symbol
+  symbol:   variable log
+  location: class com.posgateway.aml.service.compliance.ComplianceReportingService
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[131,16] cannot find symbol
+  symbol:   method mapToResponse(com.posgateway.aml.entity.compliance.SuspiciousActivityReport)
+  location: class com.posgateway.aml.service.compliance.ComplianceReportingService
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[139,43] cannot find symbol
+  symbol:   method getPsp()
+  location: variable user of type com.posgateway.aml.entity.User
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[139,68] cannot find symbol
+  symbol:   method getPsp()
+  location: variable user of type com.posgateway.aml.entity.User
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[141,47] cannot find symbol
+  symbol:   method getPspId()
+  location: variable sar of type com.posgateway.aml.entity.compliance.SuspiciousActivityReport
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[154,20] cannot find symbol
+  symbol:   method getId()
+  location: variable sar of type com.posgateway.aml.entity.compliance.SuspiciousActivityReport
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[155,20] cannot find symbol
+  symbol:   method getFiledAt()
+  location: variable sar of type com.posgateway.aml.entity.compliance.SuspiciousActivityReport
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[155,47] cannot find symbol
+  symbol:   method getFiledAt()
+  location: variable sar of type com.posgateway.aml.entity.compliance.SuspiciousActivityReport
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[156,20] cannot find symbol
+  symbol:   method getNarrative()
+  location: variable sar of type com.posgateway.aml.entity.compliance.SuspiciousActivityReport
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[156,49] cannot find symbol
+  symbol:   method getNarrative()
+  location: variable sar of type com.posgateway.aml.entity.compliance.SuspiciousActivityReport
+[INFO] 100 errors 
+[INFO] -------------------------------------------------------------
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  15.615 s
+[INFO] Finished at: 2025-12-16T13:00:41+03:00
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.11.0:compile (default-compile) on project aml-fraud-detector: Compilation failure: Compilation failure: 
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/entity/psp/Psp.java:[138,18] cannot find symbol
+[ERROR]   symbol:   class PspUser
+[ERROR]   location: class com.posgateway.aml.entity.psp.Psp
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/repository/PspRepository.java:[32,13] method existsByPspCode(java.lang.String) is already defined in interface com.posgateway.aml.repository.PspRepository
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/mapper/InvoiceMapper.java:[17,56] cannot find symbol
+[ERROR]   symbol:   class LineItem
+[ERROR]   location: class com.posgateway.aml.entity.psp.Invoice
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/controller/TransactionController.java:[47,19] cannot find symbol
+[ERROR]   symbol:   class TransactionRepository
+[ERROR]   location: class com.posgateway.aml.controller.TransactionController
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/controller/TransactionController.java:[48,19] cannot find symbol
+[ERROR]   symbol:   class FraudDetectionMapper
+[ERROR]   location: class com.posgateway.aml.controller.TransactionController
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/controller/TransactionController.java:[59,13] cannot find symbol
+[ERROR]   symbol:   class TransactionRepository
+[ERROR]   location: class com.posgateway.aml.controller.TransactionController
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/controller/TransactionController.java:[60,13] cannot find symbol
+[ERROR]   symbol:   class FraudDetectionMapper
+[ERROR]   location: class com.posgateway.aml.controller.TransactionController
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/TransactionIngestionService.java:[84,33] cannot find symbol
+[ERROR]   symbol:   method getPsp()
+[ERROR]   location: variable merchant of type com.posgateway.aml.entity.merchant.Merchant
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/TransactionIngestionService.java:[85,54] cannot find symbol
+[ERROR]   symbol:   method getPsp()
+[ERROR]   location: variable merchant of type com.posgateway.aml.entity.merchant.Merchant
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/risk/rules/RiskRuleDefinitions.java:[60,60] cannot find symbol
+[ERROR]   symbol:   method getWebsite()
+[ERROR]   location: variable m of type com.posgateway.aml.entity.merchant.Merchant
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/risk/rules/RiskRuleDefinitions.java:[62,89] cannot find symbol
+[ERROR]   symbol:   method getWebsite()
+[ERROR]   location: variable m of type com.posgateway.aml.entity.merchant.Merchant
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/risk/rules/RiskRuleDefinitions.java:[78,66] cannot find symbol
+[ERROR]   symbol:   method getMcc()
+[ERROR]   location: variable m of type com.posgateway.aml.entity.merchant.Merchant
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/risk/rules/RiskRuleDefinitions.java:[80,66] cannot find symbol
+[ERROR]   symbol:   method getMcc()
+[ERROR]   location: variable m of type com.posgateway.aml.entity.merchant.Merchant
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/risk/rules/RiskRuleDefinitions.java:[137,42] cannot find symbol
+[ERROR]   symbol:   method isPep()
+[ERROR]   location: variable m of type com.posgateway.aml.entity.merchant.Merchant
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[31,9] cannot find symbol
+[ERROR]   symbol:   variable log
+[ERROR]   location: class com.posgateway.aml.service.psp.ApiUsageTrackingService
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[31,57] cannot find symbol
+[ERROR]   symbol:   method getPspId()
+[ERROR]   location: variable event of type com.posgateway.aml.dto.psp.ApiUsageEvent
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[34,51] cannot find symbol
+[ERROR]   symbol:   method getPspId()
+[ERROR]   location: variable event of type com.posgateway.aml.dto.psp.ApiUsageEvent
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[35,94] cannot find symbol
+[ERROR]   symbol:   method getPspId()
+[ERROR]   location: variable event of type com.posgateway.aml.dto.psp.ApiUsageEvent
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[38,22] cannot find symbol
+[ERROR]   symbol:   method getUserId()
+[ERROR]   location: variable event of type com.posgateway.aml.dto.psp.ApiUsageEvent
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[39,53] cannot find symbol
+[ERROR]   symbol:   method getUserId()
+[ERROR]   location: variable event of type com.posgateway.aml.dto.psp.ApiUsageEvent
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[43,70] cannot find symbol
+[ERROR]   symbol:   method getPspId()
+[ERROR]   location: variable event of type com.posgateway.aml.dto.psp.ApiUsageEvent
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[43,88] cannot find symbol
+[ERROR]   symbol:   method getServiceType()
+[ERROR]   location: variable event of type com.posgateway.aml.dto.psp.ApiUsageEvent
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[45,47] cannot find symbol
+[ERROR]   symbol:   method builder()
+[ERROR]   location: class com.posgateway.aml.entity.psp.ApiUsageLog
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[48,36] cannot find symbol
+[ERROR]   symbol:   method getEndpoint()
+[ERROR]   location: variable event of type com.posgateway.aml.dto.psp.ApiUsageEvent
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[49,38] cannot find symbol
+[ERROR]   symbol:   method getHttpMethod()
+[ERROR]   location: variable event of type com.posgateway.aml.dto.psp.ApiUsageEvent
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[50,44] cannot find symbol
+[ERROR]   symbol:   method getTimestamp()
+[ERROR]   location: variable event of type com.posgateway.aml.dto.psp.ApiUsageEvent
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[51,42] cannot find symbol
+[ERROR]   symbol:   method getResponseStatus()
+[ERROR]   location: variable event of type com.posgateway.aml.dto.psp.ApiUsageEvent
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[52,42] cannot find symbol
+[ERROR]   symbol:   method getResponseTimeMs()
+[ERROR]   location: variable event of type com.posgateway.aml.dto.psp.ApiUsageEvent
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[53,39] cannot find symbol
+[ERROR]   symbol:   method getServiceType()
+[ERROR]   location: variable event of type com.posgateway.aml.dto.psp.ApiUsageEvent
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[57,37] cannot find symbol
+[ERROR]   symbol:   method getRequestId()
+[ERROR]   location: variable event of type com.posgateway.aml.dto.psp.ApiUsageEvent
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[58,38] cannot find symbol
+[ERROR]   symbol:   method getMerchantId()
+[ERROR]   location: variable event of type com.posgateway.aml.dto.psp.ApiUsageEvent
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[59,37] cannot find symbol
+[ERROR]   symbol:   method getIpAddress()
+[ERROR]   location: variable event of type com.posgateway.aml.dto.psp.ApiUsageEvent
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[60,37] cannot find symbol
+[ERROR]   symbol:   method getUserAgent()
+[ERROR]   location: variable event of type com.posgateway.aml.dto.psp.ApiUsageEvent
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[61,44] cannot find symbol
+[ERROR]   symbol:   method getExternalProvider()
+[ERROR]   location: variable event of type com.posgateway.aml.dto.psp.ApiUsageEvent
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[62,40] cannot find symbol
+[ERROR]   symbol:   method getExternalCost()
+[ERROR]   location: variable event of type com.posgateway.aml.dto.psp.ApiUsageEvent
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[63,44] cannot find symbol
+[ERROR]   symbol:   method getRequestSizeBytes()
+[ERROR]   location: variable event of type com.posgateway.aml.dto.psp.ApiUsageEvent
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[64,45] cannot find symbol
+[ERROR]   symbol:   method getResponseSizeBytes()
+[ERROR]   location: variable event of type com.posgateway.aml.dto.psp.ApiUsageEvent
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[65,40] cannot find symbol
+[ERROR]   symbol:   method getErrorMessage()
+[ERROR]   location: variable event of type com.posgateway.aml.dto.psp.ApiUsageEvent
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/ApiUsageTrackingService.java:[71,13] cannot find symbol
+[ERROR]   symbol:   variable log
+[ERROR]   location: class com.posgateway.aml.service.psp.ApiUsageTrackingService
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/entity/User.java:[22,8] com.posgateway.aml.entity.User is not abstract and does not override abstract method getUsername() in org.springframework.security.core.userdetails.UserDetails
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/entity/User.java:[63,66] cannot find symbol
+[ERROR]   symbol:   method getName()
+[ERROR]   location: variable role of type com.posgateway.aml.entity.Role
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/entity/User.java:[65,17] cannot find symbol
+[ERROR]   symbol:   method getPermissions()
+[ERROR]   location: variable role of type com.posgateway.aml.entity.Role
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/entity/User.java:[66,17] cannot find symbol
+[ERROR]   symbol:   method getPermissions()
+[ERROR]   location: variable role of type com.posgateway.aml.entity.Role
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/BillingService.java:[51,38] cannot find symbol
+[ERROR]   symbol:   method getPricingModel()
+[ERROR]   location: variable rate of type com.posgateway.aml.entity.psp.BillingRate
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/BillingService.java:[51,65] cannot find symbol
+[ERROR]   symbol:   method getBaseRate()
+[ERROR]   location: variable rate of type com.posgateway.aml.entity.psp.BillingRate
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/BillingService.java:[52,24] cannot find symbol
+[ERROR]   symbol:   method getBaseRate()
+[ERROR]   location: variable rate of type com.posgateway.aml.entity.psp.BillingRate
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/BillingService.java:[53,40] cannot find symbol
+[ERROR]   symbol:   method getPricingModel()
+[ERROR]   location: variable rate of type com.posgateway.aml.entity.psp.BillingRate
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/BillingService.java:[60,29] cannot find symbol
+[ERROR]   symbol:   method getBaseRate()
+[ERROR]   location: variable rate of type com.posgateway.aml.entity.psp.BillingRate
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/BillingService.java:[63,29] cannot find symbol
+[ERROR]   symbol:   method getBaseRate()
+[ERROR]   location: variable rate of type com.posgateway.aml.entity.psp.BillingRate
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/BillingService.java:[65,44] cannot find symbol
+[ERROR]   symbol:   method getBaseRate()
+[ERROR]   location: variable rate of type com.posgateway.aml.entity.psp.BillingRate
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/BillingService.java:[84,9] cannot find symbol
+[ERROR]   symbol:   variable log
+[ERROR]   location: class com.posgateway.aml.service.psp.BillingService
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/BillingService.java:[84,74] cannot find symbol
+[ERROR]   symbol:   method getPspCode()
+[ERROR]   location: variable psp of type com.posgateway.aml.entity.psp.Psp
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/BillingService.java:[91,44] cannot find symbol
+[ERROR]   symbol:   method getPspCode()
+[ERROR]   location: variable psp of type com.posgateway.aml.entity.psp.Psp
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/BillingService.java:[89,34] cannot find symbol
+[ERROR]   symbol:   method builder()
+[ERROR]   location: class com.posgateway.aml.entity.psp.Invoice
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/BillingService.java:[96,48] cannot find symbol
+[ERROR]   symbol:   method getPaymentTerms()
+[ERROR]   location: variable psp of type com.posgateway.aml.entity.psp.Psp
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/BillingService.java:[97,30] cannot find symbol
+[ERROR]   symbol:   method getCurrency()
+[ERROR]   location: variable psp of type com.posgateway.aml.entity.psp.Psp
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/BillingService.java:[113,51] cannot find symbol
+[ERROR]   symbol:   method builder()
+[ERROR]   location: class com.posgateway.aml.entity.psp.InvoiceLineItem
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/BillingService.java:[129,16] cannot find symbol
+[ERROR]   symbol:   method setSubtotal(java.math.BigDecimal)
+[ERROR]   location: variable invoice of type com.posgateway.aml.entity.psp.Invoice
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/psp/BillingService.java:[131,16] cannot find symbol
+[ERROR]   symbol:   method setTotalAmount(java.math.BigDecimal)
+[ERROR]   location: variable invoice of type com.posgateway.aml.entity.psp.Invoice
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/entity/psp/Invoice.java:[126,17] cannot find symbol
+[ERROR]   symbol:   method setInvoice(com.posgateway.aml.entity.psp.Invoice)
+[ERROR]   location: variable lineItem of type com.posgateway.aml.entity.psp.InvoiceLineItem
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/analytics/LinkAnalysisService.java:[33,9] cannot find symbol
+[ERROR]   symbol:   variable log
+[ERROR]   location: class com.posgateway.aml.service.analytics.LinkAnalysisService
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/analytics/LinkAnalysisService.java:[41,53] cannot find symbol
+[ERROR]   symbol:   method getMerchantId()
+[ERROR]   location: variable merchant of type com.posgateway.aml.entity.merchant.Merchant
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/analytics/LinkAnalysisService.java:[48,53] cannot find symbol
+[ERROR]   symbol:   method getMerchantId()
+[ERROR]   location: variable merchant of type com.posgateway.aml.entity.merchant.Merchant
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/analytics/LinkAnalysisService.java:[64,51] cannot find symbol
+[ERROR]   symbol:   method getStatus()
+[ERROR]   location: variable linkedMerchant of type com.posgateway.aml.entity.merchant.Merchant
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/analytics/LinkAnalysisService.java:[66,25] cannot find symbol
+[ERROR]   symbol:   variable log
+[ERROR]   location: class com.posgateway.aml.service.analytics.LinkAnalysisService
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/controller/ComplianceReportingController.java:[24,9] cannot find symbol
+[ERROR]   symbol:   variable log
+[ERROR]   location: class com.posgateway.aml.controller.ComplianceReportingController
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/controller/ComplianceReportingController.java:[24,64] cannot find symbol
+[ERROR]   symbol:   method getMerchantId()
+[ERROR]   location: variable request of type com.posgateway.aml.dto.compliance.CreateSarRequest
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/controller/ComplianceReportingController.java:[30,9] cannot find symbol
+[ERROR]   symbol:   variable log
+[ERROR]   location: class com.posgateway.aml.controller.ComplianceReportingController
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/controller/ComplianceReportingController.java:[36,9] cannot find symbol
+[ERROR]   symbol:   variable log
+[ERROR]   location: class com.posgateway.aml.controller.ComplianceReportingController
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/controller/ComplianceReportingController.java:[42,9] cannot find symbol
+[ERROR]   symbol:   variable log
+[ERROR]   location: class com.posgateway.aml.controller.ComplianceReportingController
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[52,9] cannot find symbol
+[ERROR]   symbol:   variable log
+[ERROR]   location: class com.posgateway.aml.service.compliance.ComplianceReportingService
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[52,71] cannot find symbol
+[ERROR]   symbol:   method getCaseId()
+[ERROR]   location: variable request of type com.posgateway.aml.dto.compliance.CreateSarRequest
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[52,92] cannot find symbol
+[ERROR]   symbol:   method getMerchantId()
+[ERROR]   location: variable request of type com.posgateway.aml.dto.compliance.CreateSarRequest
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[55,43] cannot find symbol
+[ERROR]   symbol:   method getPsp()
+[ERROR]   location: variable user of type com.posgateway.aml.entity.User
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[55,68] cannot find symbol
+[ERROR]   symbol:   method getPsp()
+[ERROR]   location: variable user of type com.posgateway.aml.entity.User
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[73,64] cannot find symbol
+[ERROR]   symbol:   method builder()
+[ERROR]   location: class com.posgateway.aml.entity.compliance.SuspiciousActivityReport
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[76,35] cannot find symbol
+[ERROR]   symbol:   method getNarrative()
+[ERROR]   location: variable request of type com.posgateway.aml.dto.compliance.CreateSarRequest
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[92,43] cannot find symbol
+[ERROR]   symbol:   method getPsp()
+[ERROR]   location: variable user of type com.posgateway.aml.entity.User
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[92,68] cannot find symbol
+[ERROR]   symbol:   method getPsp()
+[ERROR]   location: variable user of type com.posgateway.aml.entity.User
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[94,47] cannot find symbol
+[ERROR]   symbol:   method getPspId()
+[ERROR]   location: variable sar of type com.posgateway.aml.entity.compliance.SuspiciousActivityReport
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[98,20] cannot find symbol
+[ERROR]   symbol:   method getStatus()
+[ERROR]   location: variable request of type com.posgateway.aml.dto.compliance.UpdateSarRequest
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[99,52] cannot find symbol
+[ERROR]   symbol:   method getStatus()
+[ERROR]   location: variable request of type com.posgateway.aml.dto.compliance.UpdateSarRequest
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[101,20] cannot find symbol
+[ERROR]   symbol:   method getNarrative()
+[ERROR]   location: variable request of type com.posgateway.aml.dto.compliance.UpdateSarRequest
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[102,37] cannot find symbol
+[ERROR]   symbol:   method getNarrative()
+[ERROR]   location: variable request of type com.posgateway.aml.dto.compliance.UpdateSarRequest
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[115,43] cannot find symbol
+[ERROR]   symbol:   method getPsp()
+[ERROR]   location: variable user of type com.posgateway.aml.entity.User
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[115,68] cannot find symbol
+[ERROR]   symbol:   method getPsp()
+[ERROR]   location: variable user of type com.posgateway.aml.entity.User
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[117,47] cannot find symbol
+[ERROR]   symbol:   method getPspId()
+[ERROR]   location: variable sar of type com.posgateway.aml.entity.compliance.SuspiciousActivityReport
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[121,16] cannot find symbol
+[ERROR]   symbol:   method getStatus()
+[ERROR]   location: variable sar of type com.posgateway.aml.entity.compliance.SuspiciousActivityReport
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[125,12] cannot find symbol
+[ERROR]   symbol:   method setStatus(com.posgateway.aml.model.SarStatus)
+[ERROR]   location: variable sar of type com.posgateway.aml.entity.compliance.SuspiciousActivityReport
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[126,12] cannot find symbol
+[ERROR]   symbol:   method setFiledAt(java.time.LocalDateTime)
+[ERROR]   location: variable sar of type com.posgateway.aml.entity.compliance.SuspiciousActivityReport
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[129,9] cannot find symbol
+[ERROR]   symbol:   variable log
+[ERROR]   location: class com.posgateway.aml.service.compliance.ComplianceReportingService
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[131,16] cannot find symbol
+[ERROR]   symbol:   method mapToResponse(com.posgateway.aml.entity.compliance.SuspiciousActivityReport)
+[ERROR]   location: class com.posgateway.aml.service.compliance.ComplianceReportingService
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[139,43] cannot find symbol
+[ERROR]   symbol:   method getPsp()
+[ERROR]   location: variable user of type com.posgateway.aml.entity.User
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[139,68] cannot find symbol
+[ERROR]   symbol:   method getPsp()
+[ERROR]   location: variable user of type com.posgateway.aml.entity.User
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[141,47] cannot find symbol
+[ERROR]   symbol:   method getPspId()
+[ERROR]   location: variable sar of type com.posgateway.aml.entity.compliance.SuspiciousActivityReport
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[154,20] cannot find symbol
+[ERROR]   symbol:   method getId()
+[ERROR]   location: variable sar of type com.posgateway.aml.entity.compliance.SuspiciousActivityReport
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[155,20] cannot find symbol
+[ERROR]   symbol:   method getFiledAt()
+[ERROR]   location: variable sar of type com.posgateway.aml.entity.compliance.SuspiciousActivityReport
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[155,47] cannot find symbol
+[ERROR]   symbol:   method getFiledAt()
+[ERROR]   location: variable sar of type com.posgateway.aml.entity.compliance.SuspiciousActivityReport
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[156,20] cannot find symbol
+[ERROR]   symbol:   method getNarrative()
+[ERROR]   location: variable sar of type com.posgateway.aml.entity.compliance.SuspiciousActivityReport
+[ERROR] /D:/PROJECTS/POS_GATEWAY/APP/AML_FRAU_DETECTOR/src/main/java/com/posgateway/aml/service/compliance/ComplianceReportingService.java:[156,49] cannot find symbol
+[ERROR]   symbol:   method getNarrative()
+[ERROR]   location: variable sar of type com.posgateway.aml.entity.compliance.SuspiciousActivityReport
+[ERROR] -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException

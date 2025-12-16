@@ -288,6 +288,37 @@
                     </annotationProcessorPaths>
                 </configuration>
             </plugin>
+            <!-- Lombok Maven Plugin - Generates delomboked sources -->
+            <plugin>
+                <groupId>org.projectlombok</groupId>
+                <artifactId>lombok-maven-plugin</artifactId>
+                <version>1.18.20.0</version>
+                <executions>
+                    <execution>
+                        <id>delombok</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>delombok</goal>
+                        </goals>
+                        <configuration>
+                            <sourceDirectory>${project.basedir}/src/main/java</sourceDirectory>
+                            <outputDirectory>${project.basedir}/src/main/java-delomboked</outputDirectory>
+                            <addOutputDirectory>false</addOutputDirectory>
+                            <encoding>UTF-8</encoding>
+                            <formatPreferences>
+                                <javaLangAsFQN>skip</javaLangAsFQN>
+                            </formatPreferences>
+                        </configuration>
+                    </execution>
+                </executions>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.projectlombok</groupId>
+                        <artifactId>lombok</artifactId>
+                        <version>1.18.30</version>
+                    </dependency>
+                </dependencies>
+            </plugin>
         </plugins>
     </build>
 </project>

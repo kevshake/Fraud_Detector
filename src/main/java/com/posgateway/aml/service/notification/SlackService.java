@@ -1,6 +1,5 @@
 package com.posgateway.aml.service.notification;
 
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -12,7 +11,8 @@ import java.util.Map;
  * Service to send notifications to Slack via Webhooks
  */
 @Service
-@Slf4j
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(@Service.class);
 public class SlackService {
 
     @Value("${slack.webhook.url:}")

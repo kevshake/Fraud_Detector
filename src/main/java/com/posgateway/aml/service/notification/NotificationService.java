@@ -1,11 +1,11 @@
 package com.posgateway.aml.service.notification;
 
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 @Service
-@Slf4j
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(@Service.class);
 public class NotificationService {
 
     private final SlackService slackService;
