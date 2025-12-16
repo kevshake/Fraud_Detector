@@ -13,15 +13,24 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
+// @RequiredArgsConstructor removed
 @Service
-
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(@Service.class);
 public class PspService {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(PspService.class);
 
     private final PspRepository pspRepository;
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
-    // private final PasswordEncoder passwordEncoder; // User can uncomment or
+    private final PasswordEncoder passwordEncoder;
+
+    public PspService(PspRepository pspRepository, UserRepository userRepository, RoleRepository roleRepository,
+            PasswordEncoder passwordEncoder) {
+        this.pspRepository = pspRepository;
+        this.userRepository = userRepository;
+        this.roleRepository = roleRepository;
+        this.passwordEncoder = passwordEncoder;
+    }
+    // User can uncomment or
     // inject if available
 
     @Transactional

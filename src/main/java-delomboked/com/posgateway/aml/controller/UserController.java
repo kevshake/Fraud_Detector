@@ -1,5 +1,8 @@
 package com.posgateway.aml.controller;
 
+
+
+
 import com.posgateway.aml.entity.User;
 import com.posgateway.aml.entity.psp.Psp;
 import com.posgateway.aml.model.Permission;
@@ -12,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+// @RequiredArgsConstructor removed
 @RestController
 @RequestMapping("/api/v1/users")
 public class UserController {
@@ -19,6 +23,13 @@ public class UserController {
     private final UserService userService;
     private final PermissionService permissionService;
     private final PspRepository pspRepository;
+
+    public UserController(UserService userService, PermissionService permissionService, PspRepository pspRepository) {
+        this.userService = userService;
+        this.permissionService = permissionService;
+        this.pspRepository = pspRepository;
+    }
+
 
     @GetMapping
     public ResponseEntity<List<User>> listUsers(@AuthenticationPrincipal User currentUser,

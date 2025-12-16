@@ -10,6 +10,7 @@ import java.util.Map;
  * Mastercard HECM Simulator
  * Rules engine for High Excessive Chargeback Merchant program
  */
+// @RequiredArgsConstructor removed
 @Service
 public class HecmSimulator {
 

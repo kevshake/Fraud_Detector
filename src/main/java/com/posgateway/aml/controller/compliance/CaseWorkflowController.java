@@ -12,12 +12,18 @@ import org.springframework.web.bind.annotation.*;
 /**
  * REST Controller for Compliance Case Workflow
  */
+// @RequiredArgsConstructor removed
 @RestController
 @RequestMapping("/api/v1/compliance/cases/workflow")
 public class CaseWorkflowController {
 
     private final CaseWorkflowService caseWorkflowService;
     private final UserRepository userRepository;
+
+    public CaseWorkflowController(CaseWorkflowService caseWorkflowService, UserRepository userRepository) {
+        this.caseWorkflowService = caseWorkflowService;
+        this.userRepository = userRepository;
+    }
 
     @PostMapping("/create")
     public ResponseEntity<ComplianceCase> createCase(@RequestBody CreateCaseRequest request) {
@@ -26,8 +32,7 @@ public class CaseWorkflowController {
                 request.getCaseReference(),
                 request.getDescription(),
                 request.getPriority() != null ? CasePriority.valueOf(request.getPriority()) : CasePriority.MEDIUM,
-                creator
-        );
+                creator);
         return ResponseEntity.ok(created);
     }
 
@@ -37,8 +42,7 @@ public class CaseWorkflowController {
         ComplianceCase updated = caseWorkflowService.assignCase(
                 request.getCaseId(),
                 request.getAssigneeUserId(),
-                assigner
-        );
+                assigner);
         return ResponseEntity.ok(updated);
     }
 
@@ -48,8 +52,7 @@ public class CaseWorkflowController {
         ComplianceCase updated = caseWorkflowService.updateStatus(
                 request.getCaseId(),
                 CaseStatus.valueOf(request.getStatus()),
-                user
-        );
+                user);
         return ResponseEntity.ok(updated);
     }
 
@@ -60,8 +63,7 @@ public class CaseWorkflowController {
                 request.getCaseId(),
                 request.getEscalatedToUserId(),
                 request.getReason(),
-                user
-        );
+                user);
         return ResponseEntity.ok(updated);
     }
 
@@ -70,34 +72,153 @@ public class CaseWorkflowController {
                 .orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
     }
 
-    @Data
     public static class CreateCaseRequest {
         private String caseReference;
         private String description;
         private String priority;
         private Long creatorUserId;
+
+        public CreateCaseRequest() {
+        }
+
+        public String getCaseReference() {
+            return caseReference;
+        }
+
+        public void setCaseReference(String caseReference) {
+            this.caseReference = caseReference;
+        }
+
+        public String getDescription() {
+            return description;
+        }
+
+        public void setDescription(String description) {
+            this.description = description;
+        }
+
+        public String getPriority() {
+            return priority;
+        }
+
+        public void setPriority(String priority) {
+            this.priority = priority;
+        }
+
+        public Long getCreatorUserId() {
+            return creatorUserId;
+        }
+
+        public void setCreatorUserId(Long creatorUserId) {
+            this.creatorUserId = creatorUserId;
+        }
     }
 
-    @Data
     public static class AssignCaseRequest {
         private Long caseId;
         private Long assigneeUserId;
         private Long assignerUserId;
+
+        public AssignCaseRequest() {
+        }
+
+        public Long getCaseId() {
+            return caseId;
+        }
+
+        public void setCaseId(Long caseId) {
+            this.caseId = caseId;
+        }
+
+        public Long getAssigneeUserId() {
+            return assigneeUserId;
+        }
+
+        public void setAssigneeUserId(Long assigneeUserId) {
+            this.assigneeUserId = assigneeUserId;
+        }
+
+        public Long getAssignerUserId() {
+            return assignerUserId;
+        }
+
+        public void setAssignerUserId(Long assignerUserId) {
+            this.assignerUserId = assignerUserId;
+        }
     }
 
-    @Data
     public static class UpdateStatusRequest {
         private Long caseId;
         private String status;
         private Long userId;
+
+        public UpdateStatusRequest() {
+        }
+
+        public Long getCaseId() {
+            return caseId;
+        }
+
+        public void setCaseId(Long caseId) {
+            this.caseId = caseId;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
+        }
+
+        public Long getUserId() {
+            return userId;
+        }
+
+        public void setUserId(Long userId) {
+            this.userId = userId;
+        }
     }
 
-    @Data
     public static class EscalateCaseRequest {
         private Long caseId;
         private Long escalatedToUserId;
         private String reason;
         private Long userId;
+
+        public EscalateCaseRequest() {
+        }
+
+        public Long getCaseId() {
+            return caseId;
+        }
+
+        public void setCaseId(Long caseId) {
+            this.caseId = caseId;
+        }
+
+        public Long getEscalatedToUserId() {
+            return escalatedToUserId;
+        }
+
+        public void setEscalatedToUserId(Long escalatedToUserId) {
+            this.escalatedToUserId = escalatedToUserId;
+        }
+
+        public String getReason() {
+            return reason;
+        }
+
+        public void setReason(String reason) {
+            this.reason = reason;
+        }
+
+        public Long getUserId() {
+            return userId;
+        }
+
+        public void setUserId(Long userId) {
+            this.userId = userId;
+        }
     }
 }
-

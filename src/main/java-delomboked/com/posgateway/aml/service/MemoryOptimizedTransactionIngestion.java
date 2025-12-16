@@ -1,5 +1,8 @@
 package com.posgateway.aml.service;
 
+
+
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.posgateway.aml.entity.TransactionEntity;
 import com.posgateway.aml.repository.TransactionRepository;
@@ -18,6 +21,7 @@ import java.util.List;
  * Memory-Optimized Transaction Ingestion
  * Minimizes object allocation for high concurrency (30K+ requests)
  */
+// @RequiredArgsConstructor removed
 @Service
 public class MemoryOptimizedTransactionIngestion {
 
@@ -25,6 +29,12 @@ public class MemoryOptimizedTransactionIngestion {
 
     private final TransactionRepository transactionRepository;
     private final ObjectMapper objectMapper;
+
+    public MemoryOptimizedTransactionIngestion(TransactionRepository transactionRepository, ObjectMapper objectMapper) {
+        this.transactionRepository = transactionRepository;
+        this.objectMapper = objectMapper;
+    }
+
 
     // Thread-local MessageDigest for PAN hashing (reuse instances)
     private static final ThreadLocal<MessageDigest> DIGEST_CACHE = 

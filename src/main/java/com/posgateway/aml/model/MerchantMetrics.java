@@ -1,19 +1,66 @@
 package com.posgateway.aml.model;
 
-
 /**
  * Merchant Metrics for Fraud and Chargeback Monitoring
  * Aggregated counters for risk simulation (VFMP, HECM)
  */
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
 public class MerchantMetrics {
     private long totalTx;
     private long fraudTx;
     private long chargebackCount;
     private long fraudAmount; // in cents
     private long chargebackAmount; // in cents
+
+    public MerchantMetrics() {
+    }
+
+    public MerchantMetrics(long totalTx, long fraudTx, long chargebackCount, long fraudAmount, long chargebackAmount) {
+        this.totalTx = totalTx;
+        this.fraudTx = fraudTx;
+        this.chargebackCount = chargebackCount;
+        this.fraudAmount = fraudAmount;
+        this.chargebackAmount = chargebackAmount;
+    }
+
+    public long getTotalTx() {
+        return totalTx;
+    }
+
+    public void setTotalTx(long totalTx) {
+        this.totalTx = totalTx;
+    }
+
+    public long getFraudTx() {
+        return fraudTx;
+    }
+
+    public void setFraudTx(long fraudTx) {
+        this.fraudTx = fraudTx;
+    }
+
+    public long getChargebackCount() {
+        return chargebackCount;
+    }
+
+    public void setChargebackCount(long chargebackCount) {
+        this.chargebackCount = chargebackCount;
+    }
+
+    public long getFraudAmount() {
+        return fraudAmount;
+    }
+
+    public void setFraudAmount(long fraudAmount) {
+        this.fraudAmount = fraudAmount;
+    }
+
+    public long getChargebackAmount() {
+        return chargebackAmount;
+    }
+
+    public void setChargebackAmount(long chargebackAmount) {
+        this.chargebackAmount = chargebackAmount;
+    }
 
     public static MerchantMetricsBuilder builder() {
         return new MerchantMetricsBuilder();

@@ -4,10 +4,8 @@ import com.posgateway.aml.entity.compliance.ComplianceCase;
 import com.posgateway.aml.model.Transaction;
 import org.springframework.stereotype.Service;
 
-@Service
-
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(@Service.class);
-public class FrcReportingService {
+@Servicepublic class FrcReportingService {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(FrcReportingService.class);
 
     /**
      * Generates a Suspicious Transaction Report (STR) in goAML XML format (Stub).

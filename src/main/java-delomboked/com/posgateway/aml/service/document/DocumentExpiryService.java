@@ -1,5 +1,7 @@
 package com.posgateway.aml.service.document;
 
+
+
 import com.posgateway.aml.entity.Alert;
 import com.posgateway.aml.entity.merchant.MerchantDocument;
 import com.posgateway.aml.repository.AlertRepository;
@@ -11,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.List;
 
+// @RequiredArgsConstructor removed
 @Service
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(@Service.class);
@@ -18,6 +21,12 @@ public class DocumentExpiryService {
 
     private final MerchantDocumentRepository documentRepository;
     private final AlertRepository alertRepository;
+
+    public DocumentExpiryService(MerchantDocumentRepository documentRepository, AlertRepository alertRepository) {
+        this.documentRepository = documentRepository;
+        this.alertRepository = alertRepository;
+    }
+
 
     @Scheduled(cron = "${document.expiry.check.cron:0 0 4 * * *}") // Run daily at 4 AM
     @Transactional

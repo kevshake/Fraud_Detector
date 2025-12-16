@@ -1,5 +1,7 @@
 package com.posgateway.aml.controller.auth;
 
+
+
 import com.posgateway.aml.entity.Role;
 import com.posgateway.aml.model.Permission;
 import com.posgateway.aml.repository.RoleRepository;
@@ -14,12 +16,19 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
+// @RequiredArgsConstructor removed
 @RestController
 @RequestMapping("/api/v1/auth")
 public class RolePermissionController {
 
     private final RoleService roleService;
     private final RoleRepository roleRepository;
+
+    public RolePermissionController(RoleService roleService, RoleRepository roleRepository) {
+        this.roleService = roleService;
+        this.roleRepository = roleRepository;
+    }
+
 
     @GetMapping("/roles")
     public ResponseEntity<List<Role>> getRoles() {

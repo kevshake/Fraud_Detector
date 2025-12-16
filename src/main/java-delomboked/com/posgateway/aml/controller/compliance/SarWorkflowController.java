@@ -1,5 +1,7 @@
 package com.posgateway.aml.controller.compliance;
 
+
+
 import com.posgateway.aml.entity.User;
 import com.posgateway.aml.entity.compliance.SuspiciousActivityReport;
 import com.posgateway.aml.model.SarStatus;
@@ -17,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
  * - APPROVE_SAR: MLRO only
  * - FILE_SAR: MLRO only
  */
+// @RequiredArgsConstructor removed
 @RestController
 @RequestMapping("/api/v1/compliance/sar/workflow")
 @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'INVESTIGATOR')")
@@ -24,6 +27,12 @@ public class SarWorkflowController {
 
     private final SarWorkflowService sarWorkflowService;
     private final UserRepository userRepository;
+
+    public SarWorkflowController(SarWorkflowService sarWorkflowService, UserRepository userRepository) {
+        this.sarWorkflowService = sarWorkflowService;
+        this.userRepository = userRepository;
+    }
+
 
     @PostMapping("/create")
     @PreAuthorize("hasAuthority('CREATE_SAR')")

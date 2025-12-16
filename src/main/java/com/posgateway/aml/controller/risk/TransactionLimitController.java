@@ -1,5 +1,8 @@
 package com.posgateway.aml.controller.risk;
 
+
+
+
 import com.posgateway.aml.entity.merchant.Merchant;
 import com.posgateway.aml.repository.MerchantRepository;
 import com.posgateway.aml.service.risk.TransactionLimitService;
@@ -10,12 +13,19 @@ import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+// @RequiredArgsConstructor removed
 @RestController
 @RequestMapping("/api/v1/risk/limits")
 public class TransactionLimitController {
 
     private final TransactionLimitService transactionLimitService;
     private final MerchantRepository merchantRepository;
+
+    public TransactionLimitController(TransactionLimitService transactionLimitService, MerchantRepository merchantRepository) {
+        this.transactionLimitService = transactionLimitService;
+        this.merchantRepository = merchantRepository;
+    }
+
 
     @PutMapping("/merchant/{merchantId}/temporary")
     public ResponseEntity<Void> setTemporaryLimit(

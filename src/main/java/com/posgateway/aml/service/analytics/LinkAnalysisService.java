@@ -1,5 +1,7 @@
 package com.posgateway.aml.service.analytics;
 
+
+
 import com.posgateway.aml.entity.merchant.Merchant;
 import com.posgateway.aml.model.Transaction;
 import com.posgateway.aml.repository.MerchantRepository;
@@ -10,13 +12,18 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-@Service
-
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(@Service.class);
-public class LinkAnalysisService {
+// @RequiredArgsConstructor removed
+@Servicepublic class LinkAnalysisService {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(LinkAnalysisService.class);
 
     private final MerchantRepository merchantRepository;
     private final TransactionRepository transactionRepository;
+
+    public LinkAnalysisService(MerchantRepository merchantRepository, TransactionRepository transactionRepository) {
+        this.merchantRepository = merchantRepository;
+        this.transactionRepository = transactionRepository;
+    }
+
 
     /**
      * Check if the transaction is linked to any previously BLOCKED or TERMINATED

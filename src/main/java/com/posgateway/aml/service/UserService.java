@@ -1,5 +1,7 @@
 package com.posgateway.aml.service;
 
+
+
 import com.posgateway.aml.entity.Role;
 import com.posgateway.aml.entity.User;
 import com.posgateway.aml.entity.psp.Psp;
@@ -11,12 +13,20 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+// @RequiredArgsConstructor removed
 @Service
 public class UserService {
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
+
+    public UserService(UserRepository userRepository, RoleRepository roleRepository, PasswordEncoder passwordEncoder) {
+        this.userRepository = userRepository;
+        this.roleRepository = roleRepository;
+        this.passwordEncoder = passwordEncoder;
+    }
+
 
     public List<User> getUsersByPsp(Psp psp) {
         if (psp == null) {

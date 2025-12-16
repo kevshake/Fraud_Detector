@@ -1,5 +1,7 @@
 package com.posgateway.aml.controller;
 
+
+
 import com.posgateway.aml.entity.AuditLog;
 import com.posgateway.aml.repository.AuditLogRepository;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -14,12 +16,18 @@ import java.util.List;
  * Audit Log Controller
  * Security: Only auditors and admins can access audit logs
  */
+// @RequiredArgsConstructor removed
 @RestController
 @RequestMapping("/api/v1/audit/logs")
 @PreAuthorize("hasAnyRole('ADMIN', 'AUDITOR', 'MLRO')")
 public class AuditLogController {
 
     private final AuditLogRepository auditLogRepository;
+
+    public AuditLogController(AuditLogRepository auditLogRepository) {
+        this.auditLogRepository = auditLogRepository;
+    }
+
 
     @GetMapping("/entity")
     @PreAuthorize("hasAuthority('VIEW_AUDIT_LOGS')")

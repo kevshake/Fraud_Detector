@@ -1,5 +1,9 @@
 package com.posgateway.aml.controller;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+
 import com.posgateway.aml.dto.request.MerchantOnboardingRequest;
 import com.posgateway.aml.dto.request.MerchantUpdateRequest;
 import com.posgateway.aml.dto.response.MerchantOnboardingResponse;
@@ -18,10 +22,13 @@ import org.springframework.web.bind.annotation.*;
  * 
  * Security: Role-based access for merchant operations
  */
+// @Slf4j removed
 @RestController
 @RequestMapping("/merchants")
 @PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'SCREENING_ANALYST')")
 public class MerchantController {
+
+    private static final Logger log = LoggerFactory.getLogger(MerchantController.class);
 
     @Autowired
     private MerchantOnboardingService onboardingService;

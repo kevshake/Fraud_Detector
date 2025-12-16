@@ -31,10 +31,10 @@ import java.util.Map;
  * - Fallback: If Sumsub fails → Aerospike
  * - All results stored in PostgreSQL for audit
  */
+// @RequiredArgsConstructor removed
 @Service
-
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(@Service.class);
 public class AmlScreeningOrchestrator {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AmlScreeningOrchestrator.class);
 
     private final SumsubAmlService sumsubService;
     private final AerospikeSanctionsScreeningService aerospikeService;
@@ -43,6 +43,19 @@ public class AmlScreeningOrchestrator {
     private final ExternalAmlResponseRepository externalResponseRepository;
     private final AuditTrailRepository auditTrailRepository;
     private final ObjectMapper objectMapper;
+
+    public AmlScreeningOrchestrator(SumsubAmlService sumsubService, AerospikeSanctionsScreeningService aerospikeService,
+            MerchantRepository merchantRepository, MerchantScreeningResultRepository screeningResultRepository,
+            ExternalAmlResponseRepository externalResponseRepository, AuditTrailRepository auditTrailRepository,
+            ObjectMapper objectMapper) {
+        this.sumsubService = sumsubService;
+        this.aerospikeService = aerospikeService;
+        this.merchantRepository = merchantRepository;
+        this.screeningResultRepository = screeningResultRepository;
+        this.externalResponseRepository = externalResponseRepository;
+        this.auditTrailRepository = auditTrailRepository;
+        this.objectMapper = objectMapper;
+    }
 
     /**
      * Screen merchant using two-tier strategy

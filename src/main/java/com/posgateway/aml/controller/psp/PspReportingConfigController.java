@@ -1,5 +1,7 @@
 package com.posgateway.aml.controller.psp;
 
+
+
 import com.posgateway.aml.dto.psp.PspReportConfigRequest;
 import com.posgateway.aml.dto.psp.PspReportConfigResponse;
 import com.posgateway.aml.service.psp.PspReportingConfigService;
@@ -7,11 +9,17 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+// @RequiredArgsConstructor removed
 @RestController
 @RequestMapping("/api/v1/psps")
 public class PspReportingConfigController {
 
     private final PspReportingConfigService configService;
+
+    public PspReportingConfigController(PspReportingConfigService configService) {
+        this.configService = configService;
+    }
+
 
     @GetMapping("/{pspId}/report-config")
     @PreAuthorize("hasAnyRole('ADMIN', 'APP_CONTROLLER', 'PSP_ADMIN', 'PSP_USER')")

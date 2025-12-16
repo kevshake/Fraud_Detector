@@ -11,12 +11,18 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 import java.util.List;
 
+// @RequiredArgsConstructor removed
 @RestController
 @RequestMapping("/api/v1/admin/psp")
 public class PspAdminController {
 
     private final PspRepository pspRepository;
     private final PermissionService permissionService;
+
+    public PspAdminController(PspRepository pspRepository, PermissionService permissionService) {
+        this.pspRepository = pspRepository;
+        this.permissionService = permissionService;
+    }
 
     @GetMapping
     public ResponseEntity<List<Psp>> list() {
@@ -105,7 +111,6 @@ public class PspAdminController {
         }
     }
 
-    @Data
     public static class CreatePspRequest {
         private String pspCode;
         private String legalName;
@@ -118,9 +123,99 @@ public class PspAdminController {
         private String logoUrl;
         private String primaryColor;
         private String secondaryColor;
+
+        public CreatePspRequest() {
+        }
+
+        public String getPspCode() {
+            return pspCode;
+        }
+
+        public void setPspCode(String pspCode) {
+            this.pspCode = pspCode;
+        }
+
+        public String getLegalName() {
+            return legalName;
+        }
+
+        public void setLegalName(String legalName) {
+            this.legalName = legalName;
+        }
+
+        public String getTradingName() {
+            return tradingName;
+        }
+
+        public void setTradingName(String tradingName) {
+            this.tradingName = tradingName;
+        }
+
+        public String getCountry() {
+            return country;
+        }
+
+        public void setCountry(String country) {
+            this.country = country;
+        }
+
+        public String getContactEmail() {
+            return contactEmail;
+        }
+
+        public void setContactEmail(String contactEmail) {
+            this.contactEmail = contactEmail;
+        }
+
+        public String getContactPhone() {
+            return contactPhone;
+        }
+
+        public void setContactPhone(String contactPhone) {
+            this.contactPhone = contactPhone;
+        }
+
+        public String getBillingPlan() {
+            return billingPlan;
+        }
+
+        public void setBillingPlan(String billingPlan) {
+            this.billingPlan = billingPlan;
+        }
+
+        public String getBillingCycle() {
+            return billingCycle;
+        }
+
+        public void setBillingCycle(String billingCycle) {
+            this.billingCycle = billingCycle;
+        }
+
+        public String getLogoUrl() {
+            return logoUrl;
+        }
+
+        public void setLogoUrl(String logoUrl) {
+            this.logoUrl = logoUrl;
+        }
+
+        public String getPrimaryColor() {
+            return primaryColor;
+        }
+
+        public void setPrimaryColor(String primaryColor) {
+            this.primaryColor = primaryColor;
+        }
+
+        public String getSecondaryColor() {
+            return secondaryColor;
+        }
+
+        public void setSecondaryColor(String secondaryColor) {
+            this.secondaryColor = secondaryColor;
+        }
     }
 
-    @Data
     public static class ThemeRequest {
         private String logoUrl;
         private String primaryColor;
@@ -131,5 +226,80 @@ public class PspAdminController {
         private String buttonRadius;
         private String buttonStyle;
         private String navStyle;
+
+        public ThemeRequest() {
+        }
+
+        public String getLogoUrl() {
+            return logoUrl;
+        }
+
+        public void setLogoUrl(String logoUrl) {
+            this.logoUrl = logoUrl;
+        }
+
+        public String getPrimaryColor() {
+            return primaryColor;
+        }
+
+        public void setPrimaryColor(String primaryColor) {
+            this.primaryColor = primaryColor;
+        }
+
+        public String getSecondaryColor() {
+            return secondaryColor;
+        }
+
+        public void setSecondaryColor(String secondaryColor) {
+            this.secondaryColor = secondaryColor;
+        }
+
+        public String getAccentColor() {
+            return accentColor;
+        }
+
+        public void setAccentColor(String accentColor) {
+            this.accentColor = accentColor;
+        }
+
+        public String getFontFamily() {
+            return fontFamily;
+        }
+
+        public void setFontFamily(String fontFamily) {
+            this.fontFamily = fontFamily;
+        }
+
+        public String getFontSize() {
+            return fontSize;
+        }
+
+        public void setFontSize(String fontSize) {
+            this.fontSize = fontSize;
+        }
+
+        public String getButtonRadius() {
+            return buttonRadius;
+        }
+
+        public void setButtonRadius(String buttonRadius) {
+            this.buttonRadius = buttonRadius;
+        }
+
+        public String getButtonStyle() {
+            return buttonStyle;
+        }
+
+        public void setButtonStyle(String buttonStyle) {
+            this.buttonStyle = buttonStyle;
+        }
+
+        public String getNavStyle() {
+            return navStyle;
+        }
+
+        public void setNavStyle(String navStyle) {
+            this.navStyle = navStyle;
+        }
     }
 }

@@ -1,5 +1,7 @@
 package com.posgateway.aml.service.document;
 
+
+
 import com.posgateway.aml.entity.merchant.MerchantDocument;
 import com.posgateway.aml.repository.MerchantDocumentRepository;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,12 +18,18 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
+// @RequiredArgsConstructor removed
 @Service
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(@Service.class);
 public class DocumentManagementService {
 
     private final MerchantDocumentRepository documentRepository;
+
+    public DocumentManagementService(MerchantDocumentRepository documentRepository) {
+        this.documentRepository = documentRepository;
+    }
+
 
     @Value("${app.document.upload-dir:./uploads}")
     private String uploadDir;

@@ -1,5 +1,7 @@
 package com.posgateway.aml.service.aml;
 
+
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.posgateway.aml.entity.merchant.Merchant;
@@ -32,6 +34,7 @@ import java.util.List;
  * 
  * Cost: ~$1.85 per check
  */
+// @RequiredArgsConstructor removed
 @Service
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(@Service.class);
@@ -53,7 +56,13 @@ public class SumsubAmlService {
     private double costPerCheck;
 
     private final ObjectMapper objectMapper;
-    private final AerospikeSanctionsScreeningService aerospikeService; // Fallback
+    private final AerospikeSanctionsScreeningService aerospikeService;
+
+    public SumsubAmlService(ObjectMapper objectMapper, AerospikeSanctionsScreeningService aerospikeService) {
+        this.objectMapper = objectMapper;
+        this.aerospikeService = aerospikeService;
+    }
+ // Fallback
 
     /**
      * Screen merchant via Sumsub API

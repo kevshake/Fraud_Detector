@@ -1,5 +1,7 @@
 package com.posgateway.aml.service.analytics;
 
+
+
 import com.posgateway.aml.entity.merchant.BeneficialOwner;
 import com.posgateway.aml.entity.merchant.Merchant;
 import com.posgateway.aml.repository.BeneficialOwnerRepository;
@@ -10,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.*;
 import java.util.stream.Collectors;
 
+// @RequiredArgsConstructor removed
 @Service
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(@Service.class);
@@ -17,6 +20,12 @@ public class CorporateStructureService {
 
     private final BeneficialOwnerRepository beneficialOwnerRepository;
     private final MerchantRepository merchantRepository;
+
+    public CorporateStructureService(BeneficialOwnerRepository beneficialOwnerRepository, MerchantRepository merchantRepository) {
+        this.beneficialOwnerRepository = beneficialOwnerRepository;
+        this.merchantRepository = merchantRepository;
+    }
+
 
     @Transactional(readOnly = true)
     public CorporateGraph buildCorporateGraph(Long merchantId) {

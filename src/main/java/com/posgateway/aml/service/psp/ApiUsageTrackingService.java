@@ -1,5 +1,7 @@
 package com.posgateway.aml.service.psp;
 
+
+
 import com.posgateway.aml.dto.psp.ApiUsageEvent;
 import com.posgateway.aml.entity.User;
 import com.posgateway.aml.entity.psp.ApiUsageLog;
@@ -13,15 +15,22 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 
-@Service
-
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(@Service.class);
-public class ApiUsageTrackingService {
+// @RequiredArgsConstructor removed
+@Servicepublic class ApiUsageTrackingService {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ApiUsageTrackingService.class);
 
     private final ApiUsageLogRepository apiUsageLogRepository;
     private final PspRepository pspRepository;
     private final UserRepository userRepository;
     private final BillingService billingService;
+
+    public ApiUsageTrackingService(ApiUsageLogRepository apiUsageLogRepository, PspRepository pspRepository, UserRepository userRepository, BillingService billingService) {
+        this.apiUsageLogRepository = apiUsageLogRepository;
+        this.pspRepository = pspRepository;
+        this.userRepository = userRepository;
+        this.billingService = billingService;
+    }
+
 
     @Async
     @Transactional

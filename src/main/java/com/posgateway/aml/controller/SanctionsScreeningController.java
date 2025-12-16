@@ -1,5 +1,8 @@
 package com.posgateway.aml.controller;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.posgateway.aml.model.ScreeningResult;
 import com.posgateway.aml.service.aml.AerospikeSanctionsScreeningService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,9 +14,12 @@ import java.time.LocalDate;
 /**
  * REST Controller for direct sanctions screening
  */
+// @Slf4j removed
 @RestController
 @RequestMapping("/sanctions")
 public class SanctionsScreeningController {
+
+    private static final Logger log = LoggerFactory.getLogger(SanctionsScreeningController.class);
 
     @Autowired
     private AerospikeSanctionsScreeningService screeningService;
@@ -90,21 +96,75 @@ public class SanctionsScreeningController {
         return ResponseEntity.ok("Sanctions screening service is healthy");
     }
 
-    @Data
     private static class ScreeningRequest {
         private String name;
         private String entityType; // PERSON, ORGANIZATION, VESSEL
+
+        public ScreeningRequest() {
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public String getEntityType() {
+            return entityType;
+        }
+
+        public void setEntityType(String entityType) {
+            this.entityType = entityType;
+        }
     }
 
-    @Data
     private static class PersonScreeningRequest {
         private String fullName;
         private LocalDate dateOfBirth;
+
+        public PersonScreeningRequest() {
+        }
+
+        public String getFullName() {
+            return fullName;
+        }
+
+        public void setFullName(String fullName) {
+            this.fullName = fullName;
+        }
+
+        public LocalDate getDateOfBirth() {
+            return dateOfBirth;
+        }
+
+        public void setDateOfBirth(LocalDate dateOfBirth) {
+            this.dateOfBirth = dateOfBirth;
+        }
     }
 
-    @Data
     private static class OrganizationScreeningRequest {
         private String legalName;
         private String tradingName;
+
+        public OrganizationScreeningRequest() {
+        }
+
+        public String getLegalName() {
+            return legalName;
+        }
+
+        public void setLegalName(String legalName) {
+            this.legalName = legalName;
+        }
+
+        public String getTradingName() {
+            return tradingName;
+        }
+
+        public void setTradingName(String tradingName) {
+            this.tradingName = tradingName;
+        }
     }
 }

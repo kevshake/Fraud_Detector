@@ -26,9 +26,9 @@ import java.util.List;
  * Used for existing merchants or when Sumsub is unavailable
  */
 @Service
-
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(@Service.class);
 public class AerospikeSanctionsScreeningService {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory
+            .getLogger(AerospikeSanctionsScreeningService.class);
 
     @Autowired
     private AerospikeConnectionService aerospikeService;

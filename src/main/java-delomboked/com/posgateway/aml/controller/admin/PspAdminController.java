@@ -1,5 +1,7 @@
 package com.posgateway.aml.controller.admin;
 
+
+
 import com.posgateway.aml.entity.psp.Psp;
 import com.posgateway.aml.model.Permission;
 
@@ -11,12 +13,19 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 import java.util.List;
 
+// @RequiredArgsConstructor removed
 @RestController
 @RequestMapping("/api/v1/admin/psp")
 public class PspAdminController {
 
     private final PspRepository pspRepository;
     private final PermissionService permissionService;
+
+    public PspAdminController(PspRepository pspRepository, PermissionService permissionService) {
+        this.pspRepository = pspRepository;
+        this.permissionService = permissionService;
+    }
+
 
     @GetMapping
     public ResponseEntity<List<Psp>> list() {

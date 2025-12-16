@@ -7,13 +7,16 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 
+// @RequiredArgsConstructor removed
 @Service
-
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(@Service.class);
-@lombok.extern.slf4j.Slf4j
 public class TransactionLimitService {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(TransactionLimitService.class);
 
     private final com.posgateway.aml.service.notification.NotificationService notificationService;
+
+    public TransactionLimitService(com.posgateway.aml.service.notification.NotificationService notificationService) {
+        this.notificationService = notificationService;
+    }
 
     private static final BigDecimal LIMIT_LOW_RISK = new BigDecimal("100000.00"); // 100k
     private static final BigDecimal LIMIT_MEDIUM_RISK = new BigDecimal("50000.00"); // 50k

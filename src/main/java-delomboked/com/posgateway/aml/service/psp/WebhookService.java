@@ -1,5 +1,7 @@
 package com.posgateway.aml.service.psp;
 
+
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.posgateway.aml.entity.psp.WebhookSubscription;
 import com.posgateway.aml.repository.WebhookSubscriptionRepository;
@@ -10,6 +12,7 @@ import org.springframework.web.client.RestTemplate;
 import java.util.List;
 import java.util.Map;
 
+// @RequiredArgsConstructor removed
 @Service
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(@Service.class);
@@ -18,6 +21,12 @@ public class WebhookService {
     private final WebhookSubscriptionRepository subscriptionRepository;
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper;
+
+    public WebhookService(WebhookSubscriptionRepository subscriptionRepository, ObjectMapper objectMapper) {
+        this.subscriptionRepository = subscriptionRepository;
+        this.objectMapper = objectMapper;
+    }
+
 
     @Async("amlTaskExecutor") // Use our high-throughput pool
     public void sendWebhook(String eventType, Map<String, Object> payload) {

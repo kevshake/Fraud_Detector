@@ -9,12 +9,20 @@ import org.springframework.stereotype.Service;
 import java.util.HashMap;
 import java.util.Map;
 
+// @RequiredArgsConstructor removed
 @Service
 public class SchemeSimulatorService {
 
     private final AerospikeMetricsRepository metricsRepository;
     private final VfmpSimulator vfmpSimulator;
     private final HecmSimulator hecmSimulator;
+
+    public SchemeSimulatorService(AerospikeMetricsRepository metricsRepository, VfmpSimulator vfmpSimulator,
+            HecmSimulator hecmSimulator) {
+        this.metricsRepository = metricsRepository;
+        this.vfmpSimulator = vfmpSimulator;
+        this.hecmSimulator = hecmSimulator;
+    }
 
     /**
      * Assess merchant risk using VFMP and HECM simulators
@@ -32,7 +40,6 @@ public class SchemeSimulatorService {
         return new MerchantRiskAssessment(merchantId, vfmpResult, hecmResult, metrics);
     }
 
-    @Data
     public static class MerchantRiskAssessment {
         private String merchantId;
         private VfmpResult vfmpResult;
@@ -45,6 +52,22 @@ public class SchemeSimulatorService {
             this.vfmpResult = vfmpResult;
             this.hecmResult = hecmResult;
             this.metrics = metrics;
+        }
+
+        public String getMerchantId() {
+            return merchantId;
+        }
+
+        public VfmpResult getVfmpResult() {
+            return vfmpResult;
+        }
+
+        public HecmResult getHecmResult() {
+            return hecmResult;
+        }
+
+        public MerchantMetrics getMetrics() {
+            return metrics;
         }
 
         public static MerchantRiskAssessmentBuilder builder() {

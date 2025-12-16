@@ -1,5 +1,7 @@
 package com.posgateway.aml.service;
 
+
+
 import com.posgateway.aml.dto.TransactionRequestDTO;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
@@ -17,6 +19,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Request Buffering Service
  * Buffers requests for batch processing to handle 30K+ concurrent requests
  */
+// @RequiredArgsConstructor removed
 @Service
 public class RequestBufferingService {
 

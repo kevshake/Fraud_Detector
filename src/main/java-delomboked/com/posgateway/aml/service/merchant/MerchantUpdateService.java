@@ -1,5 +1,7 @@
 package com.posgateway.aml.service.merchant;
 
+
+
 import com.posgateway.aml.dto.request.MerchantUpdateRequest;
 import com.posgateway.aml.entity.compliance.AuditTrail;
 import com.posgateway.aml.entity.merchant.Merchant;
@@ -12,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.HashMap;
 import java.util.Map;
 
+// @RequiredArgsConstructor removed
 @Service
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(@Service.class);
@@ -20,6 +23,13 @@ public class MerchantUpdateService {
     private final MerchantRepository merchantRepository;
     private final AmlScreeningOrchestrator screeningOrchestrator;
     private final AuditTrailRepository auditTrailRepository;
+
+    public MerchantUpdateService(MerchantRepository merchantRepository, AmlScreeningOrchestrator screeningOrchestrator, AuditTrailRepository auditTrailRepository) {
+        this.merchantRepository = merchantRepository;
+        this.screeningOrchestrator = screeningOrchestrator;
+        this.auditTrailRepository = auditTrailRepository;
+    }
+
 
     @Transactional
     public Merchant updateMerchant(Long merchantId, MerchantUpdateRequest request) {

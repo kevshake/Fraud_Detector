@@ -1,5 +1,7 @@
 package com.posgateway.aml.service.risk;
 
+
+
 import com.posgateway.aml.entity.merchant.Merchant;
 import com.posgateway.aml.model.Transaction;
 import com.posgateway.aml.service.risk.rules.RiskRuleDefinitions;
@@ -12,12 +14,16 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
 
-@Service
-
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(@Service.class);
-public class RiskRulesEngine {
+// @RequiredArgsConstructor removed
+@Servicepublic class RiskRulesEngine {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(RiskRulesEngine.class);
 
     private final RiskRuleDefinitions ruleDefinitions;
+
+    public RiskRulesEngine(RiskRuleDefinitions ruleDefinitions) {
+        this.ruleDefinitions = ruleDefinitions;
+    }
+
 
     public List<String> evaluateRisk(Transaction transaction, Merchant merchant) {
         return evaluateRisk(transaction, merchant, new java.util.HashMap<>());

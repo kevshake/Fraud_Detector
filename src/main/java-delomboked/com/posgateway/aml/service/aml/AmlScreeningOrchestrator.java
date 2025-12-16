@@ -1,5 +1,7 @@
 package com.posgateway.aml.service.aml;
 
+
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.posgateway.aml.entity.compliance.AuditTrail;
 import com.posgateway.aml.entity.merchant.BeneficialOwner;
@@ -31,6 +33,7 @@ import java.util.Map;
  * - Fallback: If Sumsub fails → Aerospike
  * - All results stored in PostgreSQL for audit
  */
+// @RequiredArgsConstructor removed
 @Service
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(@Service.class);
@@ -43,6 +46,17 @@ public class AmlScreeningOrchestrator {
     private final ExternalAmlResponseRepository externalResponseRepository;
     private final AuditTrailRepository auditTrailRepository;
     private final ObjectMapper objectMapper;
+
+    public AmlScreeningOrchestrator(SumsubAmlService sumsubService, AerospikeSanctionsScreeningService aerospikeService, MerchantRepository merchantRepository, MerchantScreeningResultRepository screeningResultRepository, ExternalAmlResponseRepository externalResponseRepository, AuditTrailRepository auditTrailRepository, ObjectMapper objectMapper) {
+        this.sumsubService = sumsubService;
+        this.aerospikeService = aerospikeService;
+        this.merchantRepository = merchantRepository;
+        this.screeningResultRepository = screeningResultRepository;
+        this.externalResponseRepository = externalResponseRepository;
+        this.auditTrailRepository = auditTrailRepository;
+        this.objectMapper = objectMapper;
+    }
+
 
     /**
      * Screen merchant using two-tier strategy

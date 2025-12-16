@@ -15,14 +15,21 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+// @RequiredArgsConstructor removed
 @Service
-
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(@Service.class);
 public class WorkflowAutomationService {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(WorkflowAutomationService.class);
 
     private final MerchantRepository merchantRepository;
     private final ComplianceCaseRepository complianceCaseRepository;
     private final NotificationService notificationService;
+
+    public WorkflowAutomationService(MerchantRepository merchantRepository,
+            ComplianceCaseRepository complianceCaseRepository, NotificationService notificationService) {
+        this.merchantRepository = merchantRepository;
+        this.complianceCaseRepository = complianceCaseRepository;
+        this.notificationService = notificationService;
+    }
 
     /**
      * Automate approval for Low Risk merchants
@@ -39,18 +46,22 @@ public class WorkflowAutomationService {
             merchantRepository.save(merchant);
 
             // Close related onboarding case if exists
-            // Finding logic needs update based on new entity structure, simplified for now to fix compile error
-            // List<ComplianceCase> cases = complianceCaseRepository.findByMerchant_MerchantId(merchant.getMerchantId());
+            // Finding logic needs update based on new entity structure, simplified for now
+            // to fix compile error
+            // List<ComplianceCase> cases =
+            // complianceCaseRepository.findByMerchant_MerchantId(merchant.getMerchantId());
             // for (ComplianceCase c : cases) {
-            //    if ("ONBOARDING".equals(c.getCaseType()) && "OPEN".equals(c.getCaseStatus())) {
-            //        c.setStatus(com.posgateway.aml.model.CaseStatus.CLOSED_CLEARED);
-            //        c.setResolution("Auto-approved Low Risk");
-            //        c.setResolvedAt(LocalDateTime.now());
-            //        complianceCaseRepository.save(c);
-            //    }
+            // if ("ONBOARDING".equals(c.getCaseType()) && "OPEN".equals(c.getCaseStatus()))
+            // {
+            // c.setStatus(com.posgateway.aml.model.CaseStatus.CLOSED_CLEARED);
+            // c.setResolution("Auto-approved Low Risk");
+            // c.setResolvedAt(LocalDateTime.now());
+            // complianceCaseRepository.save(c);
             // }
-            
-            // Placeholder: Log action as we can't easily find cases by merchant anymore with new schema
+            // }
+
+            // Placeholder: Log action as we can't easily find cases by merchant anymore
+            // with new schema
             log.info("Auto-approved merchant {}", merchant.getMerchantId());
 
             notificationService.sendEmail(merchant.getContactEmail(), "Welcome to POS Gateway",
@@ -64,7 +75,8 @@ public class WorkflowAutomationService {
     @Async
     @Transactional
     public void autoAssignCase(ComplianceCase complianceCase) {
-        if (complianceCase.getStatus() == com.posgateway.aml.model.CaseStatus.NEW && complianceCase.getAssignedTo() == null) {
+        if (complianceCase.getStatus() == com.posgateway.aml.model.CaseStatus.NEW
+                && complianceCase.getAssignedTo() == null) {
             // Determine assignee logic here (requires User entity lookup)
             // For now, log the action
             log.info("🤖 Auto-assignment needed for Case {}", complianceCase.getId());
@@ -75,7 +87,8 @@ public class WorkflowAutomationService {
     private String determineAssignee(ComplianceCase c) {
         // Mock logic: Assign based on priority
         // Adapted to new Enum
-        if (c.getPriority() == com.posgateway.aml.model.CasePriority.CRITICAL || c.getPriority() == com.posgateway.aml.model.CasePriority.HIGH) {
+        if (c.getPriority() == com.posgateway.aml.model.CasePriority.CRITICAL
+                || c.getPriority() == com.posgateway.aml.model.CasePriority.HIGH) {
             return "senior_officer";
         }
         return "junior_officer";

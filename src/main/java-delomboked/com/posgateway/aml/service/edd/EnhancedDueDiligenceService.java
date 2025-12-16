@@ -1,5 +1,7 @@
 package com.posgateway.aml.service.edd;
 
+
+
 import com.posgateway.aml.entity.merchant.Merchant;
 import com.posgateway.aml.repository.MerchantRepository;
 import org.springframework.stereotype.Service;
@@ -8,12 +10,18 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+// @RequiredArgsConstructor removed
 @Service
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(@Service.class);
 public class EnhancedDueDiligenceService {
 
     private final MerchantRepository merchantRepository;
+
+    public EnhancedDueDiligenceService(MerchantRepository merchantRepository) {
+        this.merchantRepository = merchantRepository;
+    }
+
 
     // In-memory store for demo purposes. In prod, use a DB table 'edd_requests'
     private final Map<Long, EddStatus> eddTracking = new ConcurrentHashMap<>();

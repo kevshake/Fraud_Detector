@@ -1,5 +1,11 @@
 package com.posgateway.aml.controller;
 
+
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+
 import com.posgateway.aml.entity.compliance.ComplianceCase;
 import com.posgateway.aml.model.CaseStatus;
 import com.posgateway.aml.repository.ComplianceCaseRepository;
@@ -17,12 +23,21 @@ import java.util.Map;
  * 
  * Security: All endpoints require authentication + specific role/permission
  */
+// @Slf4j removed
+// @RequiredArgsConstructor removed
 @RestController
 @RequestMapping("/api/v1/compliance/cases")
 @PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'INVESTIGATOR', 'CASE_MANAGER', 'AUDITOR')")
 public class ComplianceCaseController {
 
+    private static final Logger log = LoggerFactory.getLogger(ComplianceCaseController.class);
+
     private final ComplianceCaseRepository complianceCaseRepository;
+
+    public ComplianceCaseController(ComplianceCaseRepository complianceCaseRepository) {
+        this.complianceCaseRepository = complianceCaseRepository;
+    }
+
 
     /**
      * Get all compliance cases

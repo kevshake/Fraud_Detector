@@ -1,5 +1,7 @@
 package com.posgateway.aml.controller.document;
 
+
+
 import com.posgateway.aml.entity.merchant.MerchantDocument;
 import com.posgateway.aml.service.document.DocumentManagementService;
 import org.springframework.http.ResponseEntity;
@@ -8,11 +10,17 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.util.List;
 
+// @RequiredArgsConstructor removed
 @RestController
 @RequestMapping("/api/v1")
 public class DocumentController {
 
     private final DocumentManagementService documentService;
+
+    public DocumentController(DocumentManagementService documentService) {
+        this.documentService = documentService;
+    }
+
 
     @PostMapping("/merchants/{merchantId}/documents")
     public ResponseEntity<MerchantDocument> uploadDocument(

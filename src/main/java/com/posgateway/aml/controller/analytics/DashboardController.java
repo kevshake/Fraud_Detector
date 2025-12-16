@@ -1,5 +1,7 @@
 package com.posgateway.aml.controller.analytics;
 
+
+
 import com.posgateway.aml.repository.ComplianceCaseRepository;
 import com.posgateway.aml.repository.MerchantRepository;
 import org.springframework.http.ResponseEntity;
@@ -13,12 +15,19 @@ import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.Map;
 
+// @RequiredArgsConstructor removed
 @RestController
 @RequestMapping("/api/v1/dashboard")
 public class DashboardController {
 
     private final MerchantRepository merchantRepository;
     private final ComplianceCaseRepository caseRepository;
+
+    public DashboardController(MerchantRepository merchantRepository, ComplianceCaseRepository caseRepository) {
+        this.merchantRepository = merchantRepository;
+        this.caseRepository = caseRepository;
+    }
+
     private final com.posgateway.aml.repository.UserRepository userRepository;
 
     private com.posgateway.aml.entity.User getCurrentUser() {

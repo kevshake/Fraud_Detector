@@ -1,5 +1,7 @@
 package com.posgateway.aml.service;
 
+
+
 import com.posgateway.aml.entity.Role;
 import com.posgateway.aml.entity.psp.Psp;
 import com.posgateway.aml.model.Permission;
@@ -12,10 +14,16 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Set;
 
+// @RequiredArgsConstructor removed
 @Service
 public class RoleService {
 
     private final RoleRepository roleRepository;
+
+    public RoleService(RoleRepository roleRepository) {
+        this.roleRepository = roleRepository;
+    }
+
 
     public List<Role> getRolesForPsp(Psp psp) {
         return roleRepository.findByPspIsNullOrPsp(psp);

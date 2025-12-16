@@ -1,15 +1,30 @@
 package com.posgateway.aml.controller.compliance;
 
+
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+
 import com.posgateway.aml.service.analytics.CorporateStructureService;
 import com.posgateway.aml.service.analytics.CorporateStructureService.CorporateGraph;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+// @Slf4j removed
+// @RequiredArgsConstructor removed
 @RestController
 @RequestMapping("/api/v1/compliance/kyc")
 public class KycReportController {
 
+    private static final Logger log = LoggerFactory.getLogger(KycReportController.class);
+
     private final CorporateStructureService corporateStructureService;
+
+    public KycReportController(CorporateStructureService corporateStructureService) {
+        this.corporateStructureService = corporateStructureService;
+    }
+
 
     /**
      * Get Corporate Structure Graph

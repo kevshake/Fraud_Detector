@@ -1,5 +1,7 @@
 package com.posgateway.aml.service.monitoring;
 
+
+
 import com.posgateway.aml.entity.merchant.Merchant;
 import com.posgateway.aml.repository.MerchantRepository;
 import com.posgateway.aml.service.case_management.ComplianceCaseService;
@@ -11,13 +13,18 @@ import org.springframework.web.client.RestTemplate;
 import java.util.Arrays;
 import java.util.List;
 
-@Service
-
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(@Service.class);
-public class ContentMonitoringService {
+// @RequiredArgsConstructor removed
+@Servicepublic class ContentMonitoringService {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ContentMonitoringService.class);
 
     private final MerchantRepository merchantRepository;
     private final ComplianceCaseService caseService;
+
+    public ContentMonitoringService(MerchantRepository merchantRepository, ComplianceCaseService caseService) {
+        this.merchantRepository = merchantRepository;
+        this.caseService = caseService;
+    }
+
     private final RestTemplate restTemplate = new RestTemplate();
 
     @Value("${g2.monitoring.enabled:true}")

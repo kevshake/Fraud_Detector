@@ -10,10 +10,8 @@ import java.util.Map;
 /**
  * Service to send notifications to Slack via Webhooks
  */
-@Service
-
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(@Service.class);
-public class SlackService {
+@Servicepublic class SlackService {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(SlackService.class);
 
     @Value("${slack.webhook.url:}")
     private String webhookUrl;

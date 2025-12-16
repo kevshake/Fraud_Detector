@@ -1,5 +1,11 @@
 package com.posgateway.aml.controller;
 
+
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+
 import com.posgateway.aml.dto.compliance.CreateSarRequest;
 import com.posgateway.aml.dto.compliance.SarResponse;
 import com.posgateway.aml.dto.compliance.UpdateSarRequest;
@@ -9,11 +15,20 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+// @Slf4j removed
+// @RequiredArgsConstructor removed
 @RestController
 @RequestMapping("/api/v1/compliance/sar")
 public class ComplianceReportingController {
 
+    private static final Logger log = LoggerFactory.getLogger(ComplianceReportingController.class);
+
     private final ComplianceReportingService reportingService;
+
+    public ComplianceReportingController(ComplianceReportingService reportingService) {
+        this.reportingService = reportingService;
+    }
+
 
     @PostMapping
     public ResponseEntity<SarResponse> createSar(@RequestBody CreateSarRequest request) {

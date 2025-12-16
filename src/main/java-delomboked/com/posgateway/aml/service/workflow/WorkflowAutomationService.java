@@ -1,5 +1,7 @@
 package com.posgateway.aml.service.workflow;
 
+
+
 import com.posgateway.aml.entity.compliance.ComplianceCase;
 import com.posgateway.aml.entity.merchant.Merchant;
 import com.posgateway.aml.model.RiskLevel;
@@ -15,6 +17,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+// @RequiredArgsConstructor removed
 @Service
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(@Service.class);
@@ -23,6 +26,13 @@ public class WorkflowAutomationService {
     private final MerchantRepository merchantRepository;
     private final ComplianceCaseRepository complianceCaseRepository;
     private final NotificationService notificationService;
+
+    public WorkflowAutomationService(MerchantRepository merchantRepository, ComplianceCaseRepository complianceCaseRepository, NotificationService notificationService) {
+        this.merchantRepository = merchantRepository;
+        this.complianceCaseRepository = complianceCaseRepository;
+        this.notificationService = notificationService;
+    }
+
 
     /**
      * Automate approval for Low Risk merchants

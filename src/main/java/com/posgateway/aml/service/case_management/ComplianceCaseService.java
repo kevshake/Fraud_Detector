@@ -1,5 +1,7 @@
 package com.posgateway.aml.service.case_management;
 
+
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.posgateway.aml.entity.compliance.ComplianceCase;
@@ -12,12 +14,16 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-@Service
-
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(@Service.class);
-public class ComplianceCaseService {
+// @RequiredArgsConstructor removed
+@Servicepublic class ComplianceCaseService {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ComplianceCaseService.class);
 
     private final ComplianceCaseRepository caseRepository;
+
+    public ComplianceCaseService(ComplianceCaseRepository caseRepository) {
+        this.caseRepository = caseRepository;
+    }
+
 
     @Transactional
     public ComplianceCase createCase(String description) {

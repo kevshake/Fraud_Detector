@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Set;
 
+// @RequiredArgsConstructor removed
 @RestController
 @RequestMapping("/api/v1/roles")
 public class RoleController {
@@ -21,6 +22,12 @@ public class RoleController {
     private final RoleService roleService;
     private final PermissionService permissionService;
     private final PspRepository pspRepository;
+
+    public RoleController(RoleService roleService, PermissionService permissionService, PspRepository pspRepository) {
+        this.roleService = roleService;
+        this.permissionService = permissionService;
+        this.pspRepository = pspRepository;
+    }
 
     @GetMapping
     public ResponseEntity<List<Role>> listRoles(@AuthenticationPrincipal User currentUser,
@@ -70,11 +77,45 @@ public class RoleController {
                 .ok(roleService.createRole(req.getName(), req.getDescription(), targetPsp, req.getPermissions()));
     }
 
-    @Data
     public static class CreateRoleRequest {
         private String name;
         private String description;
         private Long pspId;
         private Set<Permission> permissions;
+
+        public CreateRoleRequest() {
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public String getDescription() {
+            return description;
+        }
+
+        public void setDescription(String description) {
+            this.description = description;
+        }
+
+        public Long getPspId() {
+            return pspId;
+        }
+
+        public void setPspId(Long pspId) {
+            this.pspId = pspId;
+        }
+
+        public Set<Permission> getPermissions() {
+            return permissions;
+        }
+
+        public void setPermissions(Set<Permission> permissions) {
+            this.permissions = permissions;
+        }
     }
 }

@@ -13,10 +13,8 @@ import org.springframework.stereotype.Service;
  * 2. Calculate exact similarity (Levenshtein Distance) for precise scoring
  * 3. Combined approach provides both speed and accuracy
  */
-@Service
-
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(@Service.class);
-public class NameMatchingService {
+@Servicepublic class NameMatchingService {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(NameMatchingService.class);
 
     private final DoubleMetaphone doubleMetaphone;
     private final LevenshteinDistance levenshteinDistance;

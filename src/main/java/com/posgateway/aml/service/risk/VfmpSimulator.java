@@ -10,6 +10,7 @@ import java.util.Map;
  * Visa VFMP Simulator
  * Rules engine for Visa Fraud Monitoring Program
  */
+// @RequiredArgsConstructor removed
 @Service
 public class VfmpSimulator {
 

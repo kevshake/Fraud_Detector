@@ -1,5 +1,7 @@
 package com.posgateway.aml.service.risk;
 
+
+
 import com.posgateway.aml.entity.merchant.Merchant;
 import com.posgateway.aml.model.RiskLevel;
 // actually we use RiskAssessmentService usually, but let's stick to simple logic for now
@@ -7,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 
+// @RequiredArgsConstructor removed
 @Service
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(@Service.class);

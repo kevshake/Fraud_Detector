@@ -1,5 +1,7 @@
 package com.posgateway.aml.service;
 
+
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,6 +18,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * Automatically detects if the server and client support HTTP/2
  * Checks hardware/software capabilities and determines best protocol
  */
+// @RequiredArgsConstructor removed
 @Service
 public class Http2DetectionService {
 

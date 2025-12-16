@@ -1,5 +1,7 @@
 package com.posgateway.aml.service.psp;
 
+
+
 import com.posgateway.aml.entity.psp.Psp;
 import com.posgateway.aml.repository.PspRepository;
 import org.springframework.stereotype.Service;
@@ -13,12 +15,16 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Service to handle PSP rate limiting/quotas.
  * Implements a simple fixed-window rate limiter (per minute).
  */
-@Service
-
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(@Service.class);
-public class QuotaService {
+// @RequiredArgsConstructor removed
+@Servicepublic class QuotaService {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(QuotaService.class);
 
     private final PspRepository pspRepository;
+
+    public QuotaService(PspRepository pspRepository) {
+        this.pspRepository = pspRepository;
+    }
+
 
     // key: pspCode, value: RequestCounter
     private final Map<String, RequestCounter> limits = new ConcurrentHashMap<>();

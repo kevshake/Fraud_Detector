@@ -20,10 +20,8 @@ import java.util.List;
  * Periodic Rescreening Service
  * Automatically rescreens active merchants weekly (every 7 days)
  */
-@Service
-
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(@Service.class);
-public class PeriodicRescreeningService {
+@Servicepublic class PeriodicRescreeningService {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(PeriodicRescreeningService.class);
 
     @Autowired
     private MerchantRepository merchantRepository;

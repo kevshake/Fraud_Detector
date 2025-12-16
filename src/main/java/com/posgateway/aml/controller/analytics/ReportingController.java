@@ -1,5 +1,7 @@
 package com.posgateway.aml.controller.analytics;
 
+
+
 import com.posgateway.aml.model.CaseStatus;
 import com.posgateway.aml.model.SarStatus;
 import com.posgateway.aml.service.ReportingService;
@@ -11,11 +13,17 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
 
+// @RequiredArgsConstructor removed
 @RestController
 @RequestMapping("/api/v1/reporting")
 public class ReportingController {
 
     private final ReportingService reportingService;
+
+    public ReportingController(ReportingService reportingService) {
+        this.reportingService = reportingService;
+    }
+
 
     @GetMapping("/summary")
     public ResponseEntity<Map<String, Object>> summary() {

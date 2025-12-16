@@ -1,5 +1,7 @@
 package com.posgateway.aml.service.risk;
 
+
+
 import com.posgateway.aml.model.MerchantMetrics;
 import org.springframework.stereotype.Service;
 
@@ -10,6 +12,7 @@ import java.util.Map;
  * Mastercard HECM Simulator
  * Rules engine for High Excessive Chargeback Merchant program
  */
+// @RequiredArgsConstructor removed
 @Service
 public class HecmSimulator {
 
@@ -54,6 +57,13 @@ public class HecmSimulator {
         private final HecmStage stage;
         private final double ratio;
         private final long count;
+
+    public HecmSimulator(HecmStage stage, double ratio, long count) {
+        this.stage = stage;
+        this.ratio = ratio;
+        this.count = count;
+    }
+
 
         public HecmResult(HecmStage stage, double ratio, long count) {
             this.stage = stage;

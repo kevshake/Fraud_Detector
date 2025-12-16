@@ -1,5 +1,7 @@
 package com.posgateway.aml.service.psp;
 
+
+
 import com.posgateway.aml.dto.psp.PspReportConfigRequest;
 import com.posgateway.aml.dto.psp.PspReportConfigResponse;
 import com.posgateway.aml.entity.User;
@@ -14,12 +16,20 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+// @RequiredArgsConstructor removed
 @Service
 public class PspReportingConfigService {
 
     private final PspReportConfigRepository configRepository;
     private final PspRepository pspRepository;
     private final UserRepository userRepository;
+
+    public PspReportingConfigService(PspReportConfigRepository configRepository, PspRepository pspRepository, UserRepository userRepository) {
+        this.configRepository = configRepository;
+        this.pspRepository = pspRepository;
+        this.userRepository = userRepository;
+    }
+
 
     private User getCurrentUser() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();

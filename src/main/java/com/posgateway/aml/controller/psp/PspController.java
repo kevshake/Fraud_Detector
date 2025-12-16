@@ -1,5 +1,11 @@
 package com.posgateway.aml.controller.psp;
 
+
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+
 import com.posgateway.aml.entity.User;
 import com.posgateway.aml.dto.psp.PspLoginRequest;
 import com.posgateway.aml.dto.psp.PspRegistrationRequest;
@@ -15,12 +21,22 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Optional;
 
+// @Slf4j removed
+// @RequiredArgsConstructor removed
 @RestController
 @RequestMapping("/api/v1/psps")
 public class PspController {
 
+    private static final Logger log = LoggerFactory.getLogger(PspController.class);
+
     private final PspService pspService;
     private final PspMapper pspMapper;
+
+    public PspController(PspService pspService, PspMapper pspMapper) {
+        this.pspService = pspService;
+        this.pspMapper = pspMapper;
+    }
+
 
     @PostMapping
     public ResponseEntity<PspResponse> registerPsp(@RequestBody PspRegistrationRequest request) {

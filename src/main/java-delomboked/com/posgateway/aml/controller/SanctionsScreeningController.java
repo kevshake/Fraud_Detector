@@ -1,5 +1,9 @@
 package com.posgateway.aml.controller;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+
 import com.posgateway.aml.model.ScreeningResult;
 import com.posgateway.aml.service.aml.AerospikeSanctionsScreeningService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,9 +15,12 @@ import java.time.LocalDate;
 /**
  * REST Controller for direct sanctions screening
  */
+// @Slf4j removed
 @RestController
 @RequestMapping("/sanctions")
 public class SanctionsScreeningController {
+
+    private static final Logger log = LoggerFactory.getLogger(SanctionsScreeningController.class);
 
     @Autowired
     private AerospikeSanctionsScreeningService screeningService;

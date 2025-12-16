@@ -1,5 +1,7 @@
 package com.posgateway.aml.service;
 
+
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -12,6 +14,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * Request Rate Limiter
  * Tracks and limits request rate for backpressure handling
  */
+// @RequiredArgsConstructor removed
 @Service
 public class RequestRateLimiter {
 

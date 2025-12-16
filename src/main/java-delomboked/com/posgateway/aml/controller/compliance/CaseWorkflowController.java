@@ -1,5 +1,7 @@
 package com.posgateway.aml.controller.compliance;
 
+
+
 import com.posgateway.aml.entity.User;
 import com.posgateway.aml.entity.compliance.ComplianceCase;
 import com.posgateway.aml.model.CasePriority;
@@ -12,12 +14,19 @@ import org.springframework.web.bind.annotation.*;
 /**
  * REST Controller for Compliance Case Workflow
  */
+// @RequiredArgsConstructor removed
 @RestController
 @RequestMapping("/api/v1/compliance/cases/workflow")
 public class CaseWorkflowController {
 
     private final CaseWorkflowService caseWorkflowService;
     private final UserRepository userRepository;
+
+    public CaseWorkflowController(CaseWorkflowService caseWorkflowService, UserRepository userRepository) {
+        this.caseWorkflowService = caseWorkflowService;
+        this.userRepository = userRepository;
+    }
+
 
     @PostMapping("/create")
     public ResponseEntity<ComplianceCase> createCase(@RequestBody CreateCaseRequest request) {

@@ -1,5 +1,8 @@
 package com.posgateway.aml.service;
 
+
+
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.posgateway.aml.entity.TransactionEntity;
 import com.posgateway.aml.repository.TransactionRepository;
@@ -20,6 +23,7 @@ import java.util.List;
  * High-throughput batch processing for transaction ingestion
  * Uses batch inserts for maximum performance
  */
+// @RequiredArgsConstructor removed
 @Service
 public class BatchTransactionIngestionService {
 
@@ -27,6 +31,12 @@ public class BatchTransactionIngestionService {
 
     private final TransactionRepository transactionRepository;
     private final ObjectMapper objectMapper;
+
+    public BatchTransactionIngestionService(TransactionRepository transactionRepository, ObjectMapper objectMapper) {
+        this.transactionRepository = transactionRepository;
+        this.objectMapper = objectMapper;
+    }
+
 
     @Value("${throughput.batch.size:100}")
     private int batchSize;

@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+// @RequiredArgsConstructor removed
 @RestController
 @RequestMapping("/api/v1/users")
 public class UserController {
@@ -19,6 +20,12 @@ public class UserController {
     private final UserService userService;
     private final PermissionService permissionService;
     private final PspRepository pspRepository;
+
+    public UserController(UserService userService, PermissionService permissionService, PspRepository pspRepository) {
+        this.userService = userService;
+        this.permissionService = permissionService;
+        this.pspRepository = pspRepository;
+    }
 
     @GetMapping
     public ResponseEntity<List<User>> listUsers(@AuthenticationPrincipal User currentUser,
@@ -79,7 +86,6 @@ public class UserController {
         return ResponseEntity.ok(userService.createUser(newUser, req.getRoleId(), targetPsp));
     }
 
-    @Data
     public static class CreateUserRequest {
         private String username;
         private String email;
@@ -88,5 +94,64 @@ public class UserController {
         private String password;
         private Long roleId;
         private Long pspId;
+
+        public CreateUserRequest() {
+        }
+
+        public String getUsername() {
+            return username;
+        }
+
+        public void setUsername(String username) {
+            this.username = username;
+        }
+
+        public String getEmail() {
+            return email;
+        }
+
+        public void setEmail(String email) {
+            this.email = email;
+        }
+
+        public String getFirstName() {
+            return firstName;
+        }
+
+        public void setFirstName(String firstName) {
+            this.firstName = firstName;
+        }
+
+        public String getLastName() {
+            return lastName;
+        }
+
+        public void setLastName(String lastName) {
+            this.lastName = lastName;
+        }
+
+        public String getPassword() {
+            return password;
+        }
+
+        public void setPassword(String password) {
+            this.password = password;
+        }
+
+        public Long getRoleId() {
+            return roleId;
+        }
+
+        public void setRoleId(Long roleId) {
+            this.roleId = roleId;
+        }
+
+        public Long getPspId() {
+            return pspId;
+        }
+
+        public void setPspId(Long pspId) {
+            this.pspId = pspId;
+        }
     }
 }

@@ -1,5 +1,8 @@
 package com.posgateway.aml.controller;
 
+
+
+
 import com.posgateway.aml.entity.Role;
 import com.posgateway.aml.entity.User;
 import com.posgateway.aml.entity.psp.Psp;
@@ -14,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Set;
 
+// @RequiredArgsConstructor removed
 @RestController
 @RequestMapping("/api/v1/roles")
 public class RoleController {
@@ -21,6 +25,13 @@ public class RoleController {
     private final RoleService roleService;
     private final PermissionService permissionService;
     private final PspRepository pspRepository;
+
+    public RoleController(RoleService roleService, PermissionService permissionService, PspRepository pspRepository) {
+        this.roleService = roleService;
+        this.permissionService = permissionService;
+        this.pspRepository = pspRepository;
+    }
+
 
     @GetMapping
     public ResponseEntity<List<Role>> listRoles(@AuthenticationPrincipal User currentUser,

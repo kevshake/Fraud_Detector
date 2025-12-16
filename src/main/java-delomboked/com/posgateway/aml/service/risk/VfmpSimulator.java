@@ -1,5 +1,7 @@
 package com.posgateway.aml.service.risk;
 
+
+
 import com.posgateway.aml.model.MerchantMetrics;
 import org.springframework.stereotype.Service;
 
@@ -10,6 +12,7 @@ import java.util.Map;
  * Visa VFMP Simulator
  * Rules engine for Visa Fraud Monitoring Program
  */
+// @RequiredArgsConstructor removed
 @Service
 public class VfmpSimulator {
 
@@ -59,6 +62,13 @@ public class VfmpSimulator {
         private final VfmpStage stage;
         private final double fraudRate;
         private final long fraudVolume;
+
+    public VfmpSimulator(VfmpStage stage, double fraudRate, long fraudVolume) {
+        this.stage = stage;
+        this.fraudRate = fraudRate;
+        this.fraudVolume = fraudVolume;
+    }
+
 
         public VfmpResult(VfmpStage stage, double fraudRate, long fraudVolume) {
             this.stage = stage;

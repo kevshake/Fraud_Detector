@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
  * - APPROVE_SAR: MLRO only
  * - FILE_SAR: MLRO only
  */
+// @RequiredArgsConstructor removed
 @RestController
 @RequestMapping("/api/v1/compliance/sar/workflow")
 @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'INVESTIGATOR')")
@@ -24,6 +25,11 @@ public class SarWorkflowController {
 
     private final SarWorkflowService sarWorkflowService;
     private final UserRepository userRepository;
+
+    public SarWorkflowController(SarWorkflowService sarWorkflowService, UserRepository userRepository) {
+        this.sarWorkflowService = sarWorkflowService;
+        this.userRepository = userRepository;
+    }
 
     @PostMapping("/create")
     @PreAuthorize("hasAuthority('CREATE_SAR')")
@@ -78,7 +84,6 @@ public class SarWorkflowController {
                 .orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
     }
 
-    @Data
     public static class CreateSarRequest {
         private String sarReference;
         private String narrative;
@@ -86,25 +91,146 @@ public class SarWorkflowController {
         private String jurisdiction;
         private com.posgateway.aml.model.SarType sarType = com.posgateway.aml.model.SarType.INITIAL;
         private Long creatorUserId;
+
+        public CreateSarRequest() {
+        }
+
+        public String getSarReference() {
+            return sarReference;
+        }
+
+        public void setSarReference(String sarReference) {
+            this.sarReference = sarReference;
+        }
+
+        public String getNarrative() {
+            return narrative;
+        }
+
+        public void setNarrative(String narrative) {
+            this.narrative = narrative;
+        }
+
+        public String getSuspiciousActivityType() {
+            return suspiciousActivityType;
+        }
+
+        public void setSuspiciousActivityType(String suspiciousActivityType) {
+            this.suspiciousActivityType = suspiciousActivityType;
+        }
+
+        public String getJurisdiction() {
+            return jurisdiction;
+        }
+
+        public void setJurisdiction(String jurisdiction) {
+            this.jurisdiction = jurisdiction;
+        }
+
+        public com.posgateway.aml.model.SarType getSarType() {
+            return sarType;
+        }
+
+        public void setSarType(com.posgateway.aml.model.SarType sarType) {
+            this.sarType = sarType;
+        }
+
+        public Long getCreatorUserId() {
+            return creatorUserId;
+        }
+
+        public void setCreatorUserId(Long creatorUserId) {
+            this.creatorUserId = creatorUserId;
+        }
     }
 
-    @Data
     public static class IdRequest {
         private Long sarId;
         private Long userId;
+
+        public IdRequest() {
+        }
+
+        public Long getSarId() {
+            return sarId;
+        }
+
+        public void setSarId(Long sarId) {
+            this.sarId = sarId;
+        }
+
+        public Long getUserId() {
+            return userId;
+        }
+
+        public void setUserId(Long userId) {
+            this.userId = userId;
+        }
     }
 
-    @Data
     public static class RejectRequest {
         private Long sarId;
         private Long userId;
         private String reason;
+
+        public RejectRequest() {
+        }
+
+        public Long getSarId() {
+            return sarId;
+        }
+
+        public void setSarId(Long sarId) {
+            this.sarId = sarId;
+        }
+
+        public Long getUserId() {
+            return userId;
+        }
+
+        public void setUserId(Long userId) {
+            this.userId = userId;
+        }
+
+        public String getReason() {
+            return reason;
+        }
+
+        public void setReason(String reason) {
+            this.reason = reason;
+        }
     }
 
-    @Data
     public static class FileSarRequest {
         private Long sarId;
         private Long userId;
         private String filingReference;
+
+        public FileSarRequest() {
+        }
+
+        public Long getSarId() {
+            return sarId;
+        }
+
+        public void setSarId(Long sarId) {
+            this.sarId = sarId;
+        }
+
+        public Long getUserId() {
+            return userId;
+        }
+
+        public void setUserId(Long userId) {
+            this.userId = userId;
+        }
+
+        public String getFilingReference() {
+            return filingReference;
+        }
+
+        public void setFilingReference(String filingReference) {
+            this.filingReference = filingReference;
+        }
     }
 }

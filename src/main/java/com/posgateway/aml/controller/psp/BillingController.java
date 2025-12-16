@@ -1,5 +1,11 @@
 package com.posgateway.aml.controller.psp;
 
+
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+
 import com.posgateway.aml.dto.psp.InvoiceGenerationRequest;
 import com.posgateway.aml.dto.psp.InvoiceResponse;
 import com.posgateway.aml.entity.psp.BillingRate;
@@ -12,12 +18,22 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.util.Optional;
 
+// @Slf4j removed
+// @RequiredArgsConstructor removed
 @RestController
 @RequestMapping("/api/v1/billing")
 public class BillingController {
 
+    private static final Logger log = LoggerFactory.getLogger(BillingController.class);
+
     private final BillingService billingService;
     private final InvoiceMapper invoiceMapper;
+
+    public BillingController(BillingService billingService, InvoiceMapper invoiceMapper) {
+        this.billingService = billingService;
+        this.invoiceMapper = invoiceMapper;
+    }
+
 
     @GetMapping("/rates")
     public ResponseEntity<BillingRate> getRate(@RequestParam Long pspId, @RequestParam String serviceType) {

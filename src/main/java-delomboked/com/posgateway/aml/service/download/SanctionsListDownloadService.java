@@ -1,5 +1,7 @@
 package com.posgateway.aml.service.download;
 
+
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.posgateway.aml.service.sanctions.NameMatchingService;
@@ -25,6 +27,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * Downloads sanctions data from OpenSanctions daily and loads into Aerospike
  * Improved with Retry logic and Stale Data Monitoring
  */
+// @RequiredArgsConstructor removed
 @Service
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(@Service.class);
@@ -34,6 +37,13 @@ public class SanctionsListDownloadService {
     private final com.posgateway.aml.service.AerospikeConnectionService aerospikeService;
     private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate;
+
+    public SanctionsListDownloadService(NameMatchingService nameMatchingService, ObjectMapper objectMapper, RestTemplate restTemplate) {
+        this.nameMatchingService = nameMatchingService;
+        this.objectMapper = objectMapper;
+        this.restTemplate = restTemplate;
+    }
+
 
     @Value("${sanctions.download.enabled:true}")
     private boolean downloadEnabled;

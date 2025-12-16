@@ -1,5 +1,7 @@
 package com.posgateway.aml.service.psp;
 
+
+
 import com.posgateway.aml.entity.psp.BillingRate;
 import com.posgateway.aml.entity.psp.Invoice;
 import com.posgateway.aml.entity.psp.InvoiceLineItem;
@@ -16,6 +18,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+// @RequiredArgsConstructor removed
 @Service
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(@Service.class);
@@ -25,6 +28,14 @@ public class BillingService {
     private final InvoiceRepository invoiceRepository;
     private final PspRepository pspRepository;
     private final ApiUsageLogRepository apiUsageLogRepository;
+
+    public BillingService(BillingRateRepository billingRateRepository, InvoiceRepository invoiceRepository, PspRepository pspRepository, ApiUsageLogRepository apiUsageLogRepository) {
+        this.billingRateRepository = billingRateRepository;
+        this.invoiceRepository = invoiceRepository;
+        this.pspRepository = pspRepository;
+        this.apiUsageLogRepository = apiUsageLogRepository;
+    }
+
 
     @Transactional(readOnly = true)
     public Optional<BillingRate> getEffectiveRate(Long pspId, String serviceType) {

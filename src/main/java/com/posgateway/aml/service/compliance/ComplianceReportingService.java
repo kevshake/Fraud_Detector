@@ -16,10 +16,8 @@ import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.UUID;
 
-@Service
-
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(@Service.class);
-public class ComplianceReportingService {
+@Servicepublic class ComplianceReportingService {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ComplianceReportingService.class);
 
     private final SuspiciousActivityReportRepository sarRepository;
     private final ObjectMapper objectMapper;

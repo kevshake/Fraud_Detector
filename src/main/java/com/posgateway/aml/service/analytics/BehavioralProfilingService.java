@@ -1,5 +1,7 @@
 package com.posgateway.aml.service.analytics;
 
+
+
 import com.posgateway.aml.model.Transaction;
 import com.posgateway.aml.repository.TransactionRepository;
 import org.springframework.stereotype.Service;
@@ -7,12 +9,16 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-@Service
-
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(@Service.class);
-public class BehavioralProfilingService {
+// @RequiredArgsConstructor removed
+@Servicepublic class BehavioralProfilingService {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(BehavioralProfilingService.class);
 
     private final TransactionRepository transactionRepository;
+
+    public BehavioralProfilingService(TransactionRepository transactionRepository) {
+        this.transactionRepository = transactionRepository;
+    }
+
 
     private static final int HISTORY_DAYS = 90;
     private static final double EXTREME_OUTLIER_SIGMA = 3.0; // 3 Standard Deviations

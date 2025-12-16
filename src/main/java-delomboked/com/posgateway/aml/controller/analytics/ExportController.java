@@ -1,5 +1,7 @@
 package com.posgateway.aml.controller.analytics;
 
+
+
 import com.posgateway.aml.entity.AuditLog;
 import com.posgateway.aml.entity.compliance.ComplianceCase;
 import com.posgateway.aml.entity.compliance.SuspiciousActivityReport;
@@ -22,6 +24,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
+// @RequiredArgsConstructor removed
 @RestController
 @RequestMapping("/api/v1/exports")
 public class ExportController {
@@ -29,6 +32,13 @@ public class ExportController {
     private final ComplianceCaseRepository caseRepository;
     private final SuspiciousActivityReportRepository sarRepository;
     private final AuditLogRepository auditLogRepository;
+
+    public ExportController(ComplianceCaseRepository caseRepository, SuspiciousActivityReportRepository sarRepository, AuditLogRepository auditLogRepository) {
+        this.caseRepository = caseRepository;
+        this.sarRepository = sarRepository;
+        this.auditLogRepository = auditLogRepository;
+    }
+
 
     @GetMapping(value = "/cases.csv", produces = "text/csv")
     public ResponseEntity<byte[]> exportCases(@RequestParam(required = false) String status,
