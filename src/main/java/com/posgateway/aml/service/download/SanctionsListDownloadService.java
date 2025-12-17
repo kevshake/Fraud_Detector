@@ -1,7 +1,5 @@
 package com.posgateway.aml.service.download;
 
-
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.posgateway.aml.service.sanctions.NameMatchingService;
@@ -28,7 +26,8 @@ import java.util.concurrent.atomic.AtomicReference;
  * Improved with Retry logic and Stale Data Monitoring
  */
 // @RequiredArgsConstructor removed
-@Servicepublic class SanctionsListDownloadService {
+@Service
+public class SanctionsListDownloadService {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(SanctionsListDownloadService.class);
 
     private final NameMatchingService nameMatchingService;
@@ -36,12 +35,14 @@ import java.util.concurrent.atomic.AtomicReference;
     private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate;
 
-    public SanctionsListDownloadService(NameMatchingService nameMatchingService, ObjectMapper objectMapper, RestTemplate restTemplate) {
+    public SanctionsListDownloadService(NameMatchingService nameMatchingService,
+            com.posgateway.aml.service.AerospikeConnectionService aerospikeService, ObjectMapper objectMapper,
+            RestTemplate restTemplate) {
         this.nameMatchingService = nameMatchingService;
+        this.aerospikeService = aerospikeService;
         this.objectMapper = objectMapper;
         this.restTemplate = restTemplate;
     }
-
 
     @Value("${sanctions.download.enabled:true}")
     private boolean downloadEnabled;
@@ -221,13 +222,7 @@ import java.util.concurrent.atomic.AtomicReference;
         String phoneticCode = nameMatchingService.generatePhoneticCode(fullName);
         String altPhoneticCode = nameMatchingService.generateAlternatePhoneticCode(fullName);
 
-        return SanctionEntity.builder()
-                .fullName(fullName)
-                .entityType(entityType)
-                .phoneticCode(phoneticCode)
-                .altPhoneticCode(altPhoneticCode)
-                .rawData(json.toString())
-                .build();
+        return new SanctionEntity(fullName, entityType, phoneticCode, altPhoneticCode, json.toString());
     }
 
     /**
@@ -293,13 +288,40 @@ import java.util.concurrent.atomic.AtomicReference;
         }
     }
 
-    @lombok.Data
-    @lombok.Builder
     private static class SanctionEntity {
         private String fullName;
         private String entityType;
         private String phoneticCode;
         private String altPhoneticCode;
         private String rawData;
+
+        public SanctionEntity(String fullName, String entityType, String phoneticCode, String altPhoneticCode,
+                String rawData) {
+            this.fullName = fullName;
+            this.entityType = entityType;
+            this.phoneticCode = phoneticCode;
+            this.altPhoneticCode = altPhoneticCode;
+            this.rawData = rawData;
+        }
+
+        public String getFullName() {
+            return fullName;
+        }
+
+        public String getEntityType() {
+            return entityType;
+        }
+
+        public String getPhoneticCode() {
+            return phoneticCode;
+        }
+
+        public String getAltPhoneticCode() {
+            return altPhoneticCode;
+        }
+
+        public String getRawData() {
+            return rawData;
+        }
     }
 }

@@ -9,6 +9,7 @@ import org.springframework.util.StopWatch;
 @Aspect
 @Component
 public class PerformanceMonitor {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(PerformanceMonitor.class);
 
     @Around("execution(* com.posgateway.aml.service.aml.AmlScreeningOrchestrator.screenMerchant(..)) || " +
             "execution(* com.posgateway.aml.service.RiskAssessmentService.assessTransactionRisk(..))")

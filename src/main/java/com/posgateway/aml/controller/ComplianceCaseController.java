@@ -1,10 +1,7 @@
 package com.posgateway.aml.controller;
 
-
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 
 import com.posgateway.aml.entity.compliance.ComplianceCase;
 import com.posgateway.aml.model.CaseStatus;
@@ -37,7 +34,6 @@ public class ComplianceCaseController {
     public ComplianceCaseController(ComplianceCaseRepository complianceCaseRepository) {
         this.complianceCaseRepository = complianceCaseRepository;
     }
-
 
     /**
      * Get all compliance cases
@@ -87,20 +83,32 @@ public class ComplianceCaseController {
         long inProgressCases = complianceCaseRepository.countByStatus(CaseStatus.IN_PROGRESS);
         long totalCases = complianceCaseRepository.count();
 
-        CaseStats stats = CaseStats.builder()
-                .openCases(openCases)
-                .inProgressCases(inProgressCases)
-                .totalCases(totalCases)
-                .build();
+        CaseStats stats = new CaseStats(openCases, inProgressCases, totalCases);
 
         return ResponseEntity.ok(stats);
     }
 
-    @lombok.Data
-    @lombok.Builder
-    private static class CaseStats {
+    public static class CaseStats {
         private long openCases;
         private long inProgressCases;
         private long totalCases;
+
+        public CaseStats(long openCases, long inProgressCases, long totalCases) {
+            this.openCases = openCases;
+            this.inProgressCases = inProgressCases;
+            this.totalCases = totalCases;
+        }
+
+        public long getOpenCases() {
+            return openCases;
+        }
+
+        public long getInProgressCases() {
+            return inProgressCases;
+        }
+
+        public long getTotalCases() {
+            return totalCases;
+        }
     }
 }

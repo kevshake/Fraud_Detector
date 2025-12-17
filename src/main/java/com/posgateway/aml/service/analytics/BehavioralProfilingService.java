@@ -10,7 +10,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 // @RequiredArgsConstructor removed
-@Servicepublic class BehavioralProfilingService {
+@Service
+public class BehavioralProfilingService {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(BehavioralProfilingService.class);
 
     private final TransactionRepository transactionRepository;

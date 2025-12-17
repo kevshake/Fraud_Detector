@@ -9,7 +9,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-@Servicepublic class AuditService {
+@Service
+public class AuditService {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AuditService.class);
 
     private final AuditTrailRepository auditTrailRepository;

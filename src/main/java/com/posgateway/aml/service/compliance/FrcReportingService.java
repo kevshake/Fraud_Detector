@@ -4,7 +4,8 @@ import com.posgateway.aml.entity.compliance.ComplianceCase;
 import com.posgateway.aml.model.Transaction;
 import org.springframework.stereotype.Service;
 
-@Servicepublic class FrcReportingService {
+@Service
+public class FrcReportingService {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(FrcReportingService.class);
 
     /**

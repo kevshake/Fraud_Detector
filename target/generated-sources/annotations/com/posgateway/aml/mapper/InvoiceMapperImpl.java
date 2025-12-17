@@ -10,8 +10,8 @@ import org.springframework.stereotype.Component;
 
 @Generated(
     value = "org.mapstruct.ap.MappingProcessor",
-    date = "2025-12-16T17:12:00+0300",
-    comments = "version: 1.5.5.Final, compiler: Eclipse JDT (IDE) 3.44.0.v20251118-1623, environment: Java 21.0.9 (Eclipse Adoptium)"
+    date = "2025-12-16T18:16:43+0300",
+    comments = "version: 1.5.5.Final, compiler: javac, environment: Java 21.0.9 (Oracle Corporation)"
 )
 @Component
 public class InvoiceMapperImpl implements InvoiceMapper {
@@ -34,17 +34,18 @@ public class InvoiceMapperImpl implements InvoiceMapper {
         return invoiceResponse.build();
     }
 
-    protected InvoiceResponse.LineItem invoiceLineItemToLineItem(InvoiceLineItem invoiceLineItem) {
-        if ( invoiceLineItem == null ) {
+    @Override
+    public InvoiceResponse.LineItem toLineItemResponse(InvoiceLineItem item) {
+        if ( item == null ) {
             return null;
         }
 
         InvoiceResponse.LineItem.LineItemBuilder lineItem = InvoiceResponse.LineItem.builder();
 
-        lineItem.serviceType( invoiceLineItem.getServiceType() );
-        lineItem.description( invoiceLineItem.getDescription() );
-        if ( invoiceLineItem.getQuantity() != null ) {
-            lineItem.quantity( invoiceLineItem.getQuantity() );
+        lineItem.serviceType( item.getServiceType() );
+        lineItem.description( item.getDescription() );
+        if ( item.getQuantity() != null ) {
+            lineItem.quantity( item.getQuantity() );
         }
 
         return lineItem.build();
@@ -57,7 +58,7 @@ public class InvoiceMapperImpl implements InvoiceMapper {
 
         List<InvoiceResponse.LineItem> list1 = new ArrayList<InvoiceResponse.LineItem>( list.size() );
         for ( InvoiceLineItem invoiceLineItem : list ) {
-            list1.add( invoiceLineItemToLineItem( invoiceLineItem ) );
+            list1.add( toLineItemResponse( invoiceLineItem ) );
         }
 
         return list1;

@@ -109,9 +109,6 @@ public class ScreeningResult {
     /**
      * Get match count
      */
-    public int getMatchCount() {
-        return matches != null ? matches.size() : 0;
-    }
 
     public static ScreeningResultBuilder builder() {
         return new ScreeningResultBuilder();

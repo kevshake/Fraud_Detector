@@ -29,5 +29,4 @@ public interface PspRepository extends JpaRepository<Psp, Long> {
     @Query("SELECT COUNT(p) FROM Psp p WHERE p.status = :status")
     long countByStatus(@Param("status") String status);
 
-    boolean existsByPspCode(String pspCode);
 }

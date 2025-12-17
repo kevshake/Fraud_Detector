@@ -19,7 +19,8 @@ import java.util.List;
 import java.util.UUID;
 
 // @RequiredArgsConstructor removed
-@Servicepublic class DocumentManagementService {
+@Service
+public class DocumentManagementService {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(DocumentManagementService.class);
 
     private final MerchantDocumentRepository documentRepository;

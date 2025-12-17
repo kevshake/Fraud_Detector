@@ -19,7 +19,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 // @RequiredArgsConstructor removed
-@Servicepublic class BillingService {
+@Service
+public class BillingService {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(BillingService.class);
 
     private final BillingRateRepository billingRateRepository;

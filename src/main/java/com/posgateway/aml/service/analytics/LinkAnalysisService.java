@@ -13,7 +13,8 @@ import java.util.Collections;
 import java.util.List;
 
 // @RequiredArgsConstructor removed
-@Servicepublic class LinkAnalysisService {
+@Service
+public class LinkAnalysisService {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(LinkAnalysisService.class);
 
     private final MerchantRepository merchantRepository;

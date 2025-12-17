@@ -1,7 +1,5 @@
 package com.posgateway.aml.controller.analytics;
 
-
-
 import com.posgateway.aml.repository.ComplianceCaseRepository;
 import com.posgateway.aml.repository.MerchantRepository;
 import org.springframework.http.ResponseEntity;
@@ -22,13 +20,14 @@ public class DashboardController {
 
     private final MerchantRepository merchantRepository;
     private final ComplianceCaseRepository caseRepository;
+    private final com.posgateway.aml.repository.UserRepository userRepository;
 
-    public DashboardController(MerchantRepository merchantRepository, ComplianceCaseRepository caseRepository) {
+    public DashboardController(MerchantRepository merchantRepository, ComplianceCaseRepository caseRepository,
+            com.posgateway.aml.repository.UserRepository userRepository) {
         this.merchantRepository = merchantRepository;
         this.caseRepository = caseRepository;
+        this.userRepository = userRepository;
     }
-
-    private final com.posgateway.aml.repository.UserRepository userRepository;
 
     private com.posgateway.aml.entity.User getCurrentUser() {
         org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder

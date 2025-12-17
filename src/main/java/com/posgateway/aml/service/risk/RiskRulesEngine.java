@@ -15,7 +15,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 // @RequiredArgsConstructor removed
-@Servicepublic class RiskRulesEngine {
+@Service
+public class RiskRulesEngine {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(RiskRulesEngine.class);
 
     private final RiskRuleDefinitions ruleDefinitions;

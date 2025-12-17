@@ -16,7 +16,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Implements a simple fixed-window rate limiter (per minute).
  */
 // @RequiredArgsConstructor removed
-@Servicepublic class QuotaService {
+@Service
+public class QuotaService {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(QuotaService.class);
 
     private final PspRepository pspRepository;

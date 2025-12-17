@@ -15,7 +15,8 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 // @RequiredArgsConstructor removed
-@Servicepublic class ComplianceCaseService {
+@Service
+public class ComplianceCaseService {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ComplianceCaseService.class);
 
     private final ComplianceCaseRepository caseRepository;

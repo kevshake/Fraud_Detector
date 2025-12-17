@@ -2,6 +2,7 @@ package com.posgateway.aml.mapper;
 
 import com.posgateway.aml.dto.psp.InvoiceResponse;
 import com.posgateway.aml.entity.psp.Invoice;
+import com.posgateway.aml.entity.psp.InvoiceLineItem;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
@@ -14,5 +15,5 @@ public interface InvoiceMapper {
     InvoiceResponse toResponse(Invoice invoice);
 
     // Inner class mapping handling
-    InvoiceResponse.LineItem toLineItemResponse(Invoice.LineItem item);
+    InvoiceResponse.LineItem toLineItemResponse(InvoiceLineItem item);
 }

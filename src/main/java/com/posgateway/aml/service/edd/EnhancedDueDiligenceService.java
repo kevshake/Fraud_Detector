@@ -9,7 +9,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 // @RequiredArgsConstructor removed
-@Servicepublic
+@Service
+public
 class EnhancedDueDiligenceService {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(EnhancedDueDiligenceService.class);
 

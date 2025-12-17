@@ -20,7 +20,8 @@ import java.util.List;
  * Periodic Rescreening Service
  * Automatically rescreens active merchants weekly (every 7 days)
  */
-@Servicepublic class PeriodicRescreeningService {
+@Service
+public class PeriodicRescreeningService {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(PeriodicRescreeningService.class);
 
     @Autowired
@@ -175,12 +176,70 @@ import java.util.List;
                 .build();
     }
 
-    @lombok.Data
-    @lombok.Builder
     public static class RescreeningStats {
         private long totalActiveMerchants;
         private int merchantsNeedingRescreening;
         private int rescreeningFrequencyDays;
         private boolean enabled;
+
+        public RescreeningStats(long totalActiveMerchants, int merchantsNeedingRescreening,
+                int rescreeningFrequencyDays, boolean enabled) {
+            this.totalActiveMerchants = totalActiveMerchants;
+            this.merchantsNeedingRescreening = merchantsNeedingRescreening;
+            this.rescreeningFrequencyDays = rescreeningFrequencyDays;
+            this.enabled = enabled;
+        }
+
+        public long getTotalActiveMerchants() {
+            return totalActiveMerchants;
+        }
+
+        public int getMerchantsNeedingRescreening() {
+            return merchantsNeedingRescreening;
+        }
+
+        public int getRescreeningFrequencyDays() {
+            return rescreeningFrequencyDays;
+        }
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public static RescreeningStatsBuilder builder() {
+            return new RescreeningStatsBuilder();
+        }
+
+        public static class RescreeningStatsBuilder {
+            private long totalActiveMerchants;
+            private int merchantsNeedingRescreening;
+            private int rescreeningFrequencyDays;
+            private boolean enabled;
+
+            public RescreeningStatsBuilder totalActiveMerchants(long totalActiveMerchants) {
+                this.totalActiveMerchants = totalActiveMerchants;
+                return this;
+            }
+
+            public RescreeningStatsBuilder merchantsNeedingRescreening(int merchantsNeedingRescreening) {
+                this.merchantsNeedingRescreening = merchantsNeedingRescreening;
+                return this;
+            }
+
+            public RescreeningStatsBuilder rescreeningFrequencyDays(int rescreeningFrequencyDays) {
+                this.rescreeningFrequencyDays = rescreeningFrequencyDays;
+                return this;
+            }
+
+            public RescreeningStatsBuilder enabled(boolean enabled) {
+                this.enabled = enabled;
+                return this;
+            }
+
+            public RescreeningStats build() {
+                return new RescreeningStats(totalActiveMerchants, merchantsNeedingRescreening, rescreeningFrequencyDays,
+                        enabled);
+            }
+        }
     }
 }

@@ -12,8 +12,13 @@ import java.io.IOException;
 @Component
 @Order(1) // Run early
 public class RateLimitingFilter implements Filter {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(RateLimitingFilter.class);
 
     private final QuotaService quotaService;
+
+    public RateLimitingFilter(QuotaService quotaService) {
+        this.quotaService = quotaService;
+    }
 
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)

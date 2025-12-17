@@ -15,7 +15,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 // @RequiredArgsConstructor removed
-@Servicepublic class MerchantUpdateService {
+@Service
+public class MerchantUpdateService {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(MerchantUpdateService.class);
 
     private final MerchantRepository merchantRepository;

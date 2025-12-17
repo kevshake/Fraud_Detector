@@ -53,6 +53,7 @@ public class ComplianceCase {
     // NEW: Assignment tracking
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "assigned_to_user_id")
+    @Audited(targetAuditMode = org.hibernate.envers.RelationTargetAuditMode.NOT_AUDITED)
     private User assignedTo;
 
     @Column(name = "assigned_by_user_id")

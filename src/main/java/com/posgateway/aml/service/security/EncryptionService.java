@@ -21,7 +21,8 @@ import java.util.Base64;
  * - Key validation on startup
  * - Proper exception handling
  */
-@Servicepublic class EncryptionService {
+@Service
+public class EncryptionService {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(EncryptionService.class);
 
     private static final String ALGORITHM = "AES";

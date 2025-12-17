@@ -16,7 +16,8 @@ import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.UUID;
 
-@Servicepublic class ComplianceReportingService {
+@Service
+public class ComplianceReportingService {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ComplianceReportingService.class);
 
     private final SuspiciousActivityReportRepository sarRepository;
@@ -126,7 +127,7 @@ import java.util.UUID;
         // Simulating submission to FinCEN
         log.info("Filing SAR {} to FinCEN...", id);
 
-        return mapToResponse(sarRepository.save(sar));
+        return sarMapper.toResponse(sarRepository.save(sar));
     }
 
     public String generateFincenXml(Long id) {

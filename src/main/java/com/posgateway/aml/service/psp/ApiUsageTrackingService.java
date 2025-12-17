@@ -16,7 +16,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 
 // @RequiredArgsConstructor removed
-@Servicepublic class ApiUsageTrackingService {
+@Service
+public class ApiUsageTrackingService {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ApiUsageTrackingService.class);
 
     private final ApiUsageLogRepository apiUsageLogRepository;

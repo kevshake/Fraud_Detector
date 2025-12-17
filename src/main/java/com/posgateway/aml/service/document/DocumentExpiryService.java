@@ -14,7 +14,8 @@ import java.time.LocalDate;
 import java.util.List;
 
 // @RequiredArgsConstructor removed
-@Servicepublic class DocumentExpiryService {
+@Service
+public class DocumentExpiryService {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(DocumentExpiryService.class);
 
     private final MerchantDocumentRepository documentRepository;

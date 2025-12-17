@@ -14,8 +14,13 @@ import org.springframework.stereotype.Component;
 @Component
 @Order(10)
 public class PermissionInitializer implements CommandLineRunner {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(PermissionInitializer.class);
 
     private final com.posgateway.aml.service.RoleService roleService;
+
+    public PermissionInitializer(com.posgateway.aml.service.RoleService roleService) {
+        this.roleService = roleService;
+    }
 
     @Override
     public void run(String... args) throws Exception {

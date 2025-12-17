@@ -13,7 +13,8 @@ import java.util.List;
 import java.util.Map;
 
 // @RequiredArgsConstructor removed
-@Servicepublic class WebhookService {
+@Service
+public class WebhookService {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(WebhookService.class);
 
     private final WebhookSubscriptionRepository subscriptionRepository;

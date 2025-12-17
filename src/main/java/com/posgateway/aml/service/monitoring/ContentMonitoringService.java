@@ -14,7 +14,8 @@ import java.util.Arrays;
 import java.util.List;
 
 // @RequiredArgsConstructor removed
-@Servicepublic class ContentMonitoringService {
+@Service
+public class ContentMonitoringService {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ContentMonitoringService.class);
 
     private final MerchantRepository merchantRepository;

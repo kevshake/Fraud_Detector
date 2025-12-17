@@ -1,8 +1,5 @@
 package com.posgateway.aml.service;
 
-
-
-
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.posgateway.aml.entity.TransactionEntity;
 import com.posgateway.aml.repository.TransactionRepository;
@@ -32,18 +29,12 @@ public class BatchTransactionIngestionService {
     private final TransactionRepository transactionRepository;
     private final ObjectMapper objectMapper;
 
-    public BatchTransactionIngestionService(TransactionRepository transactionRepository, ObjectMapper objectMapper) {
-        this.transactionRepository = transactionRepository;
-        this.objectMapper = objectMapper;
-    }
-
-
     @Value("${throughput.batch.size:100}")
     private int batchSize;
 
     @Autowired
     public BatchTransactionIngestionService(TransactionRepository transactionRepository,
-                                           ObjectMapper objectMapper) {
+            ObjectMapper objectMapper) {
         this.transactionRepository = transactionRepository;
         this.objectMapper = objectMapper;
     }
@@ -57,11 +48,11 @@ public class BatchTransactionIngestionService {
     @Transactional
     public List<TransactionEntity> batchIngestTransactions(
             List<TransactionIngestionService.TransactionRequest> requests) {
-        
+
         logger.info("Batch ingesting {} transactions", requests.size());
 
         List<TransactionEntity> transactions = new ArrayList<>(requests.size());
-        
+
         for (TransactionIngestionService.TransactionRequest request : requests) {
             TransactionEntity transaction = createTransactionEntity(request);
             transactions.add(transaction);
@@ -69,7 +60,7 @@ public class BatchTransactionIngestionService {
 
         // Batch save for better performance
         List<TransactionEntity> saved = transactionRepository.saveAll(transactions);
-        
+
         logger.info("Batch ingested {} transactions successfully", saved.size());
         return saved;
     }
@@ -79,20 +70,20 @@ public class BatchTransactionIngestionService {
      */
     private TransactionEntity createTransactionEntity(TransactionIngestionService.TransactionRequest request) {
         TransactionEntity transaction = new TransactionEntity();
-        
+
         transaction.setIsoMsg(request.getIsoMsg());
-        
+
         // Hash PAN (optimized)
         if (request.getPan() != null && !request.getPan().isEmpty()) {
             transaction.setPanHash(hashPanOptimized(request.getPan()));
         }
-        
+
         transaction.setMerchantId(request.getMerchantId());
         transaction.setTerminalId(request.getTerminalId());
         transaction.setAmountCents(request.getAmountCents());
         transaction.setCurrency(request.getCurrency());
         transaction.setTxnTs(request.getTxnTs() != null ? request.getTxnTs() : LocalDateTime.now());
-        
+
         // Store EMV tags as JSON (optimized)
         if (request.getEmvTags() != null && !request.getEmvTags().isEmpty()) {
             try {
@@ -102,30 +93,29 @@ public class BatchTransactionIngestionService {
                 logger.warn("Failed to serialize EMV tags", e);
             }
         }
-        
+
         transaction.setAcquirerResponse(request.getAcquirerResponse());
-        
+
         return transaction;
     }
 
     /**
      * Optimized PAN hashing with cached MessageDigest
      */
-    private static final ThreadLocal<MessageDigest> DIGEST_CACHE = 
-        ThreadLocal.withInitial(() -> {
-            try {
-                return MessageDigest.getInstance("SHA-256");
-            } catch (Exception e) {
-                throw new RuntimeException("Failed to create MessageDigest", e);
-            }
-        });
+    private static final ThreadLocal<MessageDigest> DIGEST_CACHE = ThreadLocal.withInitial(() -> {
+        try {
+            return MessageDigest.getInstance("SHA-256");
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to create MessageDigest", e);
+        }
+    });
 
     private String hashPanOptimized(String pan) {
         try {
             MessageDigest digest = DIGEST_CACHE.get();
             digest.reset(); // Reset for reuse
             byte[] hash = digest.digest(pan.getBytes());
-            
+
             // Optimized hex string building
             StringBuilder hexString = new StringBuilder(64); // Pre-allocate
             for (byte b : hash) {
@@ -142,4 +132,3 @@ public class BatchTransactionIngestionService {
         }
     }
 }
-

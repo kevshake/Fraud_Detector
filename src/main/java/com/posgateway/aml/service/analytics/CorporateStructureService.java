@@ -13,7 +13,8 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 // @RequiredArgsConstructor removed
-@Servicepublic class CorporateStructureService {
+@Service
+public class CorporateStructureService {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(CorporateStructureService.class);
 
     private final BeneficialOwnerRepository beneficialOwnerRepository;

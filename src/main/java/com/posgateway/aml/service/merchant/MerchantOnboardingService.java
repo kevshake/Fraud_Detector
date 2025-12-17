@@ -28,7 +28,8 @@ import java.util.Map;
  * Merchant Onboarding Service
  * Handles complete onboarding workflow including screening and risk assessment
  */
-@Servicepublic class MerchantOnboardingService {
+@Service
+public class MerchantOnboardingService {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(MerchantOnboardingService.class);
 
     @Autowired

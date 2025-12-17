@@ -13,7 +13,8 @@ import org.springframework.stereotype.Service;
  * 2. Calculate exact similarity (Levenshtein Distance) for precise scoring
  * 3. Combined approach provides both speed and accuracy
  */
-@Servicepublic class NameMatchingService {
+@Service
+public class NameMatchingService {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(NameMatchingService.class);
 
     private final DoubleMetaphone doubleMetaphone;
@@ -155,16 +156,7 @@ import org.springframework.stereotype.Service;
         double similarityScore = calculateSimilarityScore(name1, name2);
         boolean isMatch = isMatch(name1, name2);
 
-        return MatchResult.builder()
-                .name1(name1)
-                .name2(name2)
-                .phoneticCode1(phonetic1)
-                .phoneticCode2(phonetic2)
-                .phoneticMatch(phoneticMatch)
-                .levenshteinDistance(distance)
-                .similarityScore(similarityScore)
-                .isMatch(isMatch)
-                .build();
+        return new MatchResult(name1, name2, phonetic1, phonetic2, phoneticMatch, distance, similarityScore, isMatch);
     }
 
     /**
@@ -187,8 +179,6 @@ import org.springframework.stereotype.Service;
     /**
      * Result object containing match details
      */
-    @lombok.Data
-    @lombok.Builder
     public static class MatchResult {
         private String name1;
         private String name2;
@@ -198,5 +188,49 @@ import org.springframework.stereotype.Service;
         private int levenshteinDistance;
         private double similarityScore;
         private boolean isMatch;
+
+        public MatchResult(String name1, String name2, String phoneticCode1, String phoneticCode2,
+                boolean phoneticMatch, int levenshteinDistance, double similarityScore, boolean isMatch) {
+            this.name1 = name1;
+            this.name2 = name2;
+            this.phoneticCode1 = phoneticCode1;
+            this.phoneticCode2 = phoneticCode2;
+            this.phoneticMatch = phoneticMatch;
+            this.levenshteinDistance = levenshteinDistance;
+            this.similarityScore = similarityScore;
+            this.isMatch = isMatch;
+        }
+
+        public String getName1() {
+            return name1;
+        }
+
+        public String getName2() {
+            return name2;
+        }
+
+        public String getPhoneticCode1() {
+            return phoneticCode1;
+        }
+
+        public String getPhoneticCode2() {
+            return phoneticCode2;
+        }
+
+        public boolean isPhoneticMatch() {
+            return phoneticMatch;
+        }
+
+        public int getLevenshteinDistance() {
+            return levenshteinDistance;
+        }
+
+        public double getSimilarityScore() {
+            return similarityScore;
+        }
+
+        public boolean isMatch() {
+            return isMatch;
+        }
     }
 }
