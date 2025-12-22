@@ -59,6 +59,9 @@ public class MerchantOnboardingService {
     @Autowired
     private com.posgateway.aml.service.workflow.WorkflowAutomationService workflowAutomationService;
 
+    @Autowired
+    private MccMappingService mccMappingService;
+
     /**
      * Onboard new merchant with complete screening
      */
@@ -157,6 +160,13 @@ public class MerchantOnboardingService {
                 .screeningProvider(provider)
                 .screenedAt(screeningRecord
                         .map(com.posgateway.aml.entity.merchant.MerchantScreeningResult::getScreenedAt).orElse(null))
+                .country(merchant.getCountry())
+                .kycStatus(merchant.getKycStatus())
+                .contractStatus(merchant.getContractStatus())
+                .dailyLimit(merchant.getDailyLimit())
+                .currentUsage(merchant.getCurrentUsage())
+                .riskLevel(merchant.getRiskLevel())
+                .mccDescription(mccMappingService.getDescription(merchant.getMcc()))
                 .build();
     }
 
@@ -209,6 +219,10 @@ public class MerchantOnboardingService {
 
             merchant.getBeneficialOwners().add(owner);
         }
+
+        merchant.setKycStatus("PENDING");
+        merchant.setContractStatus("NO_CONTRACT");
+        merchant.setDailyLimit(java.math.BigDecimal.valueOf(10000)); // Default limit
 
         return merchant;
     }
@@ -365,6 +379,13 @@ public class MerchantOnboardingService {
                 .complianceCaseId(complianceCaseId)
                 .screenedAt(LocalDateTime.now())
                 .screeningProvider(merchantResult.getScreeningProvider())
+                .country(merchant.getCountry())
+                .kycStatus(merchant.getKycStatus())
+                .contractStatus(merchant.getContractStatus())
+                .dailyLimit(merchant.getDailyLimit())
+                .currentUsage(merchant.getCurrentUsage())
+                .riskLevel(riskLevel)
+                .mccDescription(mccMappingService.getDescription(merchant.getMcc()))
                 .build();
     }
 }

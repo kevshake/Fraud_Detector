@@ -111,6 +111,22 @@ public class Merchant {
     @Column(name = "next_screening_due")
     private LocalDate nextScreeningDue;
 
+    // Enhanced Dashboard Fields
+    @Column(name = "kyc_status", length = 50)
+    private String kycStatus = "PENDING"; // PENDING, APPROVED, REJECTED
+
+    @Column(name = "contract_status", length = 50)
+    private String contractStatus = "NO_CONTRACT"; // ACTIVE, EXPIRED, NO_CONTRACT
+
+    @Column(name = "daily_limit", precision = 19, scale = 2)
+    private java.math.BigDecimal dailyLimit = java.math.BigDecimal.ZERO;
+
+    @Column(name = "current_usage", precision = 19, scale = 2)
+    private java.math.BigDecimal currentUsage = java.math.BigDecimal.ZERO;
+
+    @Column(name = "risk_level", length = 20)
+    private String riskLevel = "UNKNOWN"; // LOW, MEDIUM, HIGH, CRITICAL
+
     // Relationships
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "psp_id", nullable = false) // Merchant MUST belong to a PSP
@@ -128,7 +144,9 @@ public class Merchant {
             String addressStreet, String addressCity, String addressState, String addressPostalCode,
             String addressCountry, String[] operatingCountries, LocalDate registrationDate, String status,
             LocalDateTime createdAt, LocalDateTime updatedAt, LocalDateTime lastScreenedAt, LocalDate nextScreeningDue,
-            com.posgateway.aml.entity.psp.Psp psp, List<BeneficialOwner> beneficialOwners) {
+            String kycStatus, String contractStatus, java.math.BigDecimal dailyLimit,
+            java.math.BigDecimal currentUsage, String riskLevel, com.posgateway.aml.entity.psp.Psp psp,
+            List<BeneficialOwner> beneficialOwners) {
         this.merchantId = merchantId;
         this.legalName = legalName;
         this.tradingName = tradingName;
@@ -156,6 +174,11 @@ public class Merchant {
         this.updatedAt = updatedAt;
         this.lastScreenedAt = lastScreenedAt;
         this.nextScreeningDue = nextScreeningDue;
+        this.kycStatus = kycStatus;
+        this.contractStatus = contractStatus;
+        this.dailyLimit = dailyLimit;
+        this.currentUsage = currentUsage;
+        this.riskLevel = riskLevel;
         this.psp = psp;
         this.beneficialOwners = beneficialOwners;
     }
@@ -376,6 +399,46 @@ public class Merchant {
         this.nextScreeningDue = nextScreeningDue;
     }
 
+    public String getKycStatus() {
+        return kycStatus;
+    }
+
+    public void setKycStatus(String kycStatus) {
+        this.kycStatus = kycStatus;
+    }
+
+    public String getContractStatus() {
+        return contractStatus;
+    }
+
+    public void setContractStatus(String contractStatus) {
+        this.contractStatus = contractStatus;
+    }
+
+    public java.math.BigDecimal getDailyLimit() {
+        return dailyLimit;
+    }
+
+    public void setDailyLimit(java.math.BigDecimal dailyLimit) {
+        this.dailyLimit = dailyLimit;
+    }
+
+    public java.math.BigDecimal getCurrentUsage() {
+        return currentUsage;
+    }
+
+    public void setCurrentUsage(java.math.BigDecimal currentUsage) {
+        this.currentUsage = currentUsage;
+    }
+
+    public String getRiskLevel() {
+        return riskLevel;
+    }
+
+    public void setRiskLevel(String riskLevel) {
+        this.riskLevel = riskLevel;
+    }
+
     public com.posgateway.aml.entity.psp.Psp getPsp() {
         return psp;
     }
@@ -424,6 +487,11 @@ public class Merchant {
         private LocalDateTime updatedAt; // Default now
         private LocalDateTime lastScreenedAt;
         private LocalDate nextScreeningDue;
+        private String kycStatus;
+        private String contractStatus;
+        private java.math.BigDecimal dailyLimit;
+        private java.math.BigDecimal currentUsage;
+        private String riskLevel;
         private com.posgateway.aml.entity.psp.Psp psp;
         private List<BeneficialOwner> beneficialOwners; // Default new ArrayList
 
@@ -570,6 +638,31 @@ public class Merchant {
             return this;
         }
 
+        public MerchantBuilder kycStatus(String kycStatus) {
+            this.kycStatus = kycStatus;
+            return this;
+        }
+
+        public MerchantBuilder contractStatus(String contractStatus) {
+            this.contractStatus = contractStatus;
+            return this;
+        }
+
+        public MerchantBuilder dailyLimit(java.math.BigDecimal dailyLimit) {
+            this.dailyLimit = dailyLimit;
+            return this;
+        }
+
+        public MerchantBuilder currentUsage(java.math.BigDecimal currentUsage) {
+            this.currentUsage = currentUsage;
+            return this;
+        }
+
+        public MerchantBuilder riskLevel(String riskLevel) {
+            this.riskLevel = riskLevel;
+            return this;
+        }
+
         public MerchantBuilder beneficialOwners(List<BeneficialOwner> beneficialOwners) {
             this.beneficialOwners = beneficialOwners;
             return this;
@@ -597,13 +690,23 @@ public class Merchant {
                 this.updatedAt = LocalDateTime.now();
             if (this.beneficialOwners == null)
                 this.beneficialOwners = new ArrayList<>();
-            // isPep default is false, which matches boolean default.
+            if (this.kycStatus == null)
+                this.kycStatus = "PENDING";
+            if (this.contractStatus == null)
+                this.contractStatus = "NO_CONTRACT";
+            if (this.dailyLimit == null)
+                this.dailyLimit = java.math.BigDecimal.ZERO;
+            if (this.currentUsage == null)
+                this.currentUsage = java.math.BigDecimal.ZERO;
+            if (this.riskLevel == null)
+                this.riskLevel = "UNKNOWN";
 
             return new Merchant(merchantId, legalName, tradingName, country, registrationNumber, taxId, kraPin,
                     cr12Number, isPep, mcc, businessType, expectedMonthlyVolume, transactionChannel, website,
                     contactEmail, addressStreet, addressCity, addressState, addressPostalCode, addressCountry,
                     operatingCountries, registrationDate, status, createdAt, updatedAt, lastScreenedAt,
-                    nextScreeningDue, psp, beneficialOwners);
+                    nextScreeningDue, kycStatus, contractStatus, dailyLimit, currentUsage, riskLevel, psp,
+                    beneficialOwners);
         }
 
         public String toString() {

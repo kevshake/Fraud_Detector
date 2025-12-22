@@ -35,7 +35,7 @@ import java.util.stream.Collectors;
  * Optimized for high throughput with async processing
  */
 @RestController
-@RequestMapping("/transactions")
+@RequestMapping("/api/v1/transactions")
 public class TransactionController {
 
     private static final Logger logger = LoggerFactory.getLogger(TransactionController.class);
@@ -284,6 +284,21 @@ public class TransactionController {
         dto.setAction("ERROR");
         dto.setReasons(java.util.List.of(message));
         return dto;
+    }
+
+    /**
+     * Get all transactions
+     * GET /api/v1/transactions
+     */
+    @GetMapping
+    public ResponseEntity<List<TransactionEntity>> getAllTransactions(
+            @RequestParam(required = false, defaultValue = "100") int limit) {
+        logger.info("Get all transactions request (limit: {})", limit);
+        List<TransactionEntity> transactions = transactionRepository.findAll().stream()
+                .limit(limit)
+                .sorted((a, b) -> b.getTxnTs().compareTo(a.getTxnTs()))
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(transactions);
     }
 
     /**

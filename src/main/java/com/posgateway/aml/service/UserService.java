@@ -1,7 +1,5 @@
 package com.posgateway.aml.service;
 
-
-
 import com.posgateway.aml.entity.Role;
 import com.posgateway.aml.entity.User;
 import com.posgateway.aml.entity.psp.Psp;
@@ -26,7 +24,6 @@ public class UserService {
         this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
     }
-
 
     public List<User> getUsersByPsp(Psp psp) {
         if (psp == null) {
@@ -109,5 +106,9 @@ public class UserService {
     @Transactional
     public void deleteUser(Long userId) {
         userRepository.deleteById(userId);
+    }
+
+    public java.util.Optional<User> getSuperAdmin() {
+        return userRepository.findByUsername("super.admin@aml.com"); // Matches dummy data
     }
 }

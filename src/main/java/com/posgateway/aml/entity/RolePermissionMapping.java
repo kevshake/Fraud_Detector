@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
  * Maps UserRoles to specific Permissions for granular access control
  */
 @Entity
-@Table(name = "role_permissions", uniqueConstraints = {
+@Table(name = "role_permission_mappings", uniqueConstraints = {
         @UniqueConstraint(columnNames = { "user_role", "permission" })
 })
 public class RolePermissionMapping {

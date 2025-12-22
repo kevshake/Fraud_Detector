@@ -18,5 +18,16 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
     List<AuditLog> findByUsernameOrderByTimestampDesc(String username);
 
     List<AuditLog> findByTimestampBetween(LocalDateTime start, LocalDateTime end);
-}
 
+    long countByTimestampAfter(LocalDateTime timestamp);
+
+    /**
+     * Find recent log by user and action type
+     */
+    List<AuditLog> findTop1ByUserIdAndActionTypeOrderByTimestampDesc(String userId, String actionType);
+
+    /**
+     * Delete logs before a timestamp (for retention policy)
+     */
+    long deleteByTimestampBefore(LocalDateTime timestamp);
+}

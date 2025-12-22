@@ -15,7 +15,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
 
 /**
  * Case Workflow Service
@@ -80,9 +79,11 @@ public class CaseWorkflowService {
             throw new SecurityException("User does not have permission to assign cases");
         }
 
+        java.util.Objects.requireNonNull(caseId, "Case ID cannot be null");
         ComplianceCase complianceCase = caseRepository.findById(caseId)
                 .orElseThrow(() -> new IllegalArgumentException("Case not found"));
 
+        java.util.Objects.requireNonNull(assigneeId, "Assignee ID cannot be null");
         User assignee = userRepository.findById(assigneeId)
                 .orElseThrow(() -> new IllegalArgumentException("Assignee user not found"));
 

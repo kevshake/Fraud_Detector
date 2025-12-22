@@ -71,13 +71,20 @@ public class ComplianceCase {
 
     private LocalDateTime escalatedAt;
 
+    // NEW: Case queue
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "queue_id")
+    private CaseQueue queue;
+
     // NEW: Case relationships
     @ManyToMany
     @JoinTable(name = "case_relationships", joinColumns = @JoinColumn(name = "case_id"), inverseJoinColumns = @JoinColumn(name = "related_case_id"))
+    @Audited
     private Set<ComplianceCase> relatedCases;
 
     // NEW: Evidence and documentation
     @OneToMany(mappedBy = "complianceCase", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Audited(targetAuditMode = org.hibernate.envers.RelationTargetAuditMode.NOT_AUDITED)
     private List<CaseEvidence> evidence;
 
     @OneToMany(mappedBy = "complianceCase", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -260,6 +267,14 @@ public class ComplianceCase {
 
     public void setEscalatedAt(LocalDateTime escalatedAt) {
         this.escalatedAt = escalatedAt;
+    }
+
+    public CaseQueue getQueue() {
+        return queue;
+    }
+
+    public void setQueue(CaseQueue queue) {
+        this.queue = queue;
     }
 
     public Set<ComplianceCase> getRelatedCases() {

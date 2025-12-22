@@ -46,14 +46,24 @@ public interface MerchantRepository extends JpaRepository<Merchant, Long> {
     /**
      * Find by PSP ID
      */
-    List<Merchant> findByPspId(Long pspId);
+    List<Merchant> findByPspPspId(Long pspId);
 
     /**
      * Find by PSP ID and Status
      */
-    List<Merchant> findByPspIdAndStatus(Long pspId, String status);
+    List<Merchant> findByPspPspIdAndStatus(Long pspId, String status);
 
-    long countByPspId(Long pspId);
+    long countByPspPspId(Long pspId);
 
-    long countByPspIdAndStatus(Long pspId, String status);
+    long countByPspPspIdAndStatus(Long pspId, String status);
+
+    /**
+     * Count merchants by risk level
+     */
+    long countByRiskLevel(String riskLevel);
+
+    /**
+     * Find merchants by MCC and country
+     */
+    List<Merchant> findByMccAndCountry(String mcc, String country);
 }

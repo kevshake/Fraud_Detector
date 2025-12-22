@@ -24,18 +24,15 @@ public class ComplianceReportingService {
     private final ObjectMapper objectMapper;
     private final SarMapper sarMapper;
     private final com.posgateway.aml.repository.UserRepository userRepository;
-    private final com.posgateway.aml.repository.MerchantRepository merchantRepository;
 
     public ComplianceReportingService(SuspiciousActivityReportRepository sarRepository,
             ObjectMapper objectMapper,
             SarMapper sarMapper,
-            com.posgateway.aml.repository.UserRepository userRepository,
-            com.posgateway.aml.repository.MerchantRepository merchantRepository) {
+            com.posgateway.aml.repository.UserRepository userRepository) {
         this.sarRepository = sarRepository;
         this.objectMapper = objectMapper;
         this.sarMapper = sarMapper;
         this.userRepository = userRepository;
-        this.merchantRepository = merchantRepository;
     }
 
     private com.posgateway.aml.entity.User getCurrentUser() {

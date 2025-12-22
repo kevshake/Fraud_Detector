@@ -17,6 +17,7 @@ import com.posgateway.aml.service.auth.CustomUserDetailsService;
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name = "spring.security.enabled", havingValue = "true", matchIfMissing = true)
 public class SecurityConfig {
 
     private final CustomUserDetailsService userDetailsService;
@@ -54,10 +55,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/v1/users/**").hasAnyRole("ADMIN", "MANAGE_USERS")
                         .requestMatchers("/api/v1/roles/**").hasAnyRole("ADMIN", "MANAGE_ROLES")
-                        .requestMatchers("/api/v1/auth/**").permitAll() // Authenticate endpoint needs permitAll or
-                                                                        // authenticated? Usually Login is permitAll.
-                                                                        // Use specific path.
                         .requestMatchers("/api/v1/auth/login", "/api/v1/psps/auth/login").permitAll()
+                        .requestMatchers("/api/v1/auth/csrf").permitAll()
+                        .requestMatchers("/api/v1/auth/session/check", "/api/v1/auth/session/refresh").authenticated()
+                        .requestMatchers("/api/v1/auth/**").permitAll()
                         .requestMatchers("/api/v1/psps/register").permitAll() // Allow initial registration if public
                         .requestMatchers("/api/v1/cases/**")
                         .hasAnyRole("COMPLIANCE_OFFICER", "ADMIN", "PSP_ADMIN", "PSP_USER")
@@ -67,6 +68,7 @@ public class SecurityConfig {
 
                         // Static resources
                         .requestMatchers("/css/**", "/js/**", "/images/**", "/error").permitAll()
+                        .requestMatchers("/logout-success.html").permitAll()
                         .requestMatchers("/", "/index.html").permitAll() // Login page should be public usually, but
                                                                          // here we use index as app.
                         // Assuming index.html is the protected app, checking authentication would be
@@ -80,8 +82,19 @@ public class SecurityConfig {
                         .permitAll())
                 .logout(logout -> logout
                         .logoutUrl("/logout")
+                        .logoutSuccessUrl("/logout-success.html")
                         .deleteCookies("JSESSIONID")
+                        .invalidateHttpSession(true)
+                        .clearAuthentication(true)
                         .permitAll())
+                .sessionManagement(session -> {
+                    session.maximumSessions(1)
+                            .maxSessionsPreventsLogin(false)
+                            .expiredUrl("/login.html?expired=true");
+                    session.sessionCreationPolicy(org.springframework.security.config.http.SessionCreationPolicy.IF_REQUIRED);
+                    session.invalidSessionUrl("/login.html?invalid=true");
+                    session.sessionFixation().migrateSession();
+                })
                 .httpBasic(basic -> {
                 });
 

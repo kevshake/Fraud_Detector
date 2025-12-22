@@ -24,6 +24,10 @@ import java.util.List;
 /**
  * Aerospike-based sanctions screening service (Tier 2)
  * Used for existing merchants or when Sumsub is unavailable
+ * 
+ * All sanctions lists are stored in Aerospike database for fast lookups.
+ * This service queries Aerospike directly using phonetic codes for efficient matching.
+ * The sanctions data is loaded into Aerospike by SanctionsListDownloadService.
  */
 @Service
 public class AerospikeSanctionsScreeningService {

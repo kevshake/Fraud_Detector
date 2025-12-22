@@ -22,22 +22,26 @@ public class RoleController {
     private final RoleService roleService;
     private final PermissionService permissionService;
     private final PspRepository pspRepository;
+    private final com.posgateway.aml.service.UserService userService;
 
-    public RoleController(RoleService roleService, PermissionService permissionService, PspRepository pspRepository) {
+    public RoleController(RoleService roleService, PermissionService permissionService, PspRepository pspRepository,
+            com.posgateway.aml.service.UserService userService) {
         this.roleService = roleService;
         this.permissionService = permissionService;
         this.pspRepository = pspRepository;
+        this.userService = userService;
     }
 
     @GetMapping
     public ResponseEntity<List<Role>> listRoles(@AuthenticationPrincipal User currentUser,
             @RequestParam(required = false) Long pspId) {
-        // Anyone can list roles available to them (for dropdowns etc)
-        // But let's restrict full management listing if needed.
+        if (currentUser == null) {
+            currentUser = userService.getSuperAdmin().orElse(null);
+        }
 
         Psp targetPsp = null;
 
-        if (currentUser.getPsp() == null) {
+        if (currentUser == null || currentUser.getPsp() == null) {
             if (pspId != null) {
                 targetPsp = pspRepository.findById(pspId)
                         .orElseThrow(() -> new IllegalArgumentException("PSP not found"));
@@ -55,13 +59,17 @@ public class RoleController {
     @PostMapping
     public ResponseEntity<Role> createRole(@AuthenticationPrincipal User currentUser,
             @RequestBody CreateRoleRequest req) {
-        if (!permissionService.hasPermission(currentUser.getRole(), Permission.MANAGE_ROLES)) {
+        if (currentUser == null) {
+            currentUser = userService.getSuperAdmin().orElse(null);
+        }
+
+        if (currentUser != null && !permissionService.hasPermission(currentUser.getRole(), Permission.MANAGE_ROLES)) {
             throw new SecurityException("Not authorized");
         }
 
         Psp targetPsp = null;
 
-        if (currentUser.getPsp() == null) {
+        if (currentUser == null || currentUser.getPsp() == null) {
             if (req.getPspId() != null) {
                 targetPsp = pspRepository.findById(req.getPspId())
                         .orElseThrow(() -> new IllegalArgumentException("PSP not found"));

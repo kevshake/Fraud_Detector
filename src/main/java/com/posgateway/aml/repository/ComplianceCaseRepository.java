@@ -70,6 +70,8 @@ public interface ComplianceCaseRepository extends JpaRepository<ComplianceCase, 
      */
     List<ComplianceCase> findByCreatedAtBetween(LocalDateTime start, LocalDateTime end);
 
+    long countByCreatedAtBetween(LocalDateTime start, LocalDateTime end);
+
     // PSP filtering
     long countByPspIdAndStatus(Long pspId, CaseStatus status);
 
@@ -78,4 +80,25 @@ public interface ComplianceCaseRepository extends JpaRepository<ComplianceCase, 
     long countByPspIdAndStatusAndPriority(Long pspId, CaseStatus status, CasePriority priority);
 
     List<ComplianceCase> findByPspIdAndCreatedAtBetween(Long pspId, LocalDateTime start, LocalDateTime end);
+
+    // Count cases by assigned user and status list
+    long countByAssignedTo_IdAndStatusIn(Long userId, List<CaseStatus> statuses);
+
+    // Find last assignment time for a user
+    java.util.Optional<ComplianceCase> findTop1ByAssignedTo_IdOrderByAssignedAtDesc(Long userId);
+
+    // Find cases by status list
+    List<ComplianceCase> findByStatusIn(List<CaseStatus> statuses);
+
+    // Find cases by queue and status
+    List<ComplianceCase> findByQueueAndStatus(com.posgateway.aml.entity.compliance.CaseQueue queue, CaseStatus status);
+
+    // Count cases by queue and status
+    long countByQueueAndStatus(com.posgateway.aml.entity.compliance.CaseQueue queue, CaseStatus status);
+
+    // Find cases by status not equal
+    List<ComplianceCase> findByStatusNot(CaseStatus status);
+
+    // Find cases by PSP and status not equal
+    List<ComplianceCase> findByPspIdAndStatusNot(Long pspId, CaseStatus status);
 }

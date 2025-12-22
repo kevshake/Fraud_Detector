@@ -37,4 +37,11 @@ public interface MerchantScreeningResultRepository extends JpaRepository<Merchan
      */
     @Query("SELECT msr FROM MerchantScreeningResult msr WHERE msr.matchCount > 0")
     List<MerchantScreeningResult> findAllWithMatches();
+
+    /**
+     * Find screening results by screened date range
+     */
+    @Query("SELECT msr FROM MerchantScreeningResult msr WHERE msr.screenedAt >= :startDate AND msr.screenedAt <= :endDate")
+    List<MerchantScreeningResult> findByScreenedAtBetween(@Param("startDate") java.time.LocalDateTime startDate,
+                                                           @Param("endDate") java.time.LocalDateTime endDate);
 }

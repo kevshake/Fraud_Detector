@@ -50,4 +50,17 @@ public class AuditLogController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end) {
         return ResponseEntity.ok(auditLogRepository.findByTimestampBetween(start, end));
     }
+
+    /**
+     * Get all audit logs (paginated)
+     * GET /api/v1/audit/logs
+     */
+    @GetMapping
+    @PreAuthorize("hasAuthority('VIEW_AUDIT_LOGS')")
+    public ResponseEntity<List<AuditLog>> getAllAuditLogs(
+            @RequestParam(required = false, defaultValue = "100") int limit) {
+        return ResponseEntity.ok(auditLogRepository.findAll().stream()
+                .limit(limit)
+                .collect(java.util.stream.Collectors.toList()));
+    }
 }

@@ -23,6 +23,7 @@ public class CaseWorkflowServiceTest {
     private ComplianceCaseRepository caseRepository;
     private UserRepository userRepository;
     private PermissionService permissionService;
+    private AuditLogService auditLogService;
     private CaseWorkflowService caseWorkflowService;
 
     @BeforeEach
@@ -30,7 +31,9 @@ public class CaseWorkflowServiceTest {
         caseRepository = mock(ComplianceCaseRepository.class);
         userRepository = mock(UserRepository.class);
         permissionService = mock(PermissionService.class);
-        caseWorkflowService = new CaseWorkflowService(caseRepository, userRepository, permissionService);
+        auditLogService = mock(AuditLogService.class);
+        caseWorkflowService = new CaseWorkflowService(caseRepository, userRepository, permissionService,
+                auditLogService);
     }
 
     @Test

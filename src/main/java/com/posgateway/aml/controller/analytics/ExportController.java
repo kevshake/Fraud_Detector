@@ -1,7 +1,5 @@
 package com.posgateway.aml.controller.analytics;
 
-
-
 import com.posgateway.aml.entity.AuditLog;
 import com.posgateway.aml.entity.compliance.ComplianceCase;
 import com.posgateway.aml.entity.compliance.SuspiciousActivityReport;
@@ -22,7 +20,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.stream.Collectors;
 
 // @RequiredArgsConstructor removed
 @RestController
@@ -33,29 +30,31 @@ public class ExportController {
     private final SuspiciousActivityReportRepository sarRepository;
     private final AuditLogRepository auditLogRepository;
 
-    public ExportController(ComplianceCaseRepository caseRepository, SuspiciousActivityReportRepository sarRepository, AuditLogRepository auditLogRepository) {
+    public ExportController(ComplianceCaseRepository caseRepository, SuspiciousActivityReportRepository sarRepository,
+            AuditLogRepository auditLogRepository) {
         this.caseRepository = caseRepository;
         this.sarRepository = sarRepository;
         this.auditLogRepository = auditLogRepository;
     }
 
-
     @GetMapping(value = "/cases.csv", produces = "text/csv")
     public ResponseEntity<byte[]> exportCases(@RequestParam(required = false) String status,
-                                              @RequestParam(required = false) String priority,
-                                              @RequestParam(required = false) String merchantId) {
+            @RequestParam(required = false) String priority,
+            @RequestParam(required = false) String merchantId) {
         List<ComplianceCase> cases = caseRepository.findAll();
         if (status != null && !status.isEmpty()) {
             try {
                 CaseStatus cs = CaseStatus.valueOf(status);
                 cases = cases.stream().filter(c -> cs.equals(c.getStatus())).toList();
-            } catch (IllegalArgumentException ignored) {}
+            } catch (IllegalArgumentException ignored) {
+            }
         }
         if (priority != null && !priority.isEmpty()) {
             try {
                 com.posgateway.aml.model.CasePriority cp = com.posgateway.aml.model.CasePriority.valueOf(priority);
                 cases = cases.stream().filter(c -> cp.equals(c.getPriority())).toList();
-            } catch (IllegalArgumentException ignored) {}
+            } catch (IllegalArgumentException ignored) {
+            }
         }
         if (merchantId != null && !merchantId.isEmpty()) {
             cases = cases.stream().filter(c -> merchantId.equals(c.getMerchantId())).toList();
@@ -65,12 +64,13 @@ public class ExportController {
         sb.append("caseReference,status,priority,merchantId,assignedTo,createdAt,updatedAt\n");
         for (ComplianceCase c : cases) {
             sb.append(safe(c.getCaseReference())).append(",")
-              .append(safe(c.getStatus() != null ? c.getStatus().name() : null)).append(",")
-              .append(safe(c.getPriority() != null ? c.getPriority().name() : null)).append(",")
-              .append(safe(c.getMerchantId())).append(",")
-              .append(safe(c.getAssignedTo() != null ? String.valueOf(c.getAssignedTo().getId()) : null)).append(",")
-              .append(safe(c.getCreatedAt())).append(",")
-              .append(safe(c.getUpdatedAt())).append("\n");
+                    .append(safe(c.getStatus() != null ? c.getStatus().name() : null)).append(",")
+                    .append(safe(c.getPriority() != null ? c.getPriority().name() : null)).append(",")
+                    .append(safe(c.getMerchantId())).append(",")
+                    .append(safe(c.getAssignedTo() != null ? String.valueOf(c.getAssignedTo().getId()) : null))
+                    .append(",")
+                    .append(safe(c.getCreatedAt())).append(",")
+                    .append(safe(c.getUpdatedAt())).append("\n");
         }
         return csvResponse("cases.csv", sb.toString());
     }
@@ -82,24 +82,25 @@ public class ExportController {
             try {
                 SarStatus ss = SarStatus.valueOf(status);
                 sars = sars.stream().filter(s -> ss.equals(s.getStatus())).toList();
-            } catch (IllegalArgumentException ignored) {}
+            } catch (IllegalArgumentException ignored) {
+            }
         }
         StringBuilder sb = new StringBuilder();
         sb.append("sarReference,status,type,jurisdiction,filedAt,createdAt\n");
         for (SuspiciousActivityReport s : sars) {
             sb.append(safe(s.getSarReference())).append(",")
-              .append(safe(s.getStatus() != null ? s.getStatus().name() : null)).append(",")
-              .append(safe(s.getSarType() != null ? s.getSarType().name() : null)).append(",")
-              .append(safe(s.getJurisdiction())).append(",")
-              .append(safe(s.getFiledAt())).append(",")
-              .append(safe(s.getCreatedAt())).append("\n");
+                    .append(safe(s.getStatus() != null ? s.getStatus().name() : null)).append(",")
+                    .append(safe(s.getSarType() != null ? s.getSarType().name() : null)).append(",")
+                    .append(safe(s.getJurisdiction())).append(",")
+                    .append(safe(s.getFiledAt())).append(",")
+                    .append(safe(s.getCreatedAt())).append("\n");
         }
         return csvResponse("sars.csv", sb.toString());
     }
 
     @GetMapping(value = "/audit.csv", produces = "text/csv")
     public ResponseEntity<byte[]> exportAudit(@RequestParam(required = false) String start,
-                                              @RequestParam(required = false) String end) {
+            @RequestParam(required = false) String end) {
         LocalDateTime from = start != null ? LocalDateTime.parse(start) : LocalDate.now().minusDays(1).atStartOfDay();
         LocalDateTime to = end != null ? LocalDateTime.parse(end) : LocalDateTime.now();
         List<AuditLog> logs = auditLogRepository.findByTimestampBetween(from, to);
@@ -107,11 +108,11 @@ public class ExportController {
         sb.append("timestamp,user,action,entityType,entityId,success\n");
         for (AuditLog l : logs) {
             sb.append(safe(l.getTimestamp())).append(",")
-              .append(safe(l.getUsername())).append(",")
-              .append(safe(l.getActionType())).append(",")
-              .append(safe(l.getEntityType())).append(",")
-              .append(safe(l.getEntityId())).append(",")
-              .append(l.isSuccess()).append("\n");
+                    .append(safe(l.getUsername())).append(",")
+                    .append(safe(l.getActionType())).append(",")
+                    .append(safe(l.getEntityType())).append(",")
+                    .append(safe(l.getEntityId())).append(",")
+                    .append(l.isSuccess()).append("\n");
         }
         return csvResponse("audit.csv", sb.toString());
     }
@@ -128,4 +129,3 @@ public class ExportController {
         return o == null ? "" : o.toString().replace(",", " ");
     }
 }
-

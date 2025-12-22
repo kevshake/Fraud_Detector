@@ -30,7 +30,7 @@ public class InputValidator {
 
     // Path traversal detection (keep custom - no standard library)
     private static final Pattern PATH_TRAVERSAL_PATTERN = Pattern.compile(
-            "(\\.\\./|\\.\\.\\\\");
+            "(\\.\\./|\\.\\.\\\\)");
 
     // Currency code (ISO 4217)
     private static final Pattern CURRENCY_PATTERN = Pattern.compile(

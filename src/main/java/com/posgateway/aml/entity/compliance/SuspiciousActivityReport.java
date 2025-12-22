@@ -6,6 +6,9 @@ import com.posgateway.aml.model.SarStatus;
 import com.posgateway.aml.model.SarType;
 import jakarta.persistence.*;
 
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.RelationTargetAuditMode;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -16,6 +19,7 @@ import java.util.List;
  */
 @Entity
 @Table(name = "suspicious_activity_reports")
+@Audited
 public class SuspiciousActivityReport {
 
     @Id
@@ -36,14 +40,17 @@ public class SuspiciousActivityReport {
     // Approval Workflow
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by_user_id")
+    @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
     private User createdBy; // Analyst
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reviewed_by_user_id")
+    @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
     private User reviewedBy; // Compliance Officer
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "approved_by_user_id")
+    @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
     private User approvedBy; // MLRO
 
     private LocalDateTime approvedAt;
@@ -54,6 +61,7 @@ public class SuspiciousActivityReport {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "filed_by_user_id")
+    @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
     private User filedBy;
 
     @Column(columnDefinition = "TEXT")
@@ -85,6 +93,7 @@ public class SuspiciousActivityReport {
 
     @ManyToMany
     @JoinTable(name = "sar_transactions", joinColumns = @JoinColumn(name = "sar_id"), inverseJoinColumns = @JoinColumn(name = "txn_id"))
+    @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
     private List<TransactionEntity> suspiciousTransactions;
 
     // Amendment Tracking

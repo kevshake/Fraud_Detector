@@ -113,9 +113,10 @@
             Invalid username or password
         </div>
 
-        <form action="/perform_login" method="POST">
+        <form action="/perform_login" method="POST" id="loginForm">
+            <input type="hidden" name="_csrf" id="csrfToken">
             <div class="form-group">
-                <input type="text" name="username" class="form-control" placeholder="Username" required>
+                <input type="text" name="username" class="form-control" placeholder="Username" required autofocus>
             </div>
             <div class="form-group">
                 <input type="password" name="password" class="form-control" placeholder="Password" required>
@@ -124,9 +125,54 @@
         </form>
     </div>
     <script>
-        if (window.location.search.includes('error')) {
+        // Get CSRF token
+        fetch('/api/v1/auth/csrf', { credentials: 'include' })
+            .then(res => res.json())
+            .then(data => {
+                if (data.token) {
+                    document.getElementById('csrfToken').value = data.token;
+                }
+            })
+            .catch(() => {
+                // CSRF token fetch failed, form will still work
+            });
+        
+        // Handle error messages
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('error')) {
             document.getElementById('error-msg').style.display = 'block';
         }
+        
+        // Handle expired session message
+        if (urlParams.get('expired')) {
+            const expiredMsg = document.createElement('div');
+            expiredMsg.className = 'alert-error';
+            expiredMsg.style.display = 'block';
+            expiredMsg.innerHTML = '<i class="fas fa-clock"></i> Your session has expired. Please log in again.';
+            document.querySelector('.login-card').insertBefore(expiredMsg, document.getElementById('error-msg'));
+        }
+        
+        // Handle invalid session message
+        if (urlParams.get('invalid')) {
+            const invalidMsg = document.createElement('div');
+            invalidMsg.className = 'alert-error';
+            invalidMsg.style.display = 'block';
+            invalidMsg.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Invalid session. Please log in again.';
+            document.querySelector('.login-card').insertBefore(invalidMsg, document.getElementById('error-msg'));
+        }
+        
+        // Handle successful login redirect
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            const redirectPath = sessionStorage.getItem('redirectAfterLogin');
+            if (redirectPath) {
+                // Add hidden field to preserve redirect
+                const redirectInput = document.createElement('input');
+                redirectInput.type = 'hidden';
+                redirectInput.name = 'redirect';
+                redirectInput.value = redirectPath;
+                this.appendChild(redirectInput);
+            }
+        });
     </script>
 </body>
 

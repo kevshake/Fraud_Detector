@@ -18,13 +18,15 @@ public class SarWorkflowServiceTest {
 
     private SuspiciousActivityReportRepository sarRepository;
     private PermissionService permissionService;
+    private AuditLogService auditLogService;
     private SarWorkflowService sarWorkflowService;
 
     @BeforeEach
     void setup() {
         sarRepository = mock(SuspiciousActivityReportRepository.class);
         permissionService = mock(PermissionService.class);
-        sarWorkflowService = new SarWorkflowService(sarRepository, permissionService);
+        auditLogService = mock(AuditLogService.class);
+        sarWorkflowService = new SarWorkflowService(sarRepository, permissionService, auditLogService);
     }
 
     @Test

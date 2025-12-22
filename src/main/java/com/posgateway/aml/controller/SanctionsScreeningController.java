@@ -16,7 +16,7 @@ import java.time.LocalDate;
  */
 // @Slf4j removed
 @RestController
-@RequestMapping("/sanctions")
+@RequestMapping("/api/v1/sanctions")
 public class SanctionsScreeningController {
 
     private static final Logger log = LoggerFactory.getLogger(SanctionsScreeningController.class);

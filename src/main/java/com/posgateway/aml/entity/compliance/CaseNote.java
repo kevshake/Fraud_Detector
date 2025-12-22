@@ -3,6 +3,9 @@ package com.posgateway.aml.entity.compliance;
 import com.posgateway.aml.entity.User;
 import jakarta.persistence.*;
 
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.RelationTargetAuditMode;
+
 import java.time.LocalDateTime;
 
 /**
@@ -11,6 +14,7 @@ import java.time.LocalDateTime;
  */
 @Entity
 @Table(name = "case_notes")
+@Audited
 public class CaseNote {
 
     @Id
@@ -23,6 +27,7 @@ public class CaseNote {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "author_id", nullable = false)
+    @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
     private User author;
 
     @Column(columnDefinition = "TEXT", nullable = false)

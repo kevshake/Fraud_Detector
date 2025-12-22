@@ -31,25 +31,25 @@ WHERE NOT EXISTS (SELECT 1 FROM roles WHERE name = 'INVESTIGATOR' AND psp_id = (
 -- 3. Assign Permissions to Roles (Basic Set)
 
 -- Compliance Officer Permissions
-INSERT INTO role_permissions (role_id, permission)
-SELECT r.id, p 
-FROM roles r, 
-LATERAL (VALUES 
-    ('CREATE_CASES'), ('ASSIGN_CASES'), ('CLOSE_CASES'), 
-    ('VIEW_CASES'), ('VIEW_SAR'), ('APPROVE_SAR'), ('VIEW_PII')
-) AS t(p)
-WHERE r.name = 'COMPLIANCE_OFFICER' AND r.psp_id = (SELECT psp_id FROM psps WHERE psp_code = 'TECHFLOW_PSP')
-  AND NOT EXISTS (SELECT 1 FROM role_permissions rp WHERE rp.role_id = r.id AND rp.permission = t.p);
+INSERT INTO role_permission_mappings (user_role, permission)
+VALUES 
+    ('COMPLIANCE_OFFICER', 'CREATE_CASES'), 
+    ('COMPLIANCE_OFFICER', 'ASSIGN_CASES'), 
+    ('COMPLIANCE_OFFICER', 'CLOSE_CASES'), 
+    ('COMPLIANCE_OFFICER', 'VIEW_CASES'), 
+    ('COMPLIANCE_OFFICER', 'VIEW_SAR'), 
+    ('COMPLIANCE_OFFICER', 'APPROVE_SAR'), 
+    ('COMPLIANCE_OFFICER', 'VIEW_PII')
+ON CONFLICT (user_role, permission) DO NOTHING;
 
 -- Investigator Permissions
-INSERT INTO role_permissions (role_id, permission)
-SELECT r.id, p 
-FROM roles r, 
-LATERAL (VALUES 
-    ('VIEW_CASES'), ('ADD_CASE_NOTES'), ('ADD_CASE_EVIDENCE'), ('CREATE_SAR')
-) AS t(p)
-WHERE r.name = 'INVESTIGATOR' AND r.psp_id = (SELECT psp_id FROM psps WHERE psp_code = 'TECHFLOW_PSP')
-  AND NOT EXISTS (SELECT 1 FROM role_permissions rp WHERE rp.role_id = r.id AND rp.permission = t.p);
+INSERT INTO role_permission_mappings (user_role, permission)
+VALUES 
+    ('INVESTIGATOR', 'VIEW_CASES'), 
+    ('INVESTIGATOR', 'ADD_CASE_NOTES'), 
+    ('INVESTIGATOR', 'ADD_CASE_EVIDENCE'), 
+    ('INVESTIGATOR', 'CREATE_SAR')
+ON CONFLICT (user_role, permission) DO NOTHING;
 
 -- 4. Create Users (Password is 'password' for all: $2a$10$dXJ3SW6G7P50lGmMkkmwe.20cQQubK3.HZWzG3YB1tlRy.fqvM/BG)
 

@@ -31,6 +31,16 @@ public class MerchantDocument {
     private LocalDateTime uploadedAt;
     private LocalDateTime verifiedAt;
 
+    // Version Control Fields
+    @Column(name = "version")
+    private Integer version = 1;
+
+    @Column(name = "previous_version_id")
+    private Long previousVersionId;
+
+    @Column(name = "is_current_version")
+    private Boolean isCurrentVersion = true;
+
     public MerchantDocument() {
     }
 
@@ -119,11 +129,41 @@ public class MerchantDocument {
         this.verifiedAt = verifiedAt;
     }
 
+    public Integer getVersion() {
+        return version;
+    }
+
+    public void setVersion(Integer version) {
+        this.version = version;
+    }
+
+    public Long getPreviousVersionId() {
+        return previousVersionId;
+    }
+
+    public void setPreviousVersionId(Long previousVersionId) {
+        this.previousVersionId = previousVersionId;
+    }
+
+    public Boolean getIsCurrentVersion() {
+        return isCurrentVersion;
+    }
+
+    public void setIsCurrentVersion(Boolean isCurrentVersion) {
+        this.isCurrentVersion = isCurrentVersion;
+    }
+
     @PrePersist
     protected void onCreate() {
         uploadedAt = LocalDateTime.now();
         if (status == null) {
             status = "PENDING";
+        }
+        if (version == null) {
+            version = 1;
+        }
+        if (isCurrentVersion == null) {
+            isCurrentVersion = true;
         }
     }
 }

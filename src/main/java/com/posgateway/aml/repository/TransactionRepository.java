@@ -90,4 +90,26 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
      */
     @Query("SELECT DISTINCT t.merchantId FROM TransactionEntity t WHERE t.ipAddress = :ipAddress")
     List<String> findMerchantIdsByIpAddress(@Param("ipAddress") String ipAddress);
+
+    /**
+     * Find transactions by merchant ID and timestamp range
+     */
+    @Query("SELECT t FROM TransactionEntity t WHERE t.merchantId = :merchantId AND t.txnTs >= :startDate AND t.txnTs <= :endDate ORDER BY t.txnTs")
+    List<TransactionEntity> findByMerchantIdAndTimestampBetween(@Param("merchantId") String merchantId,
+                                                                 @Param("startDate") LocalDateTime startDate,
+                                                                 @Param("endDate") LocalDateTime endDate);
+
+    /**
+     * Find transactions by merchant ID and timestamp after
+     */
+    @Query("SELECT t FROM TransactionEntity t WHERE t.merchantId = :merchantId AND t.txnTs >= :startDate ORDER BY t.txnTs")
+    List<TransactionEntity> findByMerchantIdAndTimestampAfter(@Param("merchantId") String merchantId,
+                                                               @Param("startDate") LocalDateTime startDate);
+
+    /**
+     * Find latest transaction timestamp before a date
+     */
+    @Query("SELECT MAX(t.txnTs) FROM TransactionEntity t WHERE t.merchantId = :merchantId AND t.txnTs < :beforeDate")
+    LocalDateTime findLatestTransactionTimestampBefore(@Param("merchantId") String merchantId,
+                                                       @Param("beforeDate") LocalDateTime beforeDate);
 }

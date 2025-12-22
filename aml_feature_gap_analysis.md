@@ -124,6 +124,8 @@ public enum Permission {
 - ❌ No escalation reasons tracking
 - ❌ No automatic escalation based on risk score or amount
 
+> 📋 **Implementation Research:** Detailed implementation guidance for all features above is available in `CASE_MANAGEMENT_IMPLEMENTATION_RESEARCH.md`
+
 ### Industry Standard Case Management Features
 
 Leading AML platforms include:

@@ -3,7 +3,9 @@ package com.posgateway.aml.service.download;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.posgateway.aml.service.sanctions.NameMatchingService;
+import com.posgateway.aml.service.sanctions.WatchlistUpdateTrackingService;
 import io.github.resilience4j.retry.annotation.Retry;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -34,14 +36,17 @@ public class SanctionsListDownloadService {
     private final com.posgateway.aml.service.AerospikeConnectionService aerospikeService;
     private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate;
+    private final WatchlistUpdateTrackingService watchlistUpdateTrackingService;
 
+    @Autowired
     public SanctionsListDownloadService(NameMatchingService nameMatchingService,
             com.posgateway.aml.service.AerospikeConnectionService aerospikeService, ObjectMapper objectMapper,
-            RestTemplate restTemplate) {
+            RestTemplate restTemplate, WatchlistUpdateTrackingService watchlistUpdateTrackingService) {
         this.nameMatchingService = nameMatchingService;
         this.aerospikeService = aerospikeService;
         this.objectMapper = objectMapper;
         this.restTemplate = restTemplate;
+        this.watchlistUpdateTrackingService = watchlistUpdateTrackingService;
     }
 
     @Value("${sanctions.download.enabled:true}")
@@ -125,6 +130,22 @@ public class SanctionsListDownloadService {
             int recordsProcessed = processAndLoadToAerospike(downloadedFile, currentVersion);
 
             log.info("Successfully processed {} sanctions records", recordsProcessed);
+
+            // Step 5: Record watchlist update in tracking service (data is stored in Aerospike)
+            try {
+                watchlistUpdateTrackingService.recordUpdate(
+                    "OPENSANCTIONS",
+                    "SANCTIONS",
+                    java.time.LocalDate.now(),
+                    (long) recordsProcessed,
+                    opensanctionsUrl,
+                    currentVersion // Use version as checksum
+                );
+                log.info("Recorded watchlist update: {} records loaded to Aerospike", recordsProcessed);
+            } catch (Exception e) {
+                log.warn("Failed to record watchlist update: {}", e.getMessage());
+                // Don't fail the entire process if tracking fails
+            }
 
             // Step 5: Delete temp file after successful processing
             Files.deleteIfExists(downloadedFile);

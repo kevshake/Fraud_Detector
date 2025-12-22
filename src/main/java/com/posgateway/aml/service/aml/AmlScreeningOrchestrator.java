@@ -11,6 +11,7 @@ import com.posgateway.aml.repository.AuditTrailRepository;
 import com.posgateway.aml.repository.ExternalAmlResponseRepository;
 import com.posgateway.aml.repository.MerchantRepository;
 import com.posgateway.aml.repository.MerchantScreeningResultRepository;
+import com.posgateway.aml.repository.UserRepository; // Added UserRepository import
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +21,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * AML Screening Orchestrator
@@ -42,11 +44,13 @@ public class AmlScreeningOrchestrator {
     private final MerchantScreeningResultRepository screeningResultRepository;
     private final ExternalAmlResponseRepository externalResponseRepository;
     private final AuditTrailRepository auditTrailRepository;
+    private final UserRepository userRepository; // Added UserRepository field
     private final ObjectMapper objectMapper;
 
     public AmlScreeningOrchestrator(SumsubAmlService sumsubService, AerospikeSanctionsScreeningService aerospikeService,
             MerchantRepository merchantRepository, MerchantScreeningResultRepository screeningResultRepository,
             ExternalAmlResponseRepository externalResponseRepository, AuditTrailRepository auditTrailRepository,
+            UserRepository userRepository, // Added UserRepository to constructor
             ObjectMapper objectMapper) {
         this.sumsubService = sumsubService;
         this.aerospikeService = aerospikeService;
@@ -54,6 +58,7 @@ public class AmlScreeningOrchestrator {
         this.screeningResultRepository = screeningResultRepository;
         this.externalResponseRepository = externalResponseRepository;
         this.auditTrailRepository = auditTrailRepository;
+        this.userRepository = userRepository; // Initialized UserRepository
         this.objectMapper = objectMapper;
     }
 
@@ -93,7 +98,7 @@ public class AmlScreeningOrchestrator {
         }
 
         // Save screening result to PostgreSQL
-        MerchantScreeningResult screeningRecord = saveScreeningResult(merchant, result, screeningProvider);
+        saveScreeningResult(merchant, result, screeningProvider);
 
         // Update merchant's last screened timestamp
         merchant.updateNextScreeningDue();
@@ -196,6 +201,7 @@ public class AmlScreeningOrchestrator {
      */
     private MerchantScreeningResult saveScreeningResult(Merchant merchant, ScreeningResult result, String provider) {
         try {
+            @SuppressWarnings("unchecked")
             Map<String, Object> matchDetails = objectMapper.convertValue(result.getMatches(), Map.class);
 
             MerchantScreeningResult record = MerchantScreeningResult.builder()
@@ -211,7 +217,9 @@ public class AmlScreeningOrchestrator {
                     .screenedBy("SYSTEM")
                     .build();
 
-            return screeningResultRepository.save(record);
+            MerchantScreeningResult savedRecord = screeningResultRepository.save(record);
+            java.util.Objects.requireNonNull(savedRecord, "Saved screening record cannot be null");
+            return savedRecord;
 
         } catch (Exception e) {
             log.error("Failed to save screening result: {}", e.getMessage());
@@ -303,7 +311,8 @@ public class AmlScreeningOrchestrator {
                             : "No matches found")
                     .build();
 
-            auditTrailRepository.save(audit);
+            AuditTrail savedAudit = auditTrailRepository.save(audit);
+            java.util.Objects.requireNonNull(savedAudit, "Saved audit trail cannot be null");
 
         } catch (Exception e) {
             log.error("Failed to create audit trail: {}", e.getMessage());

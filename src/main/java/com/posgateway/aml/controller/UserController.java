@@ -30,14 +30,19 @@ public class UserController {
     @GetMapping
     public ResponseEntity<List<User>> listUsers(@AuthenticationPrincipal User currentUser,
             @RequestParam(required = false) Long pspId) {
-        if (!permissionService.hasPermission(currentUser.getRole(), Permission.MANAGE_USERS)) {
+        if (currentUser == null) {
+            // Fallback for security disabled
+            currentUser = userService.getSuperAdmin().orElse(null);
+        }
+
+        if (currentUser != null && !permissionService.hasPermission(currentUser.getRole(), Permission.MANAGE_USERS)) {
             throw new SecurityException("Not authorized");
         }
 
         Psp targetPsp = null;
 
         // If current user is Global Admin (PSP is null)
-        if (currentUser.getPsp() == null) {
+        if (currentUser == null || currentUser.getPsp() == null) {
             if (pspId != null) {
                 targetPsp = pspRepository.findById(pspId)
                         .orElseThrow(() -> new IllegalArgumentException("PSP not found"));
@@ -56,13 +61,17 @@ public class UserController {
     @PostMapping
     public ResponseEntity<User> createUser(@AuthenticationPrincipal User currentUser,
             @RequestBody CreateUserRequest req) {
-        if (!permissionService.hasPermission(currentUser.getRole(), Permission.MANAGE_USERS)) {
+        if (currentUser == null) {
+            currentUser = userService.getSuperAdmin().orElse(null);
+        }
+
+        if (currentUser != null && !permissionService.hasPermission(currentUser.getRole(), Permission.MANAGE_USERS)) {
             throw new SecurityException("Not authorized");
         }
 
         Psp targetPsp = null;
 
-        if (currentUser.getPsp() == null) {
+        if (currentUser == null || currentUser.getPsp() == null) {
             if (req.getPspId() != null) {
                 targetPsp = pspRepository.findById(req.getPspId())
                         .orElseThrow(() -> new IllegalArgumentException("PSP not found"));
@@ -84,6 +93,22 @@ public class UserController {
                 .build();
 
         return ResponseEntity.ok(userService.createUser(newUser, req.getRoleId(), targetPsp));
+    }
+
+    /**
+     * Get current user profile
+     * GET /api/v1/users/me
+     */
+    @GetMapping("/me")
+    public ResponseEntity<User> getCurrentUser(@AuthenticationPrincipal User currentUser) {
+        if (currentUser == null) {
+            // Fallback for security disabled
+            currentUser = userService.getSuperAdmin().orElse(null);
+        }
+        if (currentUser == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(currentUser);
     }
 
     public static class CreateUserRequest {

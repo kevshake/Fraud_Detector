@@ -27,4 +27,9 @@ public interface AuditTrailRepository extends JpaRepository<AuditTrail, Long> {
      * Find audit logs by performed by
      */
     List<AuditTrail> findByPerformedBy(String performedBy);
+
+    /**
+     * Find audit logs by timestamp range
+     */
+    List<AuditTrail> findByPerformedAtBetween(java.time.LocalDateTime start, java.time.LocalDateTime end);
 }

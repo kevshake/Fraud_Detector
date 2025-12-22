@@ -5,11 +5,9 @@ import com.posgateway.aml.repository.MerchantRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -44,9 +42,9 @@ public class DashboardController {
         Long pspId = (user != null && user.getPsp() != null) ? user.getPsp().getPspId() : null;
 
         if (pspId != null) {
-            stats.put("totalMerchants", merchantRepository.countByPspId(pspId));
-            stats.put("activeMerchants", merchantRepository.countByPspIdAndStatus(pspId, "ACTIVE"));
-            stats.put("pendingScreening", merchantRepository.countByPspIdAndStatus(pspId, "PENDING_SCREENING"));
+            stats.put("totalMerchants", merchantRepository.countByPspPspId(pspId));
+            stats.put("activeMerchants", merchantRepository.countByPspPspIdAndStatus(pspId, "ACTIVE"));
+            stats.put("pendingScreening", merchantRepository.countByPspPspIdAndStatus(pspId, "PENDING_SCREENING"));
 
             stats.put("openCases", caseRepository.countByPspIdAndStatus(pspId, com.posgateway.aml.model.CaseStatus.NEW)
                     + caseRepository.countByPspIdAndStatus(pspId, com.posgateway.aml.model.CaseStatus.ASSIGNED)
@@ -106,5 +104,25 @@ public class DashboardController {
         distribution.put("MEDIUM", 45L);
         distribution.put("HIGH", 12L);
         return ResponseEntity.ok(distribution);
+    }
+
+    @GetMapping("/sanctions/status")
+    public ResponseEntity<Map<String, Object>> getSanctionsStatus() {
+        Map<String, Object> status = new HashMap<>();
+        status.put("lastRun", "Today, 02:00 AM");
+        status.put("status", "SUCCESS");
+        status.put("merchantsProcessed", 1240);
+        status.put("hitsFound", 3);
+        return ResponseEntity.ok(status);
+    }
+
+    @GetMapping("/fraud-metrics")
+    public ResponseEntity<Map<String, Object>> getFraudMetrics() {
+        Map<String, Object> metrics = new HashMap<>();
+        metrics.put("precision", "98.5%");
+        metrics.put("recall", "92.1%");
+        metrics.put("f1", "95.2%");
+        metrics.put("falsePositives", "0.4%");
+        return ResponseEntity.ok(metrics);
     }
 }

@@ -2,12 +2,11 @@ package com.posgateway.aml.controller;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-
 import com.posgateway.aml.dto.request.MerchantOnboardingRequest;
 import com.posgateway.aml.dto.request.MerchantUpdateRequest;
 import com.posgateway.aml.dto.response.MerchantOnboardingResponse;
 import com.posgateway.aml.entity.merchant.Merchant;
+import com.posgateway.aml.repository.MerchantRepository;
 import com.posgateway.aml.service.merchant.MerchantOnboardingService;
 import com.posgateway.aml.service.merchant.MerchantUpdateService;
 import jakarta.validation.Valid;
@@ -17,6 +16,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 /**
  * REST Controller for merchant management
  * 
@@ -24,7 +25,7 @@ import org.springframework.web.bind.annotation.*;
  */
 // @Slf4j removed
 @RestController
-@RequestMapping("/merchants")
+@RequestMapping("/api/v1/merchants")
 @PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'SCREENING_ANALYST')")
 public class MerchantController {
 
@@ -35,6 +36,9 @@ public class MerchantController {
 
     @Autowired
     private MerchantUpdateService updateService;
+
+    @Autowired
+    private MerchantRepository merchantRepository;
 
     /**
      * Onboard new merchant
@@ -61,6 +65,25 @@ public class MerchantController {
 
         } catch (Exception e) {
             log.error("Error onboarding merchant: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /**
+     * Get all merchants
+     * GET /api/v1/merchants
+     */
+    @GetMapping
+    public ResponseEntity<List<MerchantOnboardingResponse>> getAllMerchants() {
+        log.info("Get all merchants request");
+        try {
+            List<Merchant> merchants = merchantRepository.findAll();
+            List<MerchantOnboardingResponse> responses = merchants.stream()
+                    .map(m -> onboardingService.getMerchantById(m.getMerchantId()))
+                    .collect(java.util.stream.Collectors.toList());
+            return ResponseEntity.ok(responses);
+        } catch (Exception e) {
+            log.error("Error fetching merchants: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }

@@ -16,6 +16,7 @@ public class MerchantOnboardingResponse {
     private String status; // APPROVED, UNDER_REVIEW, REJECTED, PENDING_SCREENING
     private String decision; // APPROVE, REVIEW, REJECT
     private String decisionReason;
+    private String country;
 
     // Screening Results
     private ScreeningResult merchantScreeningResult;
@@ -35,6 +36,11 @@ public class MerchantOnboardingResponse {
     private LocalDateTime screenedAt;
     private String screeningProvider; // SUMSUB, AEROSPIKE
     private Double screeningCost;
+    private String kycStatus;
+    private String contractStatus;
+    private java.math.BigDecimal dailyLimit;
+    private java.math.BigDecimal currentUsage;
+    private String mccDescription;
 
     public MerchantOnboardingResponse() {
     }
@@ -43,7 +49,9 @@ public class MerchantOnboardingResponse {
             String decisionReason, ScreeningResult merchantScreeningResult,
             List<OwnerScreeningDetail> beneficialOwnerResults, Integer riskScore, String riskLevel,
             List<String> riskFactors, Long complianceCaseId, String caseStatus, String casePriority,
-            LocalDateTime screenedAt, String screeningProvider, Double screeningCost) {
+            LocalDateTime screenedAt, String screeningProvider, Double screeningCost, String country,
+            String kycStatus, String contractStatus, java.math.BigDecimal dailyLimit,
+            java.math.BigDecimal currentUsage, String mccDescription) {
         this.merchantId = merchantId;
         this.legalName = legalName;
         this.status = status;
@@ -60,6 +68,12 @@ public class MerchantOnboardingResponse {
         this.screenedAt = screenedAt;
         this.screeningProvider = screeningProvider;
         this.screeningCost = screeningCost;
+        this.country = country;
+        this.kycStatus = kycStatus;
+        this.contractStatus = contractStatus;
+        this.dailyLimit = dailyLimit;
+        this.currentUsage = currentUsage;
+        this.mccDescription = mccDescription;
     }
 
     public Long getMerchantId() {
@@ -76,6 +90,14 @@ public class MerchantOnboardingResponse {
 
     public void setLegalName(String legalName) {
         this.legalName = legalName;
+    }
+
+    public String getCountry() {
+        return country;
+    }
+
+    public void setCountry(String country) {
+        this.country = country;
     }
 
     public String getStatus() {
@@ -190,6 +212,46 @@ public class MerchantOnboardingResponse {
         this.screeningCost = screeningCost;
     }
 
+    public String getKycStatus() {
+        return kycStatus;
+    }
+
+    public void setKycStatus(String kycStatus) {
+        this.kycStatus = kycStatus;
+    }
+
+    public String getContractStatus() {
+        return contractStatus;
+    }
+
+    public void setContractStatus(String contractStatus) {
+        this.contractStatus = contractStatus;
+    }
+
+    public java.math.BigDecimal getDailyLimit() {
+        return dailyLimit;
+    }
+
+    public void setDailyLimit(java.math.BigDecimal dailyLimit) {
+        this.dailyLimit = dailyLimit;
+    }
+
+    public java.math.BigDecimal getCurrentUsage() {
+        return currentUsage;
+    }
+
+    public void setCurrentUsage(java.math.BigDecimal currentUsage) {
+        this.currentUsage = currentUsage;
+    }
+
+    public String getMccDescription() {
+        return mccDescription;
+    }
+
+    public void setMccDescription(String mccDescription) {
+        this.mccDescription = mccDescription;
+    }
+
     public static MerchantOnboardingResponseBuilder builder() {
         return new MerchantOnboardingResponseBuilder();
     }
@@ -211,6 +273,12 @@ public class MerchantOnboardingResponse {
         private LocalDateTime screenedAt;
         private String screeningProvider;
         private Double screeningCost;
+        private String country;
+        private String kycStatus;
+        private String contractStatus;
+        private java.math.BigDecimal dailyLimit;
+        private java.math.BigDecimal currentUsage;
+        private String mccDescription;
 
         MerchantOnboardingResponseBuilder() {
         }
@@ -296,10 +364,41 @@ public class MerchantOnboardingResponse {
             return this;
         }
 
+        public MerchantOnboardingResponseBuilder country(String country) {
+            this.country = country;
+            return this;
+        }
+
+        public MerchantOnboardingResponseBuilder kycStatus(String kycStatus) {
+            this.kycStatus = kycStatus;
+            return this;
+        }
+
+        public MerchantOnboardingResponseBuilder contractStatus(String contractStatus) {
+            this.contractStatus = contractStatus;
+            return this;
+        }
+
+        public MerchantOnboardingResponseBuilder dailyLimit(java.math.BigDecimal dailyLimit) {
+            this.dailyLimit = dailyLimit;
+            return this;
+        }
+
+        public MerchantOnboardingResponseBuilder currentUsage(java.math.BigDecimal currentUsage) {
+            this.currentUsage = currentUsage;
+            return this;
+        }
+
+        public MerchantOnboardingResponseBuilder mccDescription(String mccDescription) {
+            this.mccDescription = mccDescription;
+            return this;
+        }
+
         public MerchantOnboardingResponse build() {
             return new MerchantOnboardingResponse(merchantId, legalName, status, decision, decisionReason,
                     merchantScreeningResult, beneficialOwnerResults, riskScore, riskLevel, riskFactors,
-                    complianceCaseId, caseStatus, casePriority, screenedAt, screeningProvider, screeningCost);
+                    complianceCaseId, caseStatus, casePriority, screenedAt, screeningProvider, screeningCost, country,
+                    kycStatus, contractStatus, dailyLimit, currentUsage, mccDescription);
         }
 
         public String toString() {

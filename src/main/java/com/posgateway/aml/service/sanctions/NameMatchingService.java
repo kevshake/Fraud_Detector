@@ -148,13 +148,26 @@ public class NameMatchingService {
      * Get match result with detailed scoring
      */
     public MatchResult getMatchResult(String name1, String name2) {
+        if (name1 == null || name2 == null) {
+            return new MatchResult(name1, name2, "", "", false, Integer.MAX_VALUE, 0.0, false);
+        }
+
         String phonetic1 = generatePhoneticCode(name1);
         String phonetic2 = generatePhoneticCode(name2);
         boolean phoneticMatch = phonetic1.equals(phonetic2);
 
+        // Also check alternate phonetic codes
+        if (!phoneticMatch) {
+            String alt1 = generateAlternatePhoneticCode(name1);
+            String alt2 = generateAlternatePhoneticCode(name2);
+            phoneticMatch = alt1.equals(alt2) || phonetic1.equals(alt2) || alt1.equals(phonetic2);
+        }
+
         int distance = calculateLevenshteinDistance(name1, name2);
         double similarityScore = calculateSimilarityScore(name1, name2);
-        boolean isMatch = isMatch(name1, name2);
+        
+        // Calculate match directly without recursion
+        boolean isMatch = phoneticMatch && (distance <= levenshteinThreshold || similarityScore >= similarityThreshold);
 
         return new MatchResult(name1, name2, phonetic1, phonetic2, phoneticMatch, distance, similarityScore, isMatch);
     }

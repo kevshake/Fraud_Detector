@@ -51,7 +51,7 @@ public class SchemeMonitoringReportGenerator implements ReportGenerator {
         List<Map<String, Object>> merchantRisks = new ArrayList<>();
 
         // 1. Get all merchants for this PSP
-        List<com.posgateway.aml.entity.merchant.Merchant> merchants = merchantRepository.findByPspId(pspId);
+        List<com.posgateway.aml.entity.merchant.Merchant> merchants = merchantRepository.findByPspPspId(pspId);
 
         // 2. Evaluate Risk for each
         for (com.posgateway.aml.entity.merchant.Merchant merchant : merchants) {

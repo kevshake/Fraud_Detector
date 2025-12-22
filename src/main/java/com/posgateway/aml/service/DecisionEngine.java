@@ -122,7 +122,49 @@ public class DecisionEngine {
         // Check high-risk MCC + high amount
         // These would be implemented with actual blacklist tables
 
+        // Real-time sanctions screening (highest priority)
+        DecisionResult sanctionsResult = checkSanctionsScreening(transaction);
+        if (sanctionsResult != null) {
+            return sanctionsResult;
+        }
+
         return null; // No hard rule triggered
+    }
+
+    @Autowired(required = false)
+    private com.posgateway.aml.service.sanctions.RealTimeTransactionScreeningService realTimeScreeningService;
+
+    private DecisionResult checkSanctionsScreening(TransactionEntity transaction) {
+        if (realTimeScreeningService == null) {
+            return null; // Service not available
+        }
+        
+        try {
+            com.posgateway.aml.service.sanctions.RealTimeTransactionScreeningService.TransactionScreeningResult result = 
+                realTimeScreeningService.screenTransaction(transaction);
+            
+            if (result.hasMatches() && result.shouldBlock()) {
+                List<String> reasons = new ArrayList<>();
+                reasons.add("SANCTIONS_MATCH: Transaction involves sanctioned entity");
+                for (var match : result.getMatches()) {
+                    reasons.add(String.format("Match: %s (%s) - %s", 
+                        match.getScreenedName(), 
+                        match.getEntityType(),
+                        match.getScreeningResult().getStatus()));
+                }
+                
+                logger.warn("Transaction {} blocked due to sanctions match: {}",
+                    transaction.getTxnId(), reasons);
+                
+                return new DecisionResult("BLOCK", 1.0, reasons);
+            }
+        } catch (Exception e) {
+            logger.error("Error during real-time sanctions screening for transaction {}: {}",
+                transaction.getTxnId(), e.getMessage(), e);
+            // Don't block on screening errors - fail open for availability
+        }
+        
+        return null;
     }
 
     private void checkAmlRules(TransactionEntity transaction, Map<String, Object> features, 

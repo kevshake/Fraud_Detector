@@ -42,5 +42,24 @@ public interface AlertRepository extends JpaRepository<Alert, Long> {
     @Query("SELECT a FROM Alert a WHERE a.createdAt >= :startTime AND a.createdAt <= :endTime")
     List<Alert> findAlertsInTimeRange(@Param("startTime") LocalDateTime startTime, 
                                        @Param("endTime") LocalDateTime endTime);
+
+    /**
+     * Find unassigned alerts
+     */
+    @Query("SELECT a FROM Alert a WHERE a.investigator IS NULL OR a.investigator = ''")
+    List<Alert> findByAssignedToIsNull();
+
+    /**
+     * Find alerts created after a date
+     */
+    @Query("SELECT a FROM Alert a WHERE a.createdAt >= :afterDate")
+    List<Alert> findByCreatedAtAfter(@Param("afterDate") LocalDateTime afterDate);
+
+    /**
+     * Find alerts created between dates
+     */
+    @Query("SELECT a FROM Alert a WHERE a.createdAt >= :startDate AND a.createdAt <= :endDate")
+    List<Alert> findByCreatedAtBetween(@Param("startDate") LocalDateTime startDate,
+                                        @Param("endDate") LocalDateTime endDate);
 }
 

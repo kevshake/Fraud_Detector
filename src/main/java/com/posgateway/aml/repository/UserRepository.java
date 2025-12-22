@@ -22,4 +22,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     // Find system admins (psp is null)
     java.util.List<User> findByPspIsNull();
+
+    // Find users by role name and enabled status
+    java.util.List<User> findByRole_NameAndEnabled(String roleName, boolean enabled);
 }

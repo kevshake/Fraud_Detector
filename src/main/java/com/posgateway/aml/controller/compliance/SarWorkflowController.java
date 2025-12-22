@@ -2,7 +2,7 @@ package com.posgateway.aml.controller.compliance;
 
 import com.posgateway.aml.entity.User;
 import com.posgateway.aml.entity.compliance.SuspiciousActivityReport;
-import com.posgateway.aml.model.SarStatus;
+
 import com.posgateway.aml.repository.UserRepository;
 import com.posgateway.aml.service.SarWorkflowService;
 import org.springframework.http.ResponseEntity;

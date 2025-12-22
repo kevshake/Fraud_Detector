@@ -1,9 +1,5 @@
 package com.posgateway.aml.service.case_management;
 
-
-
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.posgateway.aml.entity.compliance.ComplianceCase;
 import com.posgateway.aml.model.CasePriority;
 import com.posgateway.aml.model.CaseStatus;
@@ -24,7 +20,6 @@ public class ComplianceCaseService {
     public ComplianceCaseService(ComplianceCaseRepository caseRepository) {
         this.caseRepository = caseRepository;
     }
-
 
     @Transactional
     public ComplianceCase createCase(String description) {
@@ -53,7 +48,8 @@ public class ComplianceCaseService {
     public ComplianceCase updateStatus(Long caseId, CaseStatus status) {
         ComplianceCase complianceCase = getCase(caseId);
         complianceCase.setStatus(status);
-        if (status == CaseStatus.CLOSED_CLEARED || status == CaseStatus.CLOSED_SAR_FILED || status == CaseStatus.CLOSED_BLOCKED) {
+        if (status == CaseStatus.CLOSED_CLEARED || status == CaseStatus.CLOSED_SAR_FILED
+                || status == CaseStatus.CLOSED_BLOCKED) {
             if (complianceCase.getResolvedAt() == null) {
                 complianceCase.setResolvedAt(LocalDateTime.now());
             }
@@ -67,7 +63,7 @@ public class ComplianceCaseService {
 
         complianceCase.setResolution(decision);
         complianceCase.setResolutionNotes(resolutionNotes);
-        
+
         complianceCase.setStatus(CaseStatus.CLOSED_CLEARED); // Default to cleared
         complianceCase.setResolvedAt(LocalDateTime.now());
 

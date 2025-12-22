@@ -31,7 +31,7 @@ public class Role {
 
     @ElementCollection(targetClass = Permission.class, fetch = FetchType.EAGER)
     @Enumerated(EnumType.STRING)
-    @CollectionTable(name = "role_permissions", joinColumns = @JoinColumn(name = "role_id"))
+    @CollectionTable(name = "role_permissions_dynamic", joinColumns = @JoinColumn(name = "role_id"))
     @Column(name = "permission")
     private Set<Permission> permissions = new HashSet<>();
 
