@@ -15,7 +15,7 @@ import java.util.List;
  * Provides endpoints for AML scenario detection
  */
 @RestController
-@RequestMapping("/api/v1/aml/detection")
+@RequestMapping("/aml/detection")
 @PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'ANALYST', 'INVESTIGATOR')")
 public class AmlDetectionController {
 

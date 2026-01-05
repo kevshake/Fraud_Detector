@@ -5,7 +5,7 @@ let currentCaseId = null;
 // Enhanced Case Fetching with new fields
 window.fetchCases = async function() {
     try {
-        const response = await fetch('/api/v1/compliance/cases', {
+        const response = await fetch('compliance/cases', {
             credentials: 'include'
         });
         const cases = await response.json();
@@ -59,7 +59,7 @@ window.viewCaseDetail = async function(caseId) {
     showView('case-detail-view');
     
     try {
-        const response = await fetch(`/api/v1/compliance/cases/${caseId}`, {
+        const response = await fetch(`compliance/cases/${caseId}`, {
             credentials: 'include'
         });
         const caseData = await response.json();
@@ -88,7 +88,7 @@ window.viewCaseDetail = async function(caseId) {
 // Load Case Timeline
 async function loadCaseTimeline(caseId) {
     try {
-        const response = await fetch(`/api/v1/cases/${caseId}/timeline`, {
+        const response = await fetch(`cases/${caseId}/timeline`, {
             credentials: 'include'
         });
         const timeline = await response.json();
@@ -112,7 +112,7 @@ async function loadCaseTimeline(caseId) {
 // Load Case Activities
 async function loadCaseActivities(caseId) {
     try {
-        const response = await fetch(`/api/v1/cases/${caseId}/activities?page=0&size=20`, {
+        const response = await fetch(`cases/${caseId}/activities?page=0&size=20`, {
             credentials: 'include'
         });
         const activities = await response.json();
@@ -169,7 +169,7 @@ window.escalateCase = async function() {
     if (!reason) return;
     
     try {
-        const response = await fetch(`/api/v1/cases/${currentCaseId}/escalate`, {
+        const response = await fetch(`cases/${currentCaseId}/escalate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
@@ -200,7 +200,7 @@ window.loadNetworkGraph = async function(caseId) {
     const depth = document.getElementById('network-depth')?.value || 2;
     
     try {
-        const response = await fetch(`/api/v1/cases/${caseId}/network?depth=${depth}`, {
+        const response = await fetch(`cases/${caseId}/network?depth=${depth}`, {
             credentials: 'include'
         });
         const graph = await response.json();

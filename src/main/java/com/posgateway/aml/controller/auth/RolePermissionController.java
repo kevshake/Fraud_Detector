@@ -1,7 +1,5 @@
 package com.posgateway.aml.controller.auth;
 
-
-
 import com.posgateway.aml.entity.Role;
 import com.posgateway.aml.model.Permission;
 import com.posgateway.aml.repository.RoleRepository;
@@ -18,7 +16,7 @@ import java.util.Set;
 
 // @RequiredArgsConstructor removed
 @RestController
-@RequestMapping("/api/v1/auth")
+@RequestMapping("/auth")
 public class RolePermissionController {
 
     private final RoleService roleService;
@@ -29,11 +27,12 @@ public class RolePermissionController {
         this.roleRepository = roleRepository;
     }
 
-
     @GetMapping("/roles")
-    public ResponseEntity<List<Role>> getRoles() {
-        // By default return system roles.
-        // TODO: Pass query param for PSP specific roles
+    public ResponseEntity<List<Role>> getRoles(@RequestParam(required = false) Long pspId) {
+        if (pspId != null) {
+            com.posgateway.aml.entity.psp.Psp psp = com.posgateway.aml.entity.psp.Psp.builder().pspId(pspId).build();
+            return ResponseEntity.ok(roleService.getRolesForPsp(psp));
+        }
         return ResponseEntity.ok(roleService.getSystemRoles());
     }
 

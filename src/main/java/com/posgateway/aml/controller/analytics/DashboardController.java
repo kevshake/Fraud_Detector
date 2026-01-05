@@ -13,7 +13,7 @@ import java.util.Map;
 
 // @RequiredArgsConstructor removed
 @RestController
-@RequestMapping("/api/v1/dashboard")
+@RequestMapping("/dashboard")
 public class DashboardController {
 
     private final MerchantRepository merchantRepository;
@@ -84,7 +84,7 @@ public class DashboardController {
      * GET /api/v1/dashboard/cases/merchant/{merchantId}
      */
     @GetMapping("/cases/merchant/{merchantId}")
-    public ResponseEntity<Map<String, Long>> getCasesByMerchant(@PathVariable String merchantId) {
+    public ResponseEntity<Map<String, Long>> getCasesByMerchant(@PathVariable Long merchantId) {
         Map<String, Long> stats = new HashMap<>();
         for (com.posgateway.aml.model.CaseStatus s : com.posgateway.aml.model.CaseStatus.values()) {
             stats.put("status_" + s.name(), caseRepository.countByMerchantIdAndStatus(merchantId, s));

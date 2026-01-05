@@ -42,10 +42,11 @@ public class RiskAnalyticsService {
         Map<String, RiskHeatmapData> heatmap = new HashMap<>();
         
         cases.forEach(complianceCase -> {
-            String merchantId = complianceCase.getMerchantId();
+            Long merchantId = complianceCase.getMerchantId();
             if (merchantId != null) {
-                RiskHeatmapData data = heatmap.computeIfAbsent(merchantId, 
-                        k -> new RiskHeatmapData(merchantId, "CUSTOMER"));
+                String merchantIdStr = merchantId.toString();
+                RiskHeatmapData data = heatmap.computeIfAbsent(merchantIdStr, 
+                        k -> new RiskHeatmapData(merchantIdStr, "CUSTOMER"));
                 
                 data.incrementCaseCount();
                 data.addRiskScore(getPriorityRiskScore(complianceCase.getPriority()));
@@ -72,10 +73,11 @@ public class RiskAnalyticsService {
         Map<String, RiskHeatmapData> heatmap = new HashMap<>();
         
         cases.forEach(complianceCase -> {
-            String merchantId = complianceCase.getMerchantId();
+            Long merchantId = complianceCase.getMerchantId();
             if (merchantId != null) {
-                RiskHeatmapData data = heatmap.computeIfAbsent(merchantId, 
-                        k -> new RiskHeatmapData(merchantId, "MERCHANT"));
+                String merchantIdStr = merchantId.toString();
+                RiskHeatmapData data = heatmap.computeIfAbsent(merchantIdStr, 
+                        k -> new RiskHeatmapData(merchantIdStr, "MERCHANT"));
                 
                 data.incrementCaseCount();
                 data.addRiskScore(getPriorityRiskScore(complianceCase.getPriority()));

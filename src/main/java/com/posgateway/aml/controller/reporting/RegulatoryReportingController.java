@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
  * Provides endpoints for CTR, LCTR, IFTR generation
  */
 @RestController
-@RequestMapping("/api/v1/reporting/regulatory")
+@RequestMapping("/reporting/regulatory")
 @PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'MLRO')")
 public class RegulatoryReportingController {
 

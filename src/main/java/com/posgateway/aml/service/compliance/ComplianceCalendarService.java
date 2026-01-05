@@ -4,6 +4,7 @@ import com.posgateway.aml.entity.compliance.ComplianceDeadline;
 import com.posgateway.aml.entity.compliance.SuspiciousActivityReport;
 import com.posgateway.aml.repository.ComplianceDeadlineRepository;
 import com.posgateway.aml.repository.SuspiciousActivityReportRepository;
+import com.posgateway.aml.service.notification.NotificationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,12 +26,15 @@ public class ComplianceCalendarService {
 
     private final ComplianceDeadlineRepository deadlineRepository;
     private final SuspiciousActivityReportRepository sarRepository;
+    private final NotificationService notificationService;
 
     @Autowired
     public ComplianceCalendarService(ComplianceDeadlineRepository deadlineRepository,
-                                    SuspiciousActivityReportRepository sarRepository) {
+            SuspiciousActivityReportRepository sarRepository,
+            NotificationService notificationService) {
         this.deadlineRepository = deadlineRepository;
         this.sarRepository = sarRepository;
+        this.notificationService = notificationService;
     }
 
     /**
@@ -57,12 +61,14 @@ public class ComplianceCalendarService {
     public void checkSarFilingDeadlines() {
         LocalDateTime warningDate = LocalDateTime.now().plusDays(3);
         List<SuspiciousActivityReport> sarsDueSoon = sarRepository
-                .findByFilingDeadlineBeforeAndStatusNot(warningDate, 
+                .findByFilingDeadlineBeforeAndStatusNot(warningDate,
                         com.posgateway.aml.model.SarStatus.FILED);
 
         if (!sarsDueSoon.isEmpty()) {
             logger.warn("Found {} SARs with upcoming filing deadlines", sarsDueSoon.size());
-            // TODO: Send notifications
+            // Send notifications
+            String message = String.format("Alert: %d SARs are due for filing within 7 days.", sarsDueSoon.size());
+            notificationService.sendSystemAlert("compliance-deadlines", message);
         }
     }
 
@@ -70,8 +76,8 @@ public class ComplianceCalendarService {
      * Create compliance deadline
      */
     @Transactional
-    public ComplianceDeadline createDeadline(String deadlineType, LocalDateTime deadlineDate, 
-                                             String description, String jurisdiction) {
+    public ComplianceDeadline createDeadline(String deadlineType, LocalDateTime deadlineDate,
+            String description, String jurisdiction) {
         ComplianceDeadline deadline = new ComplianceDeadline();
         deadline.setDeadlineType(deadlineType);
         deadline.setDeadlineDate(deadlineDate);
@@ -94,4 +100,3 @@ public class ComplianceCalendarService {
         deadlineRepository.save(deadline);
     }
 }
-

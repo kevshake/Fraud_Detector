@@ -1,10 +1,7 @@
 package com.posgateway.aml.controller.psp;
 
-
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 
 import com.posgateway.aml.dto.psp.InvoiceGenerationRequest;
 import com.posgateway.aml.dto.psp.InvoiceResponse;
@@ -16,12 +13,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 // @Slf4j removed
 // @RequiredArgsConstructor removed
 @RestController
-@RequestMapping("/api/v1/billing")
+@RequestMapping("/billing")
 public class BillingController {
 
     private static final Logger log = LoggerFactory.getLogger(BillingController.class);
@@ -33,7 +31,6 @@ public class BillingController {
         this.billingService = billingService;
         this.invoiceMapper = invoiceMapper;
     }
-
 
     @GetMapping("/rates")
     public ResponseEntity<BillingRate> getRate(@RequestParam Long pspId, @RequestParam String serviceType) {
@@ -50,9 +47,9 @@ public class BillingController {
         return ResponseEntity.ok(invoiceMapper.toResponse(invoice));
     }
 
-    // TODO: Implement list invoices endpoint in BillingService or Repository
-    // wrapper if needed
-    // For now we only implemented generation directly.
-    // We will skip "list invoices" for this iteration as it requires service
-    // expansion not in "Existing" blocks
+    @GetMapping("/invoices")
+    public org.springframework.http.ResponseEntity<List<Invoice>> listInvoices(
+            @org.springframework.web.bind.annotation.RequestParam Long pspId) {
+        return org.springframework.http.ResponseEntity.ok(billingService.getInvoicesByPsp(pspId));
+    }
 }

@@ -16,46 +16,53 @@ import java.util.List;
 @Repository
 public interface ApiUsageLogRepository extends JpaRepository<ApiUsageLog, Long> {
 
-    List<ApiUsageLog> findByPsp_PspId(Long pspId);
+        List<ApiUsageLog> findByPsp_PspId(Long pspId);
 
-    List<ApiUsageLog> findByPsp_PspIdAndRequestTimestampBetween(
-            Long pspId,
-            LocalDateTime start,
-            LocalDateTime end);
+        List<ApiUsageLog> findByPsp_PspIdAndRequestTimestampBetween(
+                        Long pspId,
+                        LocalDateTime start,
+                        LocalDateTime end);
 
-    @Query("SELECT a FROM ApiUsageLog a WHERE a.psp.pspId = :pspId " +
-            "AND a.serviceType = :serviceType " +
-            "AND a.requestTimestamp BETWEEN :start AND :end")
-    List<ApiUsageLog> findByPspAndServiceAndPeriod(
-            @Param("pspId") Long pspId,
-            @Param("serviceType") String serviceType,
-            @Param("start") LocalDateTime start,
-            @Param("end") LocalDateTime end);
+        @Query("SELECT a FROM ApiUsageLog a WHERE a.psp.pspId = :pspId " +
+                        "AND a.serviceType = :serviceType " +
+                        "AND a.requestTimestamp BETWEEN :start AND :end")
+        List<ApiUsageLog> findByPspAndServiceAndPeriod(
+                        @Param("pspId") Long pspId,
+                        @Param("serviceType") String serviceType,
+                        @Param("start") LocalDateTime start,
+                        @Param("end") LocalDateTime end);
 
-    @Query("SELECT COUNT(a) FROM ApiUsageLog a WHERE a.psp.pspId = :pspId " +
-            "AND a.billable = true " +
-            "AND a.requestTimestamp BETWEEN :start AND :end")
-    long countBillableRequests(
-            @Param("pspId") Long pspId,
-            @Param("start") LocalDateTime start,
-            @Param("end") LocalDateTime end);
+        @Query("SELECT COUNT(a) FROM ApiUsageLog a WHERE a.psp.pspId = :pspId " +
+                        "AND a.billable = true " +
+                        "AND a.requestTimestamp BETWEEN :start AND :end")
+        long countBillableRequests(
+                        @Param("pspId") Long pspId,
+                        @Param("start") LocalDateTime start,
+                        @Param("end") LocalDateTime end);
 
-    @Query("SELECT SUM(a.costAmount) FROM ApiUsageLog a WHERE a.psp.pspId = :pspId " +
-            "AND a.billable = true " +
-            "AND a.requestTimestamp BETWEEN :start AND :end")
-    BigDecimal sumCostByPspAndPeriod(
-            @Param("pspId") Long pspId,
-            @Param("start") LocalDateTime start,
-            @Param("end") LocalDateTime end);
+        @Query("SELECT SUM(a.costAmount) FROM ApiUsageLog a WHERE a.psp.pspId = :pspId " +
+                        "AND a.billable = true " +
+                        "AND a.requestTimestamp BETWEEN :start AND :end")
+        BigDecimal sumCostByPspAndPeriod(
+                        @Param("pspId") Long pspId,
+                        @Param("start") LocalDateTime start,
+                        @Param("end") LocalDateTime end);
 
-    @Query("SELECT a.serviceType, COUNT(a), SUM(a.costAmount) " +
-            "FROM ApiUsageLog a " +
-            "WHERE a.psp.pspId = :pspId " +
-            "AND a.billable = true " +
-            "AND a.requestTimestamp BETWEEN :start AND :end " +
-            "GROUP BY a.serviceType")
-    List<Object[]> getUsageSummaryByService(
-            @Param("pspId") Long pspId,
-            @Param("start") LocalDateTime start,
-            @Param("end") LocalDateTime end);
+        @Query("SELECT a.serviceType, COUNT(a), SUM(a.costAmount) " +
+                        "FROM ApiUsageLog a " +
+                        "WHERE a.psp.pspId = :pspId " +
+                        "AND a.billable = true " +
+                        "AND a.requestTimestamp BETWEEN :start AND :end " +
+                        "GROUP BY a.serviceType")
+        List<Object[]> getUsageSummaryByService(
+                        @Param("pspId") Long pspId,
+                        @Param("start") LocalDateTime start,
+                        @Param("end") LocalDateTime end);
+
+        /**
+         * Count billable checks for billing engine
+         */
+        default int countBillableByPspAndPeriod(Long pspId, LocalDateTime start, LocalDateTime end) {
+                return (int) countBillableRequests(pspId, start, end);
+        }
 }

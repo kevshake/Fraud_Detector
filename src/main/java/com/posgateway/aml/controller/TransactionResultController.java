@@ -21,7 +21,7 @@ import java.util.concurrent.CompletableFuture;
  * Updates fraud metrics (Async)
  */
 @RestController
-@RequestMapping("/api/v1/transaction/result")
+@RequestMapping("/transaction/result")
 public class TransactionResultController {
 
     private static final Logger logger = LoggerFactory.getLogger(TransactionResultController.class);

@@ -67,7 +67,7 @@ function loadLiveMonitoring() {
     const riskLevel = document.getElementById('risk-level-filter')?.value || 'All';
     const decision = document.getElementById('decision-filter')?.value || 'All';
     
-    fetch(`/api/v1/monitoring/transactions?riskLevel=${riskLevel}&decision=${decision}&limit=50`, {
+    fetch(`monitoring/transactions?riskLevel=${riskLevel}&decision=${decision}&limit=50`, {
         credentials: 'include'
     })
     .then(response => response.json())
@@ -146,7 +146,7 @@ function createTransactionCard(txn) {
 // Analytics
 function loadAnalytics() {
     // Load dashboard stats
-    fetch('/api/v1/monitoring/dashboard/stats', {
+    fetch('monitoring/dashboard/stats', {
         credentials: 'include'
     })
     .then(response => response.json())
@@ -160,7 +160,7 @@ function loadAnalytics() {
     .catch(error => console.error('Error loading stats:', error));
     
     // Load risk distribution
-    fetch('/api/v1/monitoring/risk-distribution', {
+    fetch('monitoring/risk-distribution', {
         credentials: 'include'
     })
     .then(response => response.json())
@@ -170,7 +170,7 @@ function loadAnalytics() {
     .catch(error => console.error('Error loading risk distribution:', error));
     
     // Load top risk indicators
-    fetch('/api/v1/monitoring/risk-indicators', {
+    fetch('monitoring/risk-indicators', {
         credentials: 'include'
     })
     .then(response => response.json())
@@ -180,7 +180,7 @@ function loadAnalytics() {
     .catch(error => console.error('Error loading risk indicators:', error));
     
     // Load recent activity
-    fetch('/api/v1/monitoring/recent-activity', {
+    fetch('monitoring/recent-activity', {
         credentials: 'include'
     })
     .then(response => response.json())
@@ -269,7 +269,7 @@ function renderRecentActivity(activities) {
 
 // SARs
 function loadMonitoringSARs() {
-    fetch('/api/v1/monitoring/sars', {
+    fetch('monitoring/sars', {
         credentials: 'include'
     })
     .then(response => response.json())

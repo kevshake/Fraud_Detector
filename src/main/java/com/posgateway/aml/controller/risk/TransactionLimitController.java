@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 
 // @RequiredArgsConstructor removed
 @RestController
-@RequestMapping("/api/v1/risk/limits")
+@RequestMapping("/risk/limits")
 public class TransactionLimitController {
 
     private final TransactionLimitService transactionLimitService;

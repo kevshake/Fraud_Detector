@@ -49,7 +49,7 @@ public class CentralBankReportGenerator implements ReportGenerator {
         List<Map<String, Object>> sarList = sars.stream().map(sar -> {
             Map<String, Object> item = new HashMap<>();
             item.put("sar_id", sar.getId());
-            item.put("merchant_id", sar.getComplianceCase() != null ? sar.getComplianceCase().getMerchantId() : "N/A");
+            item.put("merchant_id", sar.getComplianceCase() != null && sar.getComplianceCase().getMerchantId() != null ? sar.getComplianceCase().getMerchantId().toString() : "N/A");
             item.put("created_at", sar.getCreatedAt());
             item.put("status", sar.getStatus());
             return item;

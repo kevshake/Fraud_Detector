@@ -4,6 +4,7 @@ import com.posgateway.aml.entity.User;
 import com.posgateway.aml.model.CasePriority;
 import jakarta.persistence.*;
 import org.hibernate.envers.Audited;
+import org.hibernate.envers.RelationTargetAuditMode;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -43,6 +44,7 @@ public class EscalationRule {
     @Column(name = "escalate_to_role")
     private String escalateToRole;
 
+    @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "escalate_to_user_id")
     private User escalateToUser;
@@ -57,9 +59,9 @@ public class EscalationRule {
     }
 
     public EscalationRule(Long id, String ruleName, Boolean enabled, CasePriority minPriority,
-                         Double minRiskScore, BigDecimal minAmount, Integer daysOpen,
-                         String escalateToRole, User escalateToUser, String reasonTemplate,
-                         LocalDateTime createdAt) {
+            Double minRiskScore, BigDecimal minAmount, Integer daysOpen,
+            String escalateToRole, User escalateToUser, String reasonTemplate,
+            LocalDateTime createdAt) {
         this.id = id;
         this.ruleName = ruleName;
         this.enabled = enabled;
@@ -176,4 +178,3 @@ public class EscalationRule {
         }
     }
 }
-

@@ -9,14 +9,14 @@ class SessionManager {
         this.warningTime = 5 * 60 * 1000; // Show warning 5 minutes before timeout
         this.checkInterval = 60 * 1000; // Check every minute
         this.activityCheckInterval = 30 * 1000; // Check for activity every 30 seconds
-        
+
         this.lastActivityTime = Date.now();
         this.sessionTimer = null;
         this.warningTimer = null;
         this.activityCheckTimer = null;
         this.warningCountdownInterval = null;
         this.warningShown = false;
-        
+
         this.init();
     }
 
@@ -29,10 +29,10 @@ class SessionManager {
 
         // Track user activity
         this.trackActivity();
-        
+
         // Start session monitoring
         this.startSessionMonitoring();
-        
+
         // Check session validity on page load
         this.checkSessionValidity();
     }
@@ -42,7 +42,7 @@ class SessionManager {
      */
     trackActivity() {
         const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
-        
+
         activityEvents.forEach(event => {
             document.addEventListener(event, () => {
                 this.updateLastActivity();
@@ -64,10 +64,10 @@ class SessionManager {
     updateLastActivity() {
         const now = Date.now();
         const timeSinceLastActivity = now - this.lastActivityTime;
-        
+
         // Always update last activity time on any user interaction
         this.lastActivityTime = now;
-        
+
         // If user has been inactive for more than 2 minutes, refresh session on backend
         // This ensures session is kept alive during active use
         if (timeSinceLastActivity > 2 * 60 * 1000) {
@@ -76,7 +76,7 @@ class SessionManager {
             // Just restart timers to reset countdown
             this.startSessionMonitoring();
         }
-        
+
         // Update status indicator
         this.updateSessionStatus('active');
     }
@@ -118,7 +118,7 @@ class SessionManager {
     checkActivityAndRefresh() {
         const timeSinceLastActivity = Date.now() - this.lastActivityTime;
         const timeUntilTimeout = this.sessionTimeout - timeSinceLastActivity;
-        
+
         // Update status indicator based on time remaining
         if (timeUntilTimeout < this.warningTime) {
             this.updateSessionStatus('expiring');
@@ -127,13 +127,13 @@ class SessionManager {
         } else {
             this.updateSessionStatus('active');
         }
-        
+
         // If user has been inactive for more than 5 minutes, refresh session on backend
         // This keeps the session alive if user is still on the page but not actively interacting
         if (timeSinceLastActivity > 5 * 60 * 1000 && timeSinceLastActivity < 10 * 60 * 1000) {
             this.refreshSession();
         }
-        
+
         // If timeout has passed, handle expiration
         if (timeUntilTimeout <= 0) {
             this.handleSessionTimeout();
@@ -146,7 +146,7 @@ class SessionManager {
     async refreshSession() {
         try {
             // Make a lightweight request to keep session alive
-            const response = await fetch('/api/v1/auth/session/refresh', {
+            const response = await fetch('auth/session/refresh', {
                 method: 'POST',
                 credentials: 'include',
                 headers: {
@@ -180,7 +180,7 @@ class SessionManager {
             // Don't show error to user, just log it
         }
     }
-    
+
     /**
      * Update session status indicator
      */
@@ -188,11 +188,11 @@ class SessionManager {
         const indicator = document.getElementById('sessionStatusIndicator');
         const icon = document.getElementById('sessionStatusIcon');
         const text = document.getElementById('sessionStatusText');
-        
+
         if (!indicator || !icon || !text) return;
-        
+
         indicator.classList.remove('active', 'warning', 'expiring');
-        
+
         switch (status) {
             case 'active':
                 indicator.classList.add('active');
@@ -218,7 +218,7 @@ class SessionManager {
      */
     async checkSessionValidity() {
         try {
-            const response = await fetch('/api/v1/auth/session/check', {
+            const response = await fetch('auth/session/check', {
                 method: 'GET',
                 credentials: 'include',
                 headers: {
@@ -232,7 +232,7 @@ class SessionManager {
                     // Sync timeout with server
                     this.sessionTimeout = data.timeRemaining * 1000;
                     localStorage.setItem('sessionTimeout', this.sessionTimeout.toString());
-                    
+
                     // Update last activity time based on server's last accessed time
                     if (data.lastAccessedTime) {
                         // Calculate time since last server activity
@@ -243,7 +243,7 @@ class SessionManager {
                     } else {
                         this.lastActivityTime = Date.now();
                     }
-                    
+
                     this.updateSessionStatus('active');
                     // Restart monitoring with synced times
                     this.startSessionMonitoring();
@@ -263,10 +263,10 @@ class SessionManager {
      */
     showSessionWarning() {
         if (this.warningShown) return;
-        
+
         this.warningShown = true;
         this.updateSessionStatus('expiring');
-        
+
         // Create warning modal
         const warningModal = document.createElement('div');
         warningModal.id = 'session-warning-modal';
@@ -289,20 +289,20 @@ class SessionManager {
                 </div>
             </div>
         `;
-        
+
         document.body.appendChild(warningModal);
-        
+
         // Update countdown every second
         const updateCountdown = () => {
             const timeRemaining = Math.ceil((this.sessionTimeout - (Date.now() - this.lastActivityTime)) / 1000);
             const countdownEl = document.getElementById('session-warning-countdown');
-            
+
             if (timeRemaining <= 0) {
                 clearInterval(this.warningCountdownInterval);
                 this.handleSessionTimeout();
                 return;
             }
-            
+
             if (countdownEl) {
                 const minutes = Math.floor(timeRemaining / 60);
                 const seconds = timeRemaining % 60;
@@ -313,12 +313,12 @@ class SessionManager {
                 }
             }
         };
-        
+
         // Initial update
         updateCountdown();
         // Update every second
         this.warningCountdownInterval = setInterval(updateCountdown, 1000);
-        
+
         // Auto-extend if user clicks anywhere on the page
         const autoExtend = () => {
             this.extendSession();
@@ -353,7 +353,7 @@ class SessionManager {
     handleSessionTimeout() {
         this.clearTimers();
         this.hideWarning();
-        
+
         // Show timeout message briefly
         const timeoutModal = document.createElement('div');
         timeoutModal.id = 'session-timeout-modal';
@@ -373,17 +373,17 @@ class SessionManager {
                 </div>
             </div>
         `;
-        
+
         document.body.appendChild(timeoutModal);
-        
+
         // Invalidate session on backend
-        fetch('/api/v1/auth/session/invalidate', {
+        fetch('auth/session/invalidate', {
             method: 'POST',
             credentials: 'include'
         }).catch(() => {
             // Ignore errors, we're logging out anyway
         });
-        
+
         // Auto-redirect after 2 seconds
         setTimeout(() => {
             this.redirectToLogin();
@@ -405,11 +405,12 @@ class SessionManager {
     redirectToLogin() {
         // Save current URL for redirect after login
         const currentPath = window.location.pathname + window.location.search;
-        if (currentPath !== '/login.html' && currentPath !== '/') {
+        if (!currentPath.includes('login')) {
             sessionStorage.setItem('redirectAfterLogin', currentPath);
         }
-        
-        window.location.href = '/login.html?expired=true';
+
+        // Use relative URL to respect context path
+        window.location.href = 'login.html?expired=true';
     }
 
     /**
@@ -452,14 +453,14 @@ document.addEventListener('DOMContentLoaded', () => {
         sessionManager = new SessionManager();
         window.sessionManager = sessionManager;
     }
-    
+
     // Handle redirect after login
     const redirectPath = sessionStorage.getItem('redirectAfterLogin');
     if (redirectPath && currentPath === '/index.html') {
         sessionStorage.removeItem('redirectAfterLogin');
         // Optionally redirect to saved path
     }
-    
+
     // Show expired message if redirected from expired session
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('expired') === 'true') {
@@ -472,7 +473,7 @@ function showExpiredMessage() {
     const url = new URL(window.location);
     url.searchParams.delete('expired');
     window.history.replaceState({}, '', url);
-    
+
     // Show a brief notification
     const notification = document.createElement('div');
     notification.style.cssText = `
@@ -488,7 +489,7 @@ function showExpiredMessage() {
     `;
     notification.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Your session has expired. Please log in again.';
     document.body.appendChild(notification);
-    
+
     setTimeout(() => {
         notification.remove();
     }, 5000);

@@ -5,16 +5,14 @@ import com.posgateway.aml.service.AsyncFraudDetectionOrchestrator;
 import com.posgateway.aml.service.FraudDetectionOrchestrator;
 import com.posgateway.aml.service.HighConcurrencyFraudOrchestrator;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import javax.annotation.processing.Generated;
 import org.springframework.stereotype.Component;
 
 @Generated(
     value = "org.mapstruct.ap.MappingProcessor",
-    date = "2025-12-22T10:51:29+0300",
-    comments = "version: 1.5.5.Final, compiler: javac, environment: Java 21.0.9 (Oracle Corporation)"
+    date = "2025-12-30T17:05:42+0300",
+    comments = "version: 1.5.5.Final, compiler: Eclipse JDT (IDE) 3.44.0.v20251118-1623, environment: Java 21.0.9 (Eclipse Adoptium)"
 )
 @Component
 public class FraudDetectionMapperImpl implements FraudDetectionMapper {
@@ -28,10 +26,6 @@ public class FraudDetectionMapperImpl implements FraudDetectionMapper {
         FraudDetectionResponseDTO fraudDetectionResponseDTO = new FraudDetectionResponseDTO();
 
         fraudDetectionResponseDTO.setTxnId( result.getTxnId() );
-        Map<String, Object> map = result.getRiskDetails();
-        if ( map != null ) {
-            fraudDetectionResponseDTO.setRiskDetails( new LinkedHashMap<String, Object>( map ) );
-        }
         fraudDetectionResponseDTO.setAction( result.getAction() );
         List<String> list = result.getReasons();
         if ( list != null ) {

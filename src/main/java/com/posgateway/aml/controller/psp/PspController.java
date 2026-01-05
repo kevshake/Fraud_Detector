@@ -24,7 +24,7 @@ import java.util.Optional;
 // @Slf4j removed
 // @RequiredArgsConstructor removed
 @RestController
-@RequestMapping("/api/v1/psps")
+@RequestMapping("/psps")
 public class PspController {
 
     private static final Logger log = LoggerFactory.getLogger(PspController.class);

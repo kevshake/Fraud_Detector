@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
  */
 // @RequiredArgsConstructor removed
 @RestController
-@RequestMapping("/api/v1/compliance/cases/workflow")
+@RequestMapping("/compliance/cases/workflow")
 public class CaseWorkflowController {
 
     private final CaseWorkflowService caseWorkflowService;

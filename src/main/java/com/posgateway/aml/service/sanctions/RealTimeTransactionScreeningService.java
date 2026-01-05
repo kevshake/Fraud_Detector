@@ -54,6 +54,7 @@ public class RealTimeTransactionScreeningService {
 
     /**
      * Screen transaction in real-time
+     * 
      * @param transaction Transaction to screen
      * @return Screening result with matches and blocking recommendation
      */
@@ -71,7 +72,8 @@ public class RealTimeTransactionScreeningService {
         // Screen merchant if enabled
         if (screenMerchant && transaction.getMerchantId() != null) {
             try {
-                // Try to find merchant by ID (merchantId in transaction is String, need to convert)
+                // Try to find merchant by ID (merchantId in transaction is String, need to
+                // convert)
                 Long merchantIdLong = Long.parseLong(transaction.getMerchantId());
                 Merchant merchant = merchantRepository.findById(merchantIdLong).orElse(null);
                 if (merchant != null) {
@@ -84,8 +86,8 @@ public class RealTimeTransactionScreeningService {
                     }
                 }
             } catch (NumberFormatException e) {
-                logger.debug("Merchant ID {} is not a valid number, skipping merchant screening", 
-                    transaction.getMerchantId());
+                logger.debug("Merchant ID {} is not a valid number, skipping merchant screening",
+                        transaction.getMerchantId());
             }
         }
 
@@ -108,8 +110,7 @@ public class RealTimeTransactionScreeningService {
         TransactionScreeningResult result = new TransactionScreeningResult(
                 transaction.getTxnId(),
                 matches,
-                shouldBlock && blockOnMatch
-        );
+                shouldBlock && blockOnMatch);
 
         if (result.hasMatches()) {
             logger.warn("Transaction {} screened: {} matches found, blocking={}",
@@ -129,7 +130,7 @@ public class RealTimeTransactionScreeningService {
             logger.debug("Merchant {} is whitelisted (from cache), skipping screening", merchant.getMerchantId());
             return null;
         }
-        
+
         // Check whitelist (fallback to DB)
         if (whitelistService.isWhitelisted(merchant.getMerchantId().toString(), "MERCHANT")) {
             logger.debug("Merchant {} is whitelisted, skipping screening", merchant.getMerchantId());
@@ -140,7 +141,7 @@ public class RealTimeTransactionScreeningService {
         // Check Aerospike cache first for screening result
         ScreeningResult cachedResult = screeningCacheService.getCachedScreeningResult(
                 String.valueOf(merchant.getMerchantId()), "MERCHANT");
-        
+
         ScreeningResult legalNameResult;
         if (cachedResult != null) {
             logger.debug("Using cached screening result for merchant {}", merchant.getMerchantId());
@@ -149,8 +150,7 @@ public class RealTimeTransactionScreeningService {
             // Screen merchant legal name
             legalNameResult = aerospikeScreeningService.screenName(
                     merchant.getLegalName(),
-                    ScreeningResult.EntityType.ORGANIZATION
-            );
+                    ScreeningResult.EntityType.ORGANIZATION);
             // Cache the result for future lookups
             screeningCacheService.cacheScreeningResult(
                     String.valueOf(merchant.getMerchantId()), "MERCHANT", legalNameResult);
@@ -167,12 +167,11 @@ public class RealTimeTransactionScreeningService {
         }
 
         // Screen trading name if different
-        if (merchant.getTradingName() != null && 
-            !merchant.getTradingName().equals(merchant.getLegalName())) {
+        if (merchant.getTradingName() != null &&
+                !merchant.getTradingName().equals(merchant.getLegalName())) {
             ScreeningResult tradingNameResult = aerospikeScreeningService.screenName(
                     merchant.getTradingName(),
-                    ScreeningResult.EntityType.ORGANIZATION
-            );
+                    ScreeningResult.EntityType.ORGANIZATION);
 
             if (tradingNameResult.hasMatches()) {
                 return new ScreeningMatch(
@@ -180,8 +179,7 @@ public class RealTimeTransactionScreeningService {
                         "MERCHANT",
                         merchant.getTradingName(),
                         tradingNameResult,
-                        true
-                );
+                        true);
             }
         }
 
@@ -203,10 +201,10 @@ public class RealTimeTransactionScreeningService {
         Boolean onCustomWatchlist = screeningCacheService.isOnCustomWatchlist(name, "PERSON");
         if (onCustomWatchlist != null && onCustomWatchlist) {
             logger.warn("Counterparty '{}' found on custom watchlist", name);
-            return new ScreeningMatch(name, "COUNTERPARTY", name, 
+            return new ScreeningMatch(name, "COUNTERPARTY", name,
                     ScreeningResult.builder().status(ScreeningResult.ScreeningStatus.MATCH).build(), true);
         }
-        
+
         // Check whitelist (fallback to DB)
         if (whitelistService.isWhitelisted(name, "COUNTERPARTY")) {
             logger.debug("Counterparty {} is whitelisted, skipping screening", name);
@@ -215,8 +213,7 @@ public class RealTimeTransactionScreeningService {
 
         ScreeningResult result = aerospikeScreeningService.screenName(
                 name,
-                ScreeningResult.EntityType.PERSON
-        );
+                ScreeningResult.EntityType.PERSON);
 
         if (result.hasMatches()) {
             return new ScreeningMatch(
@@ -224,8 +221,7 @@ public class RealTimeTransactionScreeningService {
                     "COUNTERPARTY",
                     name,
                     result,
-                    true
-            );
+                    true);
         }
 
         return null;
@@ -233,11 +229,28 @@ public class RealTimeTransactionScreeningService {
 
     /**
      * Extract counterparty name from transaction
-     * This is a placeholder - would need to be enhanced based on actual transaction data structure
+     * This is a placeholder - would need to be enhanced based on actual transaction
+     * data structure
      */
     private String extractCounterpartyName(TransactionEntity transaction) {
         // TODO: Extract from transaction data (e.g., cardholder name from ISO message)
-        // For now, return null as counterparty screening may not be available
+        // For demo, we look for a "CH_NAME=" pattern in the ISO message if present
+        String isoMsg = transaction.getIsoMsg();
+        if (isoMsg != null && isoMsg.contains("CH_NAME=")) {
+            try {
+                int start = isoMsg.indexOf("CH_NAME=") + 8;
+                int end = isoMsg.indexOf("|", start);
+                if (end == -1)
+                    end = isoMsg.length();
+                return isoMsg.substring(start, end).trim();
+            } catch (Exception e) {
+                logger.warn("Failed to extract CH_NAME from ISO message: {}", e.getMessage());
+            }
+        }
+
+        // Fallback: If no name, we might return placeholder for "CARDHOLDER" (masked)
+        // or
+        // null
         return null;
     }
 
@@ -287,7 +300,7 @@ public class RealTimeTransactionScreeningService {
         private final boolean blocking;
 
         public ScreeningMatch(String entityId, String entityType, String screenedName,
-                             ScreeningResult screeningResult, boolean blocking) {
+                ScreeningResult screeningResult, boolean blocking) {
             this.entityId = entityId;
             this.entityType = entityType;
             this.screenedName = screenedName;
@@ -316,4 +329,3 @@ public class RealTimeTransactionScreeningService {
         }
     }
 }
-

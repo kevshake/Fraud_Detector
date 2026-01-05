@@ -4,6 +4,7 @@ import com.posgateway.aml.entity.TransactionEntity;
 import com.posgateway.aml.entity.User;
 import jakarta.persistence.*;
 import org.hibernate.envers.Audited;
+import org.hibernate.envers.RelationTargetAuditMode;
 
 import java.time.LocalDateTime;
 
@@ -24,6 +25,7 @@ public class CaseTransaction {
     @JoinColumn(name = "case_id", nullable = false)
     private ComplianceCase complianceCase;
 
+    @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "transaction_id", nullable = false)
     private TransactionEntity transaction;
@@ -34,6 +36,7 @@ public class CaseTransaction {
     @Column(name = "added_at", nullable = false, updatable = false)
     private LocalDateTime addedAt;
 
+    @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "added_by")
     private User addedBy;
@@ -42,7 +45,7 @@ public class CaseTransaction {
     }
 
     public CaseTransaction(Long id, ComplianceCase complianceCase, TransactionEntity transaction,
-                          String relationshipType, LocalDateTime addedAt, User addedBy) {
+            String relationshipType, LocalDateTime addedAt, User addedBy) {
         this.id = id;
         this.complianceCase = complianceCase;
         this.transaction = transaction;
@@ -107,4 +110,3 @@ public class CaseTransaction {
         }
     }
 }
-

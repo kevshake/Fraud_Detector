@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
  * Provides endpoints for case network graph visualization
  */
 @RestController
-@RequestMapping("/api/v1/cases/{caseId}/network")
+@RequestMapping("/cases/{caseId}/network")
 @PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'INVESTIGATOR', 'CASE_MANAGER')")
 public class CaseNetworkController {
 

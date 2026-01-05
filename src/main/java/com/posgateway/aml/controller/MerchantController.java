@@ -25,7 +25,7 @@ import java.util.List;
  */
 // @Slf4j removed
 @RestController
-@RequestMapping("/api/v1/merchants")
+@RequestMapping("/merchants")
 @PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'SCREENING_ANALYST')")
 public class MerchantController {
 

@@ -66,7 +66,7 @@ public class RedisConfig {
         poolConfig.setMaxIdle(maxIdle);
         poolConfig.setMinIdle(minIdle);
         if (maxWait > 0) {
-            poolConfig.setMaxWaitMillis(maxWait);
+            poolConfig.setMaxWait(Duration.ofMillis(maxWait));
         }
 
         LettucePoolingClientConfiguration clientConfig = LettucePoolingClientConfiguration.builder()

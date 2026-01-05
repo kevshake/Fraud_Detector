@@ -16,7 +16,7 @@ import java.util.Map;
  * Handles session refresh, validation, and timeout management
  */
 @RestController
-@RequestMapping("/api/v1/auth/session")
+@RequestMapping("/auth/session")
 public class SessionController {
 
     @Value("${server.servlet.session.timeout:1800}") // Default 30 minutes in seconds

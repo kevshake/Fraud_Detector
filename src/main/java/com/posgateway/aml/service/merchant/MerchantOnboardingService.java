@@ -12,7 +12,10 @@ import com.posgateway.aml.repository.AuditTrailRepository;
 import com.posgateway.aml.repository.ComplianceCaseRepository;
 import com.posgateway.aml.repository.MerchantRepository;
 import com.posgateway.aml.repository.MerchantScreeningResultRepository;
+import com.posgateway.aml.repository.risk.HighRiskCountryRepository;
 import com.posgateway.aml.service.aml.AmlScreeningOrchestrator;
+import com.posgateway.aml.service.merchant.MccMappingService;
+import com.posgateway.aml.service.workflow.WorkflowAutomationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -57,10 +60,16 @@ public class MerchantOnboardingService {
     private int rejectThreshold;
 
     @Autowired
-    private com.posgateway.aml.service.workflow.WorkflowAutomationService workflowAutomationService;
+    private MccMappingService mccMappingService;
 
     @Autowired
-    private MccMappingService mccMappingService;
+    private HighRiskCountryRepository highRiskCountryRepository;
+
+    @Autowired
+    private WorkflowAutomationService workflowAutomationService;
+
+    @Value("${risk.mcc.high_risk:6211,7995,7273,5993,6051}")
+    private List<String> highRiskMccsList;
 
     /**
      * Onboard new merchant with complete screening
@@ -254,21 +263,13 @@ public class MerchantOnboardingService {
         }
 
         // High-risk country: +20 points
-        String[] highRiskCountries = { "AF", "IR", "KP", "SY", "YE", "MM", "VE", "ZW" };
-        for (String country : highRiskCountries) {
-            if (country.equals(merchant.getCountry())) {
-                score += 20;
-                break;
-            }
+        if (merchant.getCountry() != null && highRiskCountryRepository.existsByCountryCode(merchant.getCountry())) {
+            score += 20;
         }
 
         // High-risk MCC: +15 points
-        String[] highRiskMccs = { "6211", "7995", "7273", "5993", "6051" };
-        for (String mcc : highRiskMccs) {
-            if (mcc.equals(merchant.getMcc())) {
-                score += 15;
-                break;
-            }
+        if (highRiskMccsList != null && highRiskMccsList.contains(merchant.getMcc())) {
+            score += 15;
         }
 
         return Math.min(score, 100); // Cap at 100

@@ -14,7 +14,7 @@ import java.util.Map;
  * Provides CSRF token for frontend
  */
 @RestController
-@RequestMapping("/api/v1/auth")
+@RequestMapping("/auth")
 public class CsrfController {
 
     @GetMapping("/csrf")

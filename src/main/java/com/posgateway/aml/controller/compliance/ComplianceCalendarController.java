@@ -14,7 +14,7 @@ import java.util.List;
  * Manages regulatory filing deadlines
  */
 @RestController
-@RequestMapping("/api/v1/compliance/calendar")
+@RequestMapping("/compliance/calendar")
 @PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'MLRO')")
 public class ComplianceCalendarController {
 
@@ -42,8 +42,7 @@ public class ComplianceCalendarController {
                 request.getDeadlineType(),
                 request.getDeadlineDate(),
                 request.getDescription(),
-                request.getJurisdiction()
-        ));
+                request.getJurisdiction()));
     }
 
     @PostMapping("/deadlines/{deadlineId}/complete")
@@ -59,14 +58,36 @@ public class ComplianceCalendarController {
         private String jurisdiction;
 
         // Getters and Setters
-        public String getDeadlineType() { return deadlineType; }
-        public void setDeadlineType(String deadlineType) { this.deadlineType = deadlineType; }
-        public java.time.LocalDateTime getDeadlineDate() { return deadlineDate; }
-        public void setDeadlineDate(java.time.LocalDateTime deadlineDate) { this.deadlineDate = deadlineDate; }
-        public String getDescription() { return description; }
-        public void setDescription(String description) { this.description = description; }
-        public String getJurisdiction() { return jurisdiction; }
-        public void setJurisdiction(String jurisdiction) { this.jurisdiction = jurisdiction; }
+        public String getDeadlineType() {
+            return deadlineType;
+        }
+
+        public void setDeadlineType(String deadlineType) {
+            this.deadlineType = deadlineType;
+        }
+
+        public java.time.LocalDateTime getDeadlineDate() {
+            return deadlineDate;
+        }
+
+        public void setDeadlineDate(java.time.LocalDateTime deadlineDate) {
+            this.deadlineDate = deadlineDate;
+        }
+
+        public String getDescription() {
+            return description;
+        }
+
+        public void setDescription(String description) {
+            this.description = description;
+        }
+
+        public String getJurisdiction() {
+            return jurisdiction;
+        }
+
+        public void setJurisdiction(String jurisdiction) {
+            this.jurisdiction = jurisdiction;
+        }
     }
 }
-

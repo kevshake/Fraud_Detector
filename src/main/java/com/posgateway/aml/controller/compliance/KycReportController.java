@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 // @Slf4j removed
 // @RequiredArgsConstructor removed
 @RestController
-@RequestMapping("/api/v1/compliance/kyc")
+@RequestMapping("/compliance/kyc")
 public class KycReportController {
 
     private static final Logger log = LoggerFactory.getLogger(KycReportController.class);

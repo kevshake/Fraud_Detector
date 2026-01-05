@@ -164,11 +164,13 @@ public class ComplianceReportingService {
         }
     }
 
+    @SuppressWarnings("unchecked")
     private Map<String, Object> fromJson(String json) {
         if (json == null)
             return null;
         try {
-            return objectMapper.readValue(json, Map.class);
+            return objectMapper.readValue(json, 
+                new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
         } catch (JsonProcessingException e) {
             log.error("Error deserializing JSON", e);
             return null;

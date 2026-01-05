@@ -10,12 +10,12 @@ import java.util.List;
 @Repository
 public interface FalsePositiveFeedbackRepository extends JpaRepository<FalsePositiveFeedback, Long> {
     List<FalsePositiveFeedback> findByRuleName(String ruleName);
+
     List<FalsePositiveFeedback> findByAlertId(Long alertId);
-    
+
     /**
      * Find feedback submitted after a date
      */
-    @org.springframework.data.jpa.repository.Query("SELECT f FROM FalsePositiveFeedback f WHERE f.submittedAt >= :afterDate")
-    List<FalsePositiveFeedback> findBySubmittedAtAfter(@Param("afterDate") java.time.LocalDateTime afterDate);
+    @org.springframework.data.jpa.repository.Query("SELECT f FROM FalsePositiveFeedback f WHERE f.createdAt >= :afterDate")
+    List<FalsePositiveFeedback> findByCreatedAtAfter(@Param("afterDate") java.time.LocalDateTime afterDate);
 }
-

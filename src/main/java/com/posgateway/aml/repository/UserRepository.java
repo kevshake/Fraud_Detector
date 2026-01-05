@@ -14,6 +14,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     boolean existsByEmail(String email);
 
+    Optional<User> findByEmail(String email);
+
     // Find users by specific PSP
     java.util.List<User> findByPsp(com.posgateway.aml.entity.psp.Psp psp);
 

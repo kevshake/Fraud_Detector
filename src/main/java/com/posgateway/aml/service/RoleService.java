@@ -1,7 +1,5 @@
 package com.posgateway.aml.service;
 
-
-
 import com.posgateway.aml.entity.Role;
 import com.posgateway.aml.entity.psp.Psp;
 import com.posgateway.aml.model.Permission;
@@ -23,7 +21,6 @@ public class RoleService {
     public RoleService(RoleRepository roleRepository) {
         this.roleRepository = roleRepository;
     }
-
 
     public List<Role> getRolesForPsp(Psp psp) {
         return roleRepository.findByPspIsNullOrPsp(psp);
@@ -71,6 +68,9 @@ public class RoleService {
         initializeSystemRole("ADMIN", "System Administrator", Set.of(Permission.values()));
         initializeSystemRole("VIEWER", "Read Only User",
                 Set.of(Permission.VIEW_CASES, Permission.VIEW_SAR, Permission.VIEW_TRANSACTION_DETAILS));
+        initializeSystemRole("COMPLIANCE_OFFICER", "Compliance Officer",
+                Set.of(Permission.VIEW_CASES, Permission.VIEW_SCREENING_RESULTS, Permission.ASSIGN_CASES,
+                        Permission.FILE_SAR));
     }
 
     private void initializeSystemRole(String name, String description, Set<Permission> permissions) {

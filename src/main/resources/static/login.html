@@ -113,7 +113,7 @@
             Invalid username or password
         </div>
 
-        <form action="/perform_login" method="POST" id="loginForm">
+        <form action="perform_login" method="POST" id="loginForm">
             <input type="hidden" name="_csrf" id="csrfToken">
             <div class="form-group">
                 <input type="text" name="username" class="form-control" placeholder="Username" required autofocus>
@@ -126,7 +126,7 @@
     </div>
     <script>
         // Get CSRF token
-        fetch('/api/v1/auth/csrf', { credentials: 'include' })
+        fetch('auth/csrf', { credentials: 'include' })
             .then(res => res.json())
             .then(data => {
                 if (data.token) {
@@ -136,13 +136,43 @@
             .catch(() => {
                 // CSRF token fetch failed, form will still work
             });
-        
-        // Handle error messages
+
+        // Handle error messages from URL parameters
         const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('error')) {
-            document.getElementById('error-msg').style.display = 'block';
+        const error = urlParams.get('error');
+
+        if (error) {
+            const errorMsgDiv = document.getElementById('error-msg');
+            let msg = '<i class="fas fa-exclamation-circle"></i> Login failed';
+
+            switch (error) {
+                case 'bad_credentials':
+                    msg = '<i class="fas fa-times-circle"></i> Invalid username or password.';
+                    break;
+                case 'disabled':
+                    msg = '<i class="fas fa-ban"></i> Account is disabled. Please contact support.';
+                    break;
+                case 'locked':
+                    msg = '<i class="fas fa-lock"></i> Account is locked. Please contact support.';
+                    break;
+                case 'system_error':
+                    msg = '<i class="fas fa-server"></i> System error. Please try again later.';
+                    break;
+                case 'user_not_found':
+                    msg = '<i class="fas fa-user-slash"></i> User not found. Check your username.';
+                    break;
+                case 'expired':
+                    msg = '<i class="fas fa-clock"></i> Account credentials have expired.';
+                    break;
+                default:
+                    // Show the actual error code for debugging
+                    msg = '<i class="fas fa-exclamation-triangle"></i> Authentication failed: ' + error;
+            }
+
+            errorMsgDiv.innerHTML = msg;
+            errorMsgDiv.style.display = 'block';
         }
-        
+
         // Handle expired session message
         if (urlParams.get('expired')) {
             const expiredMsg = document.createElement('div');
@@ -151,7 +181,7 @@
             expiredMsg.innerHTML = '<i class="fas fa-clock"></i> Your session has expired. Please log in again.';
             document.querySelector('.login-card').insertBefore(expiredMsg, document.getElementById('error-msg'));
         }
-        
+
         // Handle invalid session message
         if (urlParams.get('invalid')) {
             const invalidMsg = document.createElement('div');
@@ -160,9 +190,9 @@
             invalidMsg.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Invalid session. Please log in again.';
             document.querySelector('.login-card').insertBefore(invalidMsg, document.getElementById('error-msg'));
         }
-        
+
         // Handle successful login redirect
-        document.getElementById('loginForm').addEventListener('submit', function(e) {
+        document.getElementById('loginForm').addEventListener('submit', function (e) {
             const redirectPath = sessionStorage.getItem('redirectAfterLogin');
             if (redirectPath) {
                 // Add hidden field to preserve redirect

@@ -12,7 +12,7 @@ import java.util.Map;
  * Provides endpoints for system settings and configuration
  */
 @RestController
-@RequestMapping("/api/v1/settings")
+@RequestMapping("/settings")
 @PreAuthorize("hasAnyRole('ADMIN')")
 public class SettingsController {
 

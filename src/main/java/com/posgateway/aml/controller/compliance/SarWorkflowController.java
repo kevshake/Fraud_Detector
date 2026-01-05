@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.*;
  */
 // @RequiredArgsConstructor removed
 @RestController
-@RequestMapping("/api/v1/compliance/sar/workflow")
+@RequestMapping("/compliance/sar/workflow")
 @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'INVESTIGATOR')")
 public class SarWorkflowController {
 

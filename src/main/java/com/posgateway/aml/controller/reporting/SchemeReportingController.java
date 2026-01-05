@@ -22,7 +22,7 @@ import java.util.Map;
  * Exports reporting packs for Central Banks and Schemes
  */
 @RestController
-@RequestMapping("/api/v1/reporting/schemes")
+@RequestMapping("/reporting/schemes")
 public class SchemeReportingController {
 
     private static final Logger logger = LoggerFactory.getLogger(SchemeReportingController.class);

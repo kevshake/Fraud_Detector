@@ -1,6 +1,7 @@
 package com.posgateway.aml.service.reporting;
 
 import com.posgateway.aml.entity.TransactionEntity;
+import com.posgateway.aml.repository.MerchantRepository;
 import com.posgateway.aml.repository.TransactionRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,6 +25,7 @@ public class RegulatoryReportingService {
     private static final Logger logger = LoggerFactory.getLogger(RegulatoryReportingService.class);
 
     private final TransactionRepository transactionRepository;
+    private final MerchantRepository merchantRepository;
 
     @Value("${regulatory.ctr.threshold:10000}")
     private BigDecimal ctrThreshold;
@@ -32,8 +34,10 @@ public class RegulatoryReportingService {
     private BigDecimal lctrThreshold;
 
     @Autowired
-    public RegulatoryReportingService(TransactionRepository transactionRepository) {
+    public RegulatoryReportingService(TransactionRepository transactionRepository,
+            MerchantRepository merchantRepository) {
         this.transactionRepository = transactionRepository;
+        this.merchantRepository = merchantRepository;
     }
 
     /**
@@ -51,7 +55,7 @@ public class RegulatoryReportingService {
         report.setTotalAmount(calculateTotalAmount(transactions));
         report.setTransactions(transactions);
 
-        logger.info("Generated CTR: {} transactions, total amount: {}", 
+        logger.info("Generated CTR: {} transactions, total amount: {}",
                 transactions.size(), report.getTotalAmount());
         return report;
     }
@@ -70,7 +74,7 @@ public class RegulatoryReportingService {
         report.setTotalAmount(calculateTotalAmount(transactions));
         report.setTransactions(transactions);
 
-        logger.info("Generated LCTR: {} transactions, total amount: {}", 
+        logger.info("Generated LCTR: {} transactions, total amount: {}",
                 transactions.size(), report.getTotalAmount());
         return report;
     }
@@ -79,22 +83,58 @@ public class RegulatoryReportingService {
      * Generate International Funds Transfer Report (IFTR)
      */
     public InternationalFundsTransferReport generateIftr(LocalDateTime startDate, LocalDateTime endDate) {
-        // TODO: Implement based on transaction currency and destination country
+        // Implement based on transaction currency and destination country
+        List<TransactionEntity> allTxns = transactionRepository.findAll(); // Simplified, would use query in prod
+        List<TransactionEntity> iftrTxns = new ArrayList<>();
+
+        for (TransactionEntity tx : allTxns) {
+            if (tx.getTxnTs().isBefore(startDate) || tx.getTxnTs().isAfter(endDate)) {
+                continue;
+            }
+
+            // IFTR rule: Non-local currency OR Non-local country
+            // For now assume "USD" is local and merchants have countries
+            boolean isInternational = !"USD".equalsIgnoreCase(tx.getCurrency());
+
+            if (!isInternational && tx.getMerchantId() != null) {
+                try {
+                    Long merchantId = Long.parseLong(tx.getMerchantId());
+                    String merchantCountry = merchantRepository.findById(merchantId)
+                            .map(m -> m.getCountry())
+                            .orElse("US");
+                    // In a real system, we'd check destination/origin country in ISO message
+                    // Here we'll flag any non-US merchant or non-USD currency as IFTR candidate
+                    if (!"US".equalsIgnoreCase(merchantCountry)) {
+                        isInternational = true;
+                    }
+                } catch (NumberFormatException e) {
+                    // ignore
+                }
+            }
+
+            if (isInternational) {
+                iftrTxns.add(tx);
+            }
+        }
+
         InternationalFundsTransferReport report = new InternationalFundsTransferReport();
         report.setStartDate(startDate);
         report.setEndDate(endDate);
-        report.setTransactionCount(0);
-        report.setTotalAmount(BigDecimal.ZERO);
-        report.setTransactions(new ArrayList<>());
+        report.setTransactionCount(iftrTxns.size());
+        report.setTotalAmount(calculateTotalAmount(iftrTxns));
+        report.setTransactions(iftrTxns);
+
+        logger.info("Generated IFTR: {} transactions, total amount: {}",
+                iftrTxns.size(), report.getTotalAmount());
         return report;
     }
 
     /**
      * Find transactions above threshold
      */
-    private List<TransactionEntity> findTransactionsAboveThreshold(BigDecimal threshold, 
-                                                                   LocalDateTime startDate, 
-                                                                   LocalDateTime endDate) {
+    private List<TransactionEntity> findTransactionsAboveThreshold(BigDecimal threshold,
+            LocalDateTime startDate,
+            LocalDateTime endDate) {
         // Get all transactions in date range and filter by amount
         // Note: This is a simplified implementation - in production, use database query
         List<TransactionEntity> allTransactions = transactionRepository.findAll();
@@ -114,9 +154,9 @@ public class RegulatoryReportingService {
      */
     private BigDecimal calculateTotalAmount(List<TransactionEntity> transactions) {
         return transactions.stream()
-                .map(tx -> tx.getAmountCents() != null ? 
-                        BigDecimal.valueOf(tx.getAmountCents()).divide(new BigDecimal("100")) : 
-                        BigDecimal.ZERO)
+                .map(tx -> tx.getAmountCents() != null
+                        ? BigDecimal.valueOf(tx.getAmountCents()).divide(new BigDecimal("100"))
+                        : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
@@ -132,18 +172,53 @@ public class RegulatoryReportingService {
         private List<TransactionEntity> transactions;
 
         // Getters and Setters
-        public LocalDateTime getStartDate() { return startDate; }
-        public void setStartDate(LocalDateTime startDate) { this.startDate = startDate; }
-        public LocalDateTime getEndDate() { return endDate; }
-        public void setEndDate(LocalDateTime endDate) { this.endDate = endDate; }
-        public BigDecimal getThreshold() { return threshold; }
-        public void setThreshold(BigDecimal threshold) { this.threshold = threshold; }
-        public int getTransactionCount() { return transactionCount; }
-        public void setTransactionCount(int transactionCount) { this.transactionCount = transactionCount; }
-        public BigDecimal getTotalAmount() { return totalAmount; }
-        public void setTotalAmount(BigDecimal totalAmount) { this.totalAmount = totalAmount; }
-        public List<TransactionEntity> getTransactions() { return transactions; }
-        public void setTransactions(List<TransactionEntity> transactions) { this.transactions = transactions; }
+        public LocalDateTime getStartDate() {
+            return startDate;
+        }
+
+        public void setStartDate(LocalDateTime startDate) {
+            this.startDate = startDate;
+        }
+
+        public LocalDateTime getEndDate() {
+            return endDate;
+        }
+
+        public void setEndDate(LocalDateTime endDate) {
+            this.endDate = endDate;
+        }
+
+        public BigDecimal getThreshold() {
+            return threshold;
+        }
+
+        public void setThreshold(BigDecimal threshold) {
+            this.threshold = threshold;
+        }
+
+        public int getTransactionCount() {
+            return transactionCount;
+        }
+
+        public void setTransactionCount(int transactionCount) {
+            this.transactionCount = transactionCount;
+        }
+
+        public BigDecimal getTotalAmount() {
+            return totalAmount;
+        }
+
+        public void setTotalAmount(BigDecimal totalAmount) {
+            this.totalAmount = totalAmount;
+        }
+
+        public List<TransactionEntity> getTransactions() {
+            return transactions;
+        }
+
+        public void setTransactions(List<TransactionEntity> transactions) {
+            this.transactions = transactions;
+        }
     }
 
     /**
@@ -158,18 +233,53 @@ public class RegulatoryReportingService {
         private List<TransactionEntity> transactions;
 
         // Getters and Setters
-        public LocalDateTime getStartDate() { return startDate; }
-        public void setStartDate(LocalDateTime startDate) { this.startDate = startDate; }
-        public LocalDateTime getEndDate() { return endDate; }
-        public void setEndDate(LocalDateTime endDate) { this.endDate = endDate; }
-        public BigDecimal getThreshold() { return threshold; }
-        public void setThreshold(BigDecimal threshold) { this.threshold = threshold; }
-        public int getTransactionCount() { return transactionCount; }
-        public void setTransactionCount(int transactionCount) { this.transactionCount = transactionCount; }
-        public BigDecimal getTotalAmount() { return totalAmount; }
-        public void setTotalAmount(BigDecimal totalAmount) { this.totalAmount = totalAmount; }
-        public List<TransactionEntity> getTransactions() { return transactions; }
-        public void setTransactions(List<TransactionEntity> transactions) { this.transactions = transactions; }
+        public LocalDateTime getStartDate() {
+            return startDate;
+        }
+
+        public void setStartDate(LocalDateTime startDate) {
+            this.startDate = startDate;
+        }
+
+        public LocalDateTime getEndDate() {
+            return endDate;
+        }
+
+        public void setEndDate(LocalDateTime endDate) {
+            this.endDate = endDate;
+        }
+
+        public BigDecimal getThreshold() {
+            return threshold;
+        }
+
+        public void setThreshold(BigDecimal threshold) {
+            this.threshold = threshold;
+        }
+
+        public int getTransactionCount() {
+            return transactionCount;
+        }
+
+        public void setTransactionCount(int transactionCount) {
+            this.transactionCount = transactionCount;
+        }
+
+        public BigDecimal getTotalAmount() {
+            return totalAmount;
+        }
+
+        public void setTotalAmount(BigDecimal totalAmount) {
+            this.totalAmount = totalAmount;
+        }
+
+        public List<TransactionEntity> getTransactions() {
+            return transactions;
+        }
+
+        public void setTransactions(List<TransactionEntity> transactions) {
+            this.transactions = transactions;
+        }
     }
 
     /**
@@ -183,16 +293,44 @@ public class RegulatoryReportingService {
         private List<TransactionEntity> transactions;
 
         // Getters and Setters
-        public LocalDateTime getStartDate() { return startDate; }
-        public void setStartDate(LocalDateTime startDate) { this.startDate = startDate; }
-        public LocalDateTime getEndDate() { return endDate; }
-        public void setEndDate(LocalDateTime endDate) { this.endDate = endDate; }
-        public int getTransactionCount() { return transactionCount; }
-        public void setTransactionCount(int transactionCount) { this.transactionCount = transactionCount; }
-        public BigDecimal getTotalAmount() { return totalAmount; }
-        public void setTotalAmount(BigDecimal totalAmount) { this.totalAmount = totalAmount; }
-        public List<TransactionEntity> getTransactions() { return transactions; }
-        public void setTransactions(List<TransactionEntity> transactions) { this.transactions = transactions; }
+        public LocalDateTime getStartDate() {
+            return startDate;
+        }
+
+        public void setStartDate(LocalDateTime startDate) {
+            this.startDate = startDate;
+        }
+
+        public LocalDateTime getEndDate() {
+            return endDate;
+        }
+
+        public void setEndDate(LocalDateTime endDate) {
+            this.endDate = endDate;
+        }
+
+        public int getTransactionCount() {
+            return transactionCount;
+        }
+
+        public void setTransactionCount(int transactionCount) {
+            this.transactionCount = transactionCount;
+        }
+
+        public BigDecimal getTotalAmount() {
+            return totalAmount;
+        }
+
+        public void setTotalAmount(BigDecimal totalAmount) {
+            this.totalAmount = totalAmount;
+        }
+
+        public List<TransactionEntity> getTransactions() {
+            return transactions;
+        }
+
+        public void setTransactions(List<TransactionEntity> transactions) {
+            this.transactions = transactions;
+        }
     }
 }
-

@@ -13,7 +13,7 @@ import java.util.concurrent.CompletableFuture;
 
 // @RequiredArgsConstructor removed
 @RestController
-@RequestMapping("/api/v1/screening")
+@RequestMapping("/screening")
 public class BatchScreeningController {
 
     private final SumsubAmlService sumsubAmlService;

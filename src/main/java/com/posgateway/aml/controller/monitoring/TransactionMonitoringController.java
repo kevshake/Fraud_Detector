@@ -11,7 +11,7 @@ import java.util.Map;
  * Controller for Transaction Monitoring Dashboard
  */
 @RestController
-@RequestMapping("/api/v1/monitoring")
+@RequestMapping("/monitoring")
 public class TransactionMonitoringController {
 
     private final TransactionMonitoringService monitoringService;

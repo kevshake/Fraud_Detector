@@ -15,7 +15,7 @@ import java.util.Map;
  * Provides endpoints for risk analytics and heatmaps
  */
 @RestController
-@RequestMapping("/api/v1/analytics/risk")
+@RequestMapping("/analytics/risk")
 @PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'MLRO', 'ANALYST')")
 public class RiskAnalyticsController {
 

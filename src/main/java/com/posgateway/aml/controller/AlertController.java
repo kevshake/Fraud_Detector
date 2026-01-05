@@ -13,7 +13,7 @@ import java.util.List;
  * Provides endpoints for fetching alerts
  */
 @RestController
-@RequestMapping("/api/v1/alerts")
+@RequestMapping("/alerts")
 @PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'INVESTIGATOR', 'ANALYST')")
 public class AlertController {
 

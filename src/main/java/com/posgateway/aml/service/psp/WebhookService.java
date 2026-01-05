@@ -1,10 +1,10 @@
 package com.posgateway.aml.service.psp;
 
-
-
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.posgateway.aml.entity.psp.WebhookSubscription;
 import com.posgateway.aml.repository.WebhookSubscriptionRepository;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -12,20 +12,27 @@ import org.springframework.web.client.RestTemplate;
 import java.util.List;
 import java.util.Map;
 
-// @RequiredArgsConstructor removed
 @Service
 public class WebhookService {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(WebhookService.class);
 
     private final WebhookSubscriptionRepository subscriptionRepository;
-    private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper;
+    private final RestTemplate restTemplate;
+    private final RestTemplate vgsProxiedRestTemplate;
 
-    public WebhookService(WebhookSubscriptionRepository subscriptionRepository, ObjectMapper objectMapper) {
+    @Value("${vgs.proxy.enabled:false}")
+    private boolean vgsProxyEnabled;
+
+    public WebhookService(WebhookSubscriptionRepository subscriptionRepository,
+            ObjectMapper objectMapper,
+            @Qualifier("restTemplate") RestTemplate restTemplate,
+            @Qualifier("vgsProxiedRestTemplate") RestTemplate vgsProxiedRestTemplate) {
         this.subscriptionRepository = subscriptionRepository;
         this.objectMapper = objectMapper;
+        this.restTemplate = restTemplate;
+        this.vgsProxiedRestTemplate = vgsProxiedRestTemplate;
     }
-
 
     @Async("amlTaskExecutor") // Use our high-throughput pool
     public void sendWebhook(String eventType, Map<String, Object> payload) {
@@ -38,8 +45,11 @@ public class WebhookService {
                 String jsonPayload = objectMapper.writeValueAsString(payload);
                 // In real app: Add HMAC signature header using sub.getSecretKey()
 
-                log.info("Sending webhook to {} for event {}", sub.getCallbackUrl(), eventType);
-                restTemplate.postForObject(sub.getCallbackUrl(), payload, String.class);
+                RestTemplate client = vgsProxyEnabled ? vgsProxiedRestTemplate : restTemplate;
+                String mode = vgsProxyEnabled ? "VGS Proxy" : "Direct";
+
+                log.info("Sending webhook to {} for event {} (Mode: {})", sub.getCallbackUrl(), eventType, mode);
+                client.postForObject(sub.getCallbackUrl(), payload, String.class);
 
                 // Reset failure count on success
                 if (sub.getFailureCount() > 0) {

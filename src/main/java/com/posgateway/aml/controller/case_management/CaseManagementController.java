@@ -18,7 +18,7 @@ import java.util.Map;
  * Provides endpoints for case management operations
  */
 @RestController
-@RequestMapping("/api/v1/cases")
+@RequestMapping("/cases")
 public class CaseManagementController {
 
     private final CaseActivityService caseActivityService;

@@ -161,7 +161,7 @@
                     <i class="fas fa-circle" id="sessionStatusIcon"></i>
                     <span id="sessionStatusText">Session Active</span>
                 </div>
-                
+
                 <div class="user-profile" id="userProfileTrigger">
                     <img src="https://ui-avatars.com/api/?name=Super+Admin&background=6c5ce7&color=fff" alt="Admin">
                     <span>super.admin@aml.com</span>
@@ -171,7 +171,8 @@
                         <a href="#" data-view="profile"><i class="fas fa-user-circle"></i> My Profile</a>
                         <a href="#" data-view="settings"><i class="fas fa-cog"></i> Settings</a>
                         <div class="dropdown-divider"></div>
-                        <a href="/logout" class="logout-link" onclick="handleLogout(event)"><i class="fas fa-sign-out-alt"></i> Logout</a>
+                        <a href="logout" class="logout-link" onclick="handleLogout(event)"><i
+                                class="fas fa-sign-out-alt"></i> Logout</a>
                     </div>
                 </div>
             </div>
@@ -304,65 +305,64 @@
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Charts Row -->
-        <div class="charts-grid">
-            <div class="chart-card wide">
-                <div class="card-header">
-                    <h3>Daily <strong>Transaction Volume</strong></h3>
-                    <div class="chart-tabs">
-                        <button class="tab active">All</button>
-                        <button class="tab">Flagged</button>
-                        <button class="tab">Approved</button>
+            <!-- Charts Row (inside dashboard-view) -->
+            <div class="charts-grid">
+                <div class="chart-card wide">
+                    <div class="card-header">
+                        <h3>Daily <strong>Transaction Volume</strong></h3>
+                        <div class="chart-tabs">
+                            <button class="tab active">All</button>
+                            <button class="tab">Flagged</button>
+                            <button class="tab">Approved</button>
+                        </div>
+                        <div class="card-actions">
+                            <button><i class="fas fa-chevron-down"></i></button>
+                            <button>&times;</button>
+                        </div>
                     </div>
-                    <div class="card-actions">
-                        <button><i class="fas fa-chevron-down"></i></button>
-                        <button>&times;</button>
+                    <div class="line-chart-container">
+                        <canvas id="transactionChart"></canvas>
                     </div>
-                </div>
-                <div class="line-chart-container">
-                    <canvas id="transactionChart"></canvas>
                 </div>
             </div>
-        </div>
 
-        <!-- Cases summary card could go here, but I'll leave it out for a cleaner dashboard for now -->
+            <!-- Cases summary card could go here, but I'll leave it out for a cleaner dashboard for now -->
 
-        <!-- Alerts Section -->
-        <div class="alerts-grid">
-            <div class="alert-card">
-                <div class="card-header">
-                    <h3><i class="fas fa-bell"></i> Live Alerts</h3>
-                    <span class="live-indicator"><i class="fas fa-circle"></i> Live</span>
+            <!-- Alerts Section -->
+            <div class="alerts-grid">
+                <div class="alert-card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-bell"></i> Live Alerts</h3>
+                        <span class="live-indicator"><i class="fas fa-circle"></i> Live</span>
+                    </div>
+                    <div class="alerts-list">
+                        <div class="alert-item high">
+                            <div class="alert-icon"><i class="fas fa-exclamation-triangle"></i></div>
+                            <div class="alert-content">
+                                <strong>High-Risk Transaction Detected</strong>
+                                <p>Unusual pattern from Merchant #4521 - $45,000 transfer</p>
+                                <span class="alert-time">2 minutes ago</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="alerts-list">
-                    <div class="alert-item high">
-                        <div class="alert-icon"><i class="fas fa-exclamation-triangle"></i></div>
-                        <div class="alert-content">
-                            <strong>High-Risk Transaction Detected</strong>
-                            <p>Unusual pattern from Merchant #4521 - $45,000 transfer</p>
-                            <span class="alert-time">2 minutes ago</span>
+
+                <div class="activity-card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-history"></i> Recent Activity</h3>
+                    </div>
+                    <div class="activity-timeline">
+                        <div class="activity-item">
+                            <div class="activity-dot"></div>
+                            <div class="activity-content">
+                                <span class="activity-user">John Smith</span> assigned case CASE-2024-1247
+                                <span class="activity-time">10m ago</span>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-
-            <div class="activity-card">
-                <div class="card-header">
-                    <h3><i class="fas fa-history"></i> Recent Activity</h3>
-                </div>
-                <div class="activity-timeline">
-                    <div class="activity-item">
-                        <div class="activity-dot"></div>
-                        <div class="activity-content">
-                            <span class="activity-user">John Smith</span> assigned case CASE-2024-1247
-                            <span class="activity-time">10m ago</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
         </div>
 
         <!-- User Management View -->
@@ -401,10 +401,11 @@
                 <h1>Compliance Cases <span class="subtitle">Active Investigations</span></h1>
                 <div class="header-actions">
                     <button class="btn-secondary" onclick="refreshCases()"><i class="fas fa-sync"></i> Refresh</button>
-                    <button class="btn-primary" onclick="openCaseFilters()"><i class="fas fa-filter"></i> Filter</button>
+                    <button class="btn-primary" onclick="openCaseFilters()"><i class="fas fa-filter"></i>
+                        Filter</button>
                 </div>
             </div>
-            
+
             <!-- Case Stats Cards -->
             <div class="stat-card" style="display: inline-block; width: 24%; margin-right: 1%;">
                 <div class="stat-header"><span>Open Cases</span></div>
@@ -457,52 +458,31 @@
             </div>
         </div>
 
-        <!-- Case Detail View with Timeline -->
-        <div id="case-detail-view" style="display: none;">
+        <!-- Case Queues View -->
+        <div id="case-queues-view" style="display: none;">
             <div class="page-header">
-                <button class="btn-secondary" onclick="showView('cases-view')"><i class="fas fa-arrow-left"></i> Back</button>
-                <h1 id="case-detail-title">Case Details</h1>
+                <h1>Work Queues <span class="subtitle">Specialized Inspection Buckets</span></h1>
             </div>
-            <div class="case-detail-container">
-                <div class="case-detail-sidebar">
-                    <div class="case-info-card">
-                        <h3>Case Information</h3>
-                        <div id="case-info-content"></div>
-                    </div>
-                    <div class="case-actions-card">
-                        <h3>Actions</h3>
-                        <button class="btn-primary" onclick="assignCase()"><i class="fas fa-user-plus"></i> Assign</button>
-                        <button class="btn-warning" onclick="escalateCase()"><i class="fas fa-arrow-up"></i> Escalate</button>
-                        <button class="btn-secondary" onclick="updateCaseStatus()"><i class="fas fa-edit"></i> Update Status</button>
-                        <button class="btn-info" onclick="viewCaseNetwork()"><i class="fas fa-project-diagram"></i> Network Graph</button>
-                    </div>
+            <div class="alerts-grid">
+                <div class="stat-card" onclick="showView('cases-view')">
+                    <div class="stat-header"><span>High Priority Queue</span></div>
+                    <div class="stat-value">5</div>
+                    <div class="stat-subtext">Requires immediate action</div>
                 </div>
-                <div class="case-detail-main">
-                    <div class="case-tabs">
-                        <button class="tab-btn active" onclick="showCaseTab('timeline')">Timeline</button>
-                        <button class="tab-btn" onclick="showCaseTab('activities')">Activity Feed</button>
-                        <button class="tab-btn" onclick="showCaseTab('notes')">Notes</button>
-                        <button class="tab-btn" onclick="showCaseTab('evidence')">Evidence</button>
-                        <button class="tab-btn" onclick="showCaseTab('transactions')">Transactions</button>
-                    </div>
-                    <div id="case-timeline-tab" class="case-tab-content active">
-                        <div id="case-timeline-content"></div>
-                    </div>
-                    <div id="case-activities-tab" class="case-tab-content">
-                        <div id="case-activities-content"></div>
-                    </div>
-                    <div id="case-notes-tab" class="case-tab-content">
-                        <div id="case-notes-content"></div>
-                    </div>
-                    <div id="case-evidence-tab" class="case-tab-content">
-                        <div id="case-evidence-content"></div>
-                    </div>
-                    <div id="case-transactions-tab" class="case-tab-content">
-                        <div id="case-transactions-content"></div>
-                    </div>
+                <div class="stat-card" onclick="showView('cases-view')">
+                    <div class="stat-header"><span>Sanctions Matches</span></div>
+                    <div class="stat-value">2</div>
+                    <div class="stat-subtext">Potential hits to verify</div>
+                </div>
+                <div class="stat-card" onclick="showView('cases-view')">
+                    <div class="stat-header"><span>EDD Required</span></div>
+                    <div class="stat-value">8</div>
+                    <div class="stat-subtext">Enhanced Due Diligence</div>
                 </div>
             </div>
         </div>
+
+
 
         <!-- Case Timeline View -->
         <div id="case-timeline-view" style="display: none;">
@@ -521,7 +501,8 @@
                 <div class="header-actions">
                     <input type="number" id="network-depth" value="2" min="1" max="5" style="width: 80px;">
                     <label>Depth</label>
-                    <button class="btn-primary" onclick="loadNetworkGraph()"><i class="fas fa-sync"></i> Refresh</button>
+                    <button class="btn-primary" onclick="loadNetworkGraph()"><i class="fas fa-sync"></i>
+                        Refresh</button>
                 </div>
             </div>
             <div class="network-graph-container" id="network-graph-container">
@@ -567,7 +548,8 @@
             <div class="page-header">
                 <h1>Compliance Calendar <span class="subtitle">Regulatory Filing Deadlines</span></h1>
                 <div class="header-actions">
-                    <button class="btn-primary" onclick="openCreateDeadlineModal()"><i class="fas fa-plus"></i> Add Deadline</button>
+                    <button class="btn-primary" onclick="openCreateDeadlineModal()"><i class="fas fa-plus"></i> Add
+                        Deadline</button>
                 </div>
             </div>
             <div class="calendar-container">
@@ -632,7 +614,8 @@
             <div class="page-header">
                 <h1>Merchant Directory <span class="subtitle">Onboarded Entities</span></h1>
                 <div class="header-actions">
-                    <button class="btn-primary"><i class="fas fa-plus"></i> Add Merchant</button>
+                    <button class="btn-primary" onclick="openAddMerchantModal()"><i class="fas fa-plus"></i> Add
+                        Merchant</button>
                 </div>
             </div>
             <div class="table-card">
@@ -783,125 +766,498 @@
                     </tbody>
                 </table>
             </div>
-               </div>
+        </div>
 
-               <!-- Transaction Monitoring View -->
-               <div id="transaction-monitoring-view" style="display: none;">
-                   <div class="page-header">
-                       <h1>Transaction Monitoring</h1>
-                   </div>
+        <!-- Transaction Monitoring View -->
+        <div id="transaction-monitoring-view" style="display: none;">
+            <div class="page-header">
+                <h1>Transaction Monitoring</h1>
+            </div>
 
-                   <!-- Tab Navigation -->
-                   <div class="monitoring-tabs">
-                       <button class="monitoring-tab active" data-tab="live-monitoring">Live Monitoring</button>
-                       <button class="monitoring-tab" data-tab="analytics">Analytics</button>
-                       <button class="monitoring-tab" data-tab="sars">SARs</button>
-                       <button class="monitoring-tab" data-tab="reports">Reports</button>
-                   </div>
+            <!-- Tab Navigation -->
+            <div class="monitoring-tabs">
+                <button class="monitoring-tab active" data-tab="live-monitoring">Live Monitoring</button>
+                <button class="monitoring-tab" data-tab="analytics">Analytics</button>
+                <button class="monitoring-tab" data-tab="sars">SARs</button>
+                <button class="monitoring-tab" data-tab="reports">Reports</button>
+            </div>
 
-                   <!-- Live Monitoring Tab -->
-                   <div id="live-monitoring-tab" class="monitoring-tab-content active">
-                       <div class="monitoring-filters">
-                           <select id="risk-level-filter" class="filter-select">
-                               <option value="All">All Risk Levels</option>
-                               <option value="LOW">Low</option>
-                               <option value="MEDIUM">Medium</option>
-                               <option value="HIGH">High</option>
-                               <option value="CRITICAL">Critical</option>
-                           </select>
-                           <select id="decision-filter" class="filter-select">
-                               <option value="All">All Decisions</option>
-                               <option value="APPROVED">Approved</option>
-                               <option value="MANUAL_REVIEW">Manual Review</option>
-                               <option value="DECLINED">Declined</option>
-                           </select>
-                       </div>
-                       <div id="transactions-list" class="transactions-list">
-                           <!-- Populated by JS -->
-                       </div>
-                   </div>
+            <!-- Live Monitoring Tab -->
+            <div id="live-monitoring-tab" class="monitoring-tab-content active">
+                <div class="monitoring-filters">
+                    <select id="risk-level-filter" class="filter-select">
+                        <option value="All">All Risk Levels</option>
+                        <option value="LOW">Low</option>
+                        <option value="MEDIUM">Medium</option>
+                        <option value="HIGH">High</option>
+                        <option value="CRITICAL">Critical</option>
+                    </select>
+                    <select id="decision-filter" class="filter-select">
+                        <option value="All">All Decisions</option>
+                        <option value="APPROVED">Approved</option>
+                        <option value="MANUAL_REVIEW">Manual Review</option>
+                        <option value="DECLINED">Declined</option>
+                    </select>
+                </div>
+                <div id="transactions-list" class="transactions-list">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
 
-                   <!-- Analytics Tab -->
-                   <div id="analytics-tab" class="monitoring-tab-content">
-                       <!-- Summary Cards -->
-                       <div class="stats-grid" id="monitoring-summary-cards">
-                           <div class="stat-card">
-                               <div class="stat-header">
-                                   <span>Total Monitored</span>
-                                   <i class="fas fa-chart-line"></i>
-                               </div>
-                               <div class="stat-value" id="total-monitored">0</div>
-                               <div class="stat-subtext">Last 24 hours</div>
-                           </div>
-                           <div class="stat-card">
-                               <div class="stat-header">
-                                   <span>Flagged</span>
-                                   <i class="fas fa-flag"></i>
-                               </div>
-                               <div class="stat-value" id="flagged-count">0</div>
-                               <div class="stat-subtext" id="flag-rate">0% flag rate</div>
-                           </div>
-                           <div class="stat-card">
-                               <div class="stat-header">
-                                   <span>High Risk</span>
-                                   <i class="fas fa-exclamation-triangle" style="color: #e74c3c;"></i>
-                               </div>
-                               <div class="stat-value" id="high-risk-count">0</div>
-                               <div class="stat-subtext" style="color: #e74c3c;">Requires review</div>
-                           </div>
-                           <div class="stat-card">
-                               <div class="stat-header">
-                                   <span>Blocked</span>
-                                   <i class="fas fa-shield-alt" style="color: #e74c3c;"></i>
-                               </div>
-                               <div class="stat-value" id="blocked-count">0</div>
-                               <div class="stat-subtext" style="color: #e74c3c;">Auto-blocked</div>
-                           </div>
-                       </div>
+            <!-- Analytics Tab -->
+            <div id="analytics-tab" class="monitoring-tab-content">
+                <!-- Summary Cards -->
+                <div class="stats-grid" id="monitoring-summary-cards">
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <span>Total Monitored</span>
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <div class="stat-value" id="total-monitored">0</div>
+                        <div class="stat-subtext">Last 24 hours</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <span>Flagged</span>
+                            <i class="fas fa-flag"></i>
+                        </div>
+                        <div class="stat-value" id="flagged-count">0</div>
+                        <div class="stat-subtext" id="flag-rate">0% flag rate</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <span>High Risk</span>
+                            <i class="fas fa-exclamation-triangle" style="color: #e74c3c;"></i>
+                        </div>
+                        <div class="stat-value" id="high-risk-count">0</div>
+                        <div class="stat-subtext" style="color: #e74c3c;">Requires review</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <span>Blocked</span>
+                            <i class="fas fa-shield-alt" style="color: #e74c3c;"></i>
+                        </div>
+                        <div class="stat-value" id="blocked-count">0</div>
+                        <div class="stat-subtext" style="color: #e74c3c;">Auto-blocked</div>
+                    </div>
+                </div>
 
-                       <!-- Analytics Content -->
-                       <div class="analytics-grid">
-                           <div class="analytics-card">
-                               <h3>Risk Score Distribution</h3>
-                               <div id="risk-distribution-chart">
-                                   <!-- Populated by JS -->
-                               </div>
-                           </div>
-                           <div class="analytics-card">
-                               <h3>Top Risk Indicators</h3>
-                               <div id="risk-indicators-list">
-                                   <!-- Populated by JS -->
-                               </div>
-                           </div>
-                       </div>
+                <!-- Analytics Content -->
+                <div class="analytics-grid">
+                    <div class="analytics-card">
+                        <h3>Risk Score Distribution</h3>
+                        <div id="risk-distribution-chart">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                    <div class="analytics-card">
+                        <h3>Top Risk Indicators</h3>
+                        <div id="risk-indicators-list">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                </div>
 
-                       <!-- Recent Activity -->
-                       <div class="analytics-card">
-                           <h3>Recent Monitoring Activity</h3>
-                           <div id="recent-activity-list">
-                               <!-- Populated by JS -->
-                           </div>
-                       </div>
-                   </div>
+                <!-- Recent Activity -->
+                <div class="analytics-card">
+                    <h3>Recent Monitoring Activity</h3>
+                    <div id="recent-activity-list">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
 
-                   <!-- SARs Tab -->
-                   <div id="sars-tab" class="monitoring-tab-content">
-                       <div id="sars-list" class="sars-list">
-                           <!-- Populated by JS -->
-                       </div>
-                   </div>
+            <!-- SARs Tab -->
+            <div id="sars-tab" class="monitoring-tab-content">
+                <div id="sars-list" class="sars-list">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
 
-                   <!-- Reports Tab -->
-                   <div id="reports-tab" class="monitoring-tab-content">
-                       <div class="table-card">
-                           <h3>Merchant Decline Reports</h3>
-                           <button class="btn-primary" onclick="generateSampleReport()">
-                               <i class="fas fa-file-download"></i> Generate Sample Report
-                           </button>
-                       </div>
-                   </div>
-               </div>
-           </main>
+            <!-- Reports Tab -->
+            <div id="reports-tab" class="monitoring-tab-content">
+                <div class="table-card">
+                    <h3>Merchant Decline Reports</h3>
+                    <button class="btn-primary" onclick="generateSampleReport()">
+                        <i class="fas fa-file-download"></i> Generate Sample Report
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Limits & AML View -->
+        <div id="limits-aml-view" style="display: none;">
+            <div class="page-header">
+                <h1>Limits & AML Configuration <span class="subtitle">Transaction Limits & AML Rules</span></h1>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-header"><span>Daily Transaction Limit</span></div>
+                    <div class="stat-value" id="dailyLimit">$100,000</div>
+                    <div class="stat-subtext">Per merchant default</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-header"><span>Monthly Volume Cap</span></div>
+                    <div class="stat-value" id="monthlyLimit">$2.5M</div>
+                    <div class="stat-subtext">Aggregate limit</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-header"><span>High-Risk Threshold</span></div>
+                    <div class="stat-value" id="riskThreshold">75</div>
+                    <div class="stat-subtext">Risk score trigger</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-header"><span>Active Rules</span></div>
+                    <div class="stat-value" id="activeRulesCount">12</div>
+                    <div class="stat-subtext">AML detection rules</div>
+                </div>
+            </div>
+
+            <div class="table-card">
+                <div class="card-header">
+                    <h3><i class="fas fa-sliders-h"></i> Transaction Limits</h3>
+                    <button class="btn-primary" onclick="openAddLimitModal()"><i class="fas fa-plus"></i> Add Limit
+                        Rule</button>
+                </div>
+                <table class="data-table" id="limits-table">
+                    <thead>
+                        <tr>
+                            <th>Limit Type</th>
+                            <th>Limit Value</th>
+                            <th>Period</th>
+                            <th>Applies To</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Daily Transaction</td>
+                            <td>$100,000</td>
+                            <td>24 Hours</td>
+                            <td>All Merchants</td>
+                            <td><span class="status-badge resolved">Active</span></td>
+                            <td><button class="action-btn"><i class="fas fa-edit"></i></button></td>
+                        </tr>
+                        <tr>
+                            <td>Single Transaction</td>
+                            <td>$25,000</td>
+                            <td>Per Transaction</td>
+                            <td>All Merchants</td>
+                            <td><span class="status-badge resolved">Active</span></td>
+                            <td><button class="action-btn"><i class="fas fa-edit"></i></button></td>
+                        </tr>
+                        <tr>
+                            <td>High-Risk Merchant</td>
+                            <td>$10,000</td>
+                            <td>24 Hours</td>
+                            <td>High-Risk Category</td>
+                            <td><span class="status-badge resolved">Active</span></td>
+                            <td><button class="action-btn"><i class="fas fa-edit"></i></button></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="table-card" style="margin-top: 20px;">
+                <div class="card-header">
+                    <h3><i class="fas fa-shield-alt"></i> AML Detection Rules</h3>
+                    <button class="btn-primary" onclick="openAddAmlRuleModal()"><i class="fas fa-plus"></i> Add AML
+                        Rule</button>
+                </div>
+                <table class="data-table" id="aml-rules-table">
+                    <thead>
+                        <tr>
+                            <th>Rule Name</th>
+                            <th>Description</th>
+                            <th>Trigger Condition</th>
+                            <th>Action</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Large Transaction Alert</td>
+                            <td>Flag transactions above threshold</td>
+                            <td>Amount > $10,000</td>
+                            <td>Manual Review</td>
+                            <td><span class="status-badge resolved">Active</span></td>
+                            <td><button class="action-btn"><i class="fas fa-edit"></i></button></td>
+                        </tr>
+                        <tr>
+                            <td>Velocity Check</td>
+                            <td>Multiple transactions in short period</td>
+                            <td>5+ txns in 10 mins</td>
+                            <td>Block & Alert</td>
+                            <td><span class="status-badge resolved">Active</span></td>
+                            <td><button class="action-btn"><i class="fas fa-edit"></i></button></td>
+                        </tr>
+                        <tr>
+                            <td>Sanctions Screening</td>
+                            <td>Check against sanctions lists</td>
+                            <td>All Transactions</td>
+                            <td>Block if Match</td>
+                            <td><span class="status-badge resolved">Active</span></td>
+                            <td><button class="action-btn"><i class="fas fa-edit"></i></button></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Case Detail View -->
+        <div id="case-detail-view" style="display: none;">
+            <div class="page-header">
+                <div>
+                    <h1 id="case-detail-title">Case Detail</h1>
+                    <button class="btn-secondary" onclick="showView('cases-view')"><i class="fas fa-arrow-left"></i>
+                        Back to Cases</button>
+                </div>
+                <div class="header-actions">
+                    <button class="btn-primary" onclick="escalateCase()"><i class="fas fa-exclamation-triangle"></i>
+                        Escalate</button>
+                    <button class="btn-secondary" onclick="viewCaseNetwork()"><i class="fas fa-project-diagram"></i>
+                        View Network</button>
+                </div>
+            </div>
+
+            <div class="case-grid">
+                <div class="case-info-card">
+                    <h3>Case Information</h3>
+                    <div id="case-info-content">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <div class="case-tabs-card">
+                    <div class="case-tabs">
+                        <button class="tab-btn active" onclick="showCaseTab('timeline')">Timeline</button>
+                        <button class="tab-btn" onclick="showCaseTab('activities')">Activities</button>
+                        <button class="tab-btn" onclick="showCaseTab('documents')">Documents</button>
+                    </div>
+
+                    <div id="case-timeline-tab" class="case-tab-content active">
+                        <div id="case-timeline-content" class="timeline-container">
+                        </div>
+                    </div>
+
+                    <div id="case-activities-tab" class="case-tab-content">
+                        <div id="case-activities-content" class="activities-container">
+                        </div>
+                    </div>
+
+                    <div id="case-documents-tab" class="case-tab-content">
+                        <p>No documents attached.</p>
+                        <button class="btn-secondary"><i class="fas fa-upload"></i> Upload Document</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Compliance Calendar View -->
+        <div id="compliance-calendar-view" style="display: none;">
+            <div class="page-header">
+                <h1>Compliance Calendar <span class="subtitle">Regulatory Filing Deadlines</span></h1>
+                <div class="header-actions">
+                    <button class="btn-primary" onclick="openCreateDeadlineModal()"><i class="fas fa-plus"></i> Add
+                        Deadline</button>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-header"><span>Upcoming Deadlines</span></div>
+                    <div class="stat-value" id="upcomingDeadlinesCount">0</div>
+                    <div class="stat-subtext">Next 30 days</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-header"><span>Overdue</span></div>
+                    <div class="stat-value" id="overdueDeadlinesCount" style="color: #e74c3c;">0</div>
+                    <div class="stat-subtext">Requires immediate attention</div>
+                </div>
+            </div>
+
+            <div class="table-card">
+                <div class="card-header">
+                    <h3><i class="fas fa-calendar-alt"></i> Upcoming Deadlines</h3>
+                </div>
+                <div id="upcoming-deadlines-list" class="deadlines-list">
+                    <p>No upcoming deadlines</p>
+                </div>
+            </div>
+
+            <div class="table-card" style="margin-top: 20px;">
+                <div class="card-header">
+                    <h3><i class="fas fa-exclamation-circle"></i> Overdue Deadlines</h3>
+                </div>
+                <div id="overdue-deadlines-list" class="deadlines-list">
+                    <p>No overdue deadlines</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Regulatory Reports View -->
+        <div id="regulatory-reports-view" style="display: none;">
+            <div class="page-header">
+                <h1>Regulatory Reports <span class="subtitle">CTR, LCTR, IFTR</span></h1>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="report-card-header">
+                        <h3><i class="fas fa-file-invoice-dollar"></i> Currency Transaction Report (CTR)</h3>
+                    </div>
+                    <p>Transactions at or above $10,000 threshold</p>
+                    <button class="btn-primary" onclick="generateCtr()"><i class="fas fa-file-alt"></i> Generate
+                        CTR</button>
+                </div>
+                <div class="stat-card">
+                    <div class="report-card-header">
+                        <h3><i class="fas fa-money-bill-wave"></i> Large Cash Transaction Report (LCTR)</h3>
+                    </div>
+                    <p>Transactions at or above $100,000 threshold</p>
+                    <button class="btn-primary" onclick="generateLctr()"><i class="fas fa-file-alt"></i> Generate
+                        LCTR</button>
+                </div>
+                <div class="stat-card">
+                    <div class="report-card-header">
+                        <h3><i class="fas fa-globe"></i> International Funds Transfer Report (IFTR)</h3>
+                    </div>
+                    <p>Cross-border transaction reporting</p>
+                    <button class="btn-primary" onclick="generateIftr()"><i class="fas fa-file-alt"></i> Generate
+                        IFTR</button>
+                </div>
+            </div>
+
+            <div id="regulatory-reports-results" class="table-card" style="margin-top: 20px;">
+                <!-- Report results populated by JS -->
+            </div>
+        </div>
+
+        <!-- Reports View -->
+        <div id="reports-view" style="display: none;">
+            <div class="page-header">
+                <h1>Analytical Reports <span class="subtitle">Performance & Risk Insights</span></h1>
+                <div class="header-actions">
+                    <button class="btn-primary" onclick="generateAnalyticsReport()"><i class="fas fa-chart-line"></i>
+                        Generate Report</button>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-header"><span>Total Reports</span></div>
+                    <div class="stat-value" id="totalReportsCount">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-header"><span>Generated Today</span></div>
+                    <div class="stat-value" id="todayReportsCount">0</div>
+                </div>
+            </div>
+
+            <div class="table-card">
+                <div class="card-header">
+                    <h3><i class="fas fa-list"></i> Recent Reports</h3>
+                    <button class="btn-secondary" onclick="fetchReports()"><i class="fas fa-sync"></i> Refresh</button>
+                </div>
+                <table class="data-table" id="reports-table">
+                    <thead>
+                        <tr>
+                            <th>Report ID</th>
+                            <th>Type</th>
+                            <th>Date</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Risk Analytics View -->
+        <div id="risk-analytics-view" style="display: none;">
+            <div class="page-header">
+                <h1>Risk Analytics <span class="subtitle">Risk Assessment Dashboard</span></h1>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-header"><span>High Risk Merchants</span></div>
+                    <div class="stat-value" id="highRiskMerchantCount" style="color: #e74c3c;">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-header"><span>Average Risk Score</span></div>
+                    <div class="stat-value" id="avgRiskScore">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-header"><span>Risk Alerts Today</span></div>
+                    <div class="stat-value" id="riskAlertsToday">0</div>
+                </div>
+            </div>
+
+            <div id="risk-analytics-content">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+    </main>
+
+    <!-- Edit User Modal -->
+    <div id="editUserModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeEditUserModal()">&times;</span>
+            <h2>Edit User</h2>
+            <form id="editUserForm">
+                <input type="hidden" name="userId" id="editUserId">
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" name="username" id="editUsername" required>
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" name="email" id="editEmail" required>
+                </div>
+                <div class="form-group">
+                    <label>First Name</label>
+                    <input type="text" name="firstName" id="editFirstName">
+                </div>
+                <div class="form-group">
+                    <label>Last Name</label>
+                    <input type="text" name="lastName" id="editLastName">
+                </div>
+                <div class="form-group">
+                    <label>New Password (leave blank to keep current)</label>
+                    <input type="password" name="password" id="editPassword">
+                </div>
+                <div class="form-group">
+                    <label>Role</label>
+                    <select name="roleId" id="editUserRoleSelect" required>
+                        <!-- Populated by JS -->
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>PSP</label>
+                    <select name="pspId" id="editUserPspSelect">
+                        <option value="">System (Global)</option>
+                        <!-- Populated by JS -->
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" name="enabled" id="editUserEnabled"> Enabled
+                    </label>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button type="submit" class="btn-primary">Save Changes</button>
+                    <button type="button" class="btn-secondary" onclick="closeEditUserModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <!-- Add User Modal -->
     <div id="addUserModal" class="modal">
@@ -979,20 +1335,103 @@
         </div>
     </div>
 
+    <!-- Add Merchant Modal -->
+    <div id="addMerchantModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeAddMerchantModal()">&times;</span>
+            <h2>Add New Merchant</h2>
+            <form id="addMerchantForm">
+                <div class="form-group">
+                    <label>Legal Name</label>
+                    <input type="text" name="legalName" required placeholder="Company Legal Name">
+                </div>
+                <div class="form-group">
+                    <label>Trading Name</label>
+                    <input type="text" name="tradingName" placeholder="Trading/Display Name">
+                </div>
+                <div class="form-group">
+                    <label>Contact Email</label>
+                    <input type="email" name="contactEmail" required placeholder="merchant@example.com">
+                </div>
+                <div class="form-group">
+                    <label>MCC Code</label>
+                    <input type="text" name="mcc" placeholder="e.g. 5411">
+                </div>
+                <div class="form-group">
+                    <label>Business Type</label>
+                    <select name="businessType">
+                        <option value="RETAIL">Retail</option>
+                        <option value="ECOMMERCE">E-Commerce</option>
+                        <option value="SERVICES">Services</option>
+                        <option value="FOOD_BEVERAGE">Food & Beverage</option>
+                        <option value="OTHER">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Daily Limit (KES)</label>
+                    <input type="number" name="dailyLimit" value="100000" min="0">
+                </div>
+                <div class="form-group">
+                    <label>Risk Level</label>
+                    <select name="riskLevel">
+                        <option value="LOW">Low</option>
+                        <option value="MEDIUM" selected>Medium</option>
+                        <option value="HIGH">High</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn-primary">Create Merchant</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Create Deadline Modal -->
+    <div id="createDeadlineModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeCreateDeadlineModal()">&times;</span>
+            <h2>Add Compliance Deadline</h2>
+            <form id="createDeadlineForm">
+                <div class="form-group">
+                    <label>Title</label>
+                    <input type="text" name="title" required placeholder="e.g. SAR Filing for CASE-123">
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea name="description" placeholder="Additional details..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Due Date</label>
+                    <input type="date" name="dueDate" required>
+                </div>
+                <div class="form-group">
+                    <label>Priority</label>
+                    <select name="priority">
+                        <option value="LOW">Low</option>
+                        <option value="MEDIUM" selected>Medium</option>
+                        <option value="HIGH">High</option>
+                        <option value="CRITICAL">Critical</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn-primary">Save Deadline</button>
+            </form>
+        </div>
+    </div>
+
     <!-- Settings Widget -->
-    <div class="settings-widget">
+    <div class="settings-widget"
+        onclick="document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active')); document.querySelectorAll('[data-view=settings]')[0].classList.add('active'); document.querySelectorAll('[id$=-view]').forEach(v => v.style.display = 'none'); document.getElementById('settings-view').style.display = 'block'; if(window.fetchSettings) fetchSettings();"
+        title="Settings">
         <i class="fas fa-cog"></i>
     </div>
 
-           <script src="js/api-interceptor.js"></script>
-           <script src="js/session-manager.js"></script>
-           <script src="js/dashboard.js"></script>
-           <script src="js/case-management.js"></script>
-           <script src="js/risk-analytics.js"></script>
-           <script src="js/compliance-calendar.js"></script>
-           <script src="js/regulatory-reports.js"></script>
-           <script src="js/limits-aml-management.js"></script>
-           <script src="js/transaction-monitoring.js"></script>
-       </body>
+    <script src="js/api-interceptor.js"></script>
+    <script src="js/session-manager.js"></script>
+    <script src="js/dashboard.js"></script>
+    <script src="js/case-management.js"></script>
+    <script src="js/risk-analytics.js"></script>
+    <script src="js/compliance-calendar.js"></script>
+    <script src="js/regulatory-reports.js"></script>
+    <script src="js/limits-aml-management.js"></script>
+    <script src="js/transaction-monitoring.js"></script>
+</body>
 
-       </html>
+</html>

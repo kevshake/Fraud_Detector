@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
 
 // @RequiredArgsConstructor removed
 @RestController
-@RequestMapping("/api/v1/psps")
+@RequestMapping("/psps")
 public class PspReportingConfigController {
 
     private final PspReportingConfigService configService;

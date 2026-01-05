@@ -1,7 +1,5 @@
 package com.posgateway.aml.service.psp;
 
-
-
 import com.posgateway.aml.entity.psp.BillingRate;
 import com.posgateway.aml.entity.psp.Invoice;
 import com.posgateway.aml.entity.psp.InvoiceLineItem;
@@ -28,13 +26,13 @@ public class BillingService {
     private final PspRepository pspRepository;
     private final ApiUsageLogRepository apiUsageLogRepository;
 
-    public BillingService(BillingRateRepository billingRateRepository, InvoiceRepository invoiceRepository, PspRepository pspRepository, ApiUsageLogRepository apiUsageLogRepository) {
+    public BillingService(BillingRateRepository billingRateRepository, InvoiceRepository invoiceRepository,
+            PspRepository pspRepository, ApiUsageLogRepository apiUsageLogRepository) {
         this.billingRateRepository = billingRateRepository;
         this.invoiceRepository = invoiceRepository;
         this.pspRepository = pspRepository;
         this.apiUsageLogRepository = apiUsageLogRepository;
     }
-
 
     @Transactional(readOnly = true)
     public Optional<BillingRate> getEffectiveRate(Long pspId, String serviceType) {
@@ -139,5 +137,10 @@ public class BillingService {
         invoice.setTotalAmount(subtotal);
 
         return invoiceRepository.save(invoice);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Invoice> getInvoicesByPsp(Long pspId) {
+        return invoiceRepository.findByPsp_PspId(pspId);
     }
 }

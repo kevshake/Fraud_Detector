@@ -12,7 +12,7 @@ import java.util.List;
 
 // @RequiredArgsConstructor removed
 @RestController
-@RequestMapping("/api/v1")
+@RequestMapping("")
 public class DocumentController {
 
     private final DocumentManagementService documentService;

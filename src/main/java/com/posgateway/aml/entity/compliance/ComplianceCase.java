@@ -29,7 +29,7 @@ public class ComplianceCase {
     private String caseReference; // e.g., CASE-2023-0001
 
     @Column(name = "merchant_id")
-    private String merchantId; // optional merchant association for filtering
+    private Long merchantId; // optional merchant association for filtering (matches Merchant.merchantId type)
 
     @Column(name = "psp_id")
     private Long pspId; // Added for multi-tenancy filtering
@@ -96,6 +96,7 @@ public class ComplianceCase {
     @Column(columnDefinition = "TEXT")
     private String resolutionNotes;
 
+    @Column(name = "resolved_by", columnDefinition = "bigint")
     private Long resolvedBy;
 
     private LocalDateTime resolvedAt;
@@ -108,7 +109,7 @@ public class ComplianceCase {
     public ComplianceCase() {
     }
 
-    public ComplianceCase(Long id, String caseReference, String merchantId, Long pspId, String description,
+    public ComplianceCase(Long id, String caseReference, Long merchantId, Long pspId, String description,
             CaseStatus status, CasePriority priority, LocalDateTime slaDeadline, Integer daysOpen, User assignedTo,
             Long assignedBy, LocalDateTime assignedAt, Boolean escalated, Long escalatedTo, String escalationReason,
             LocalDateTime escalatedAt, Set<ComplianceCase> relatedCases, List<CaseEvidence> evidence,
@@ -157,11 +158,11 @@ public class ComplianceCase {
         this.caseReference = caseReference;
     }
 
-    public String getMerchantId() {
+    public Long getMerchantId() {
         return merchantId;
     }
 
-    public void setMerchantId(String merchantId) {
+    public void setMerchantId(Long merchantId) {
         this.merchantId = merchantId;
     }
 
@@ -371,7 +372,7 @@ public class ComplianceCase {
     public static class ComplianceCaseBuilder {
         private Long id;
         private String caseReference;
-        private String merchantId;
+        private Long merchantId;
         private Long pspId;
         private String description;
         private CaseStatus status = CaseStatus.NEW;
@@ -408,7 +409,7 @@ public class ComplianceCase {
             return this;
         }
 
-        public ComplianceCaseBuilder merchantId(String merchantId) {
+        public ComplianceCaseBuilder merchantId(Long merchantId) {
             this.merchantId = merchantId;
             return this;
         }

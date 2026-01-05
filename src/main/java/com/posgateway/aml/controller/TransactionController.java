@@ -35,7 +35,7 @@ import java.util.stream.Collectors;
  * Optimized for high throughput with async processing
  */
 @RestController
-@RequestMapping("/api/v1/transactions")
+@RequestMapping("/transactions")
 public class TransactionController {
 
     private static final Logger logger = LoggerFactory.getLogger(TransactionController.class);

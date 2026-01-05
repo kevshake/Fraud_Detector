@@ -13,7 +13,7 @@ import java.util.Map;
  * Controller for Limits & AML Management
  */
 @RestController
-@RequestMapping("/api/v1/limits")
+@RequestMapping("/limits")
 public class LimitsManagementController {
 
     private final LimitsManagementService limitsService;

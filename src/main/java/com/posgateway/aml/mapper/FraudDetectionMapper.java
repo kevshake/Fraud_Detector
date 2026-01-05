@@ -9,9 +9,12 @@ import org.mapstruct.Mapper;
 @Mapper(componentModel = "spring")
 public interface FraudDetectionMapper {
 
+    @org.mapstruct.Mapping(target = "riskDetails", ignore = true)
     FraudDetectionResponseDTO toResponse(FraudDetectionResult result);
 
+    @org.mapstruct.Mapping(target = "riskDetails", ignore = true)
     FraudDetectionResponseDTO toResponse(HighConcurrencyFraudOrchestrator.FraudDetectionResult result);
 
+    @org.mapstruct.Mapping(target = "riskDetails", ignore = true)
     FraudDetectionResponseDTO toResponse(AsyncFraudDetectionOrchestrator.FraudDetectionResult result);
 }

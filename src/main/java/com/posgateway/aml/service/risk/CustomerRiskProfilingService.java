@@ -4,6 +4,7 @@ import com.posgateway.aml.entity.compliance.ComplianceCase;
 import com.posgateway.aml.entity.TransactionEntity;
 import com.posgateway.aml.repository.ComplianceCaseRepository;
 import com.posgateway.aml.repository.TransactionRepository;
+import com.posgateway.aml.repository.risk.HighRiskCountryRepository;
 import com.posgateway.aml.service.cache.KycDataCacheService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,6 +27,7 @@ public class CustomerRiskProfilingService {
     private final ComplianceCaseRepository caseRepository;
     private final TransactionRepository transactionRepository;
     private final KycDataCacheService kycCacheService; // Aerospike cache for fast lookups
+    private final HighRiskCountryRepository highRiskCountryRepository;
 
     @Value("${risk.edd.threshold:0.7}")
     private double eddThreshold;
@@ -35,11 +37,13 @@ public class CustomerRiskProfilingService {
 
     @Autowired
     public CustomerRiskProfilingService(ComplianceCaseRepository caseRepository,
-                                        TransactionRepository transactionRepository,
-                                        KycDataCacheService kycCacheService) {
+            TransactionRepository transactionRepository,
+            KycDataCacheService kycCacheService,
+            HighRiskCountryRepository highRiskCountryRepository) {
         this.caseRepository = caseRepository;
         this.transactionRepository = transactionRepository;
         this.kycCacheService = kycCacheService;
+        this.highRiskCountryRepository = highRiskCountryRepository;
     }
 
     /**
@@ -56,7 +60,7 @@ public class CustomerRiskProfilingService {
                 rating.setMerchantId(merchantId);
                 rating.setRiskLevel((String) cachedRating.get("riskLevel"));
                 rating.setRiskScore(((Number) cachedRating.get("riskScore")).doubleValue());
-                logger.debug("Risk rating from cache for merchant {}: {} ({})", merchantId, 
+                logger.debug("Risk rating from cache for merchant {}: {} ({})", merchantId,
                         rating.getRiskLevel(), rating.getRiskScore());
                 return rating;
             }
@@ -69,18 +73,26 @@ public class CustomerRiskProfilingService {
         rating.setMerchantId(merchantId);
 
         // Get case history
-        List<ComplianceCase> cases = caseRepository.findByMerchantId(merchantId);
-        long caseCount = cases.size();
-        long highPriorityCases = cases.stream()
-                .filter(c -> c.getPriority().ordinal() >= 2)
-                .count();
+        // Get case history
+        long caseCount = 0;
+        long highPriorityCases = 0;
+        try {
+            Long merchantIdLong = Long.parseLong(merchantId);
+            List<ComplianceCase> cases = caseRepository.findByMerchantId(merchantIdLong);
+            caseCount = cases.size();
+            highPriorityCases = cases.stream()
+                    .filter(c -> c.getPriority().ordinal() >= 2)
+                    .count();
+        } catch (NumberFormatException e) {
+            logger.debug("Merchant ID '{}' is not numeric, skipping case history lookup", merchantId);
+        }
 
         // Get transaction history
         List<TransactionEntity> transactions = transactionRepository.findByMerchantId(merchantId);
         BigDecimal totalAmount = transactions.stream()
-                .map(tx -> tx.getAmountCents() != null ? 
-                        BigDecimal.valueOf(tx.getAmountCents()).divide(new BigDecimal("100")) : 
-                        BigDecimal.ZERO)
+                .map(tx -> tx.getAmountCents() != null
+                        ? BigDecimal.valueOf(tx.getAmountCents()).divide(new BigDecimal("100"))
+                        : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         // Calculate risk score
@@ -162,11 +174,9 @@ public class CustomerRiskProfilingService {
      * Check if country is high risk
      */
     private boolean isHighRiskCountry(String country) {
-        // TODO: Load from database or configuration
-        List<String> highRiskCountries = List.of(
-                "AF", "KP", "IR", "SY", "YE" // Example high-risk countries
-        );
-        return highRiskCountries.contains(country);
+        if (country == null)
+            return false;
+        return highRiskCountryRepository.existsByCountryCode(country);
     }
 
     /**
@@ -182,24 +192,60 @@ public class CustomerRiskProfilingService {
         private boolean eddRequired;
 
         // Getters and Setters
-        public String getMerchantId() { return merchantId; }
-        public void setMerchantId(String merchantId) { this.merchantId = merchantId; }
-        public String getRiskLevel() { return riskLevel; }
-        public void setRiskLevel(String riskLevel) { this.riskLevel = riskLevel; }
-        public double getRiskScore() { return riskScore; }
-        public void setRiskScore(double riskScore) { this.riskScore = riskScore; }
-        public long getCaseCount() { return caseCount; }
-        public void setCaseCount(long caseCount) { this.caseCount = caseCount; }
-        public long getHighPriorityCaseCount() { return highPriorityCaseCount; }
-        public void setHighPriorityCaseCount(long highPriorityCaseCount) { 
-            this.highPriorityCaseCount = highPriorityCaseCount; 
+        public String getMerchantId() {
+            return merchantId;
         }
-        public BigDecimal getTotalTransactionAmount() { return totalTransactionAmount; }
-        public void setTotalTransactionAmount(BigDecimal totalTransactionAmount) { 
-            this.totalTransactionAmount = totalTransactionAmount; 
+
+        public void setMerchantId(String merchantId) {
+            this.merchantId = merchantId;
         }
-        public boolean isEddRequired() { return eddRequired; }
-        public void setEddRequired(boolean eddRequired) { this.eddRequired = eddRequired; }
+
+        public String getRiskLevel() {
+            return riskLevel;
+        }
+
+        public void setRiskLevel(String riskLevel) {
+            this.riskLevel = riskLevel;
+        }
+
+        public double getRiskScore() {
+            return riskScore;
+        }
+
+        public void setRiskScore(double riskScore) {
+            this.riskScore = riskScore;
+        }
+
+        public long getCaseCount() {
+            return caseCount;
+        }
+
+        public void setCaseCount(long caseCount) {
+            this.caseCount = caseCount;
+        }
+
+        public long getHighPriorityCaseCount() {
+            return highPriorityCaseCount;
+        }
+
+        public void setHighPriorityCaseCount(long highPriorityCaseCount) {
+            this.highPriorityCaseCount = highPriorityCaseCount;
+        }
+
+        public BigDecimal totalTransactionAmount() {
+            return totalTransactionAmount;
+        }
+
+        public void setTotalTransactionAmount(BigDecimal totalTransactionAmount) {
+            this.totalTransactionAmount = totalTransactionAmount;
+        }
+
+        public boolean isEddRequired() {
+            return eddRequired;
+        }
+
+        public void setEddRequired(boolean eddRequired) {
+            this.eddRequired = eddRequired;
+        }
     }
 }
-

@@ -22,7 +22,7 @@ import java.util.List;
 // @Slf4j removed
 // @RequiredArgsConstructor removed
 @RestController
-@RequestMapping("/api/v1/compliance/cases")
+@RequestMapping("/compliance/cases")
 @PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'INVESTIGATOR', 'CASE_MANAGER', 'AUDITOR')")
 public class ComplianceCaseController {
 

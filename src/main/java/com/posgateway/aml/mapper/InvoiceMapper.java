@@ -15,5 +15,6 @@ public interface InvoiceMapper {
     InvoiceResponse toResponse(Invoice invoice);
 
     // Inner class mapping handling
+    @Mapping(target = "total", source = "lineTotal")
     InvoiceResponse.LineItem toLineItemResponse(InvoiceLineItem item);
 }

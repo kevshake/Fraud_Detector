@@ -131,15 +131,16 @@ public class SanctionsListDownloadService {
 
             log.info("Successfully processed {} sanctions records", recordsProcessed);
 
-            // Step 5: Record watchlist update in tracking service (data is stored in Aerospike)
+            // Step 5: Record watchlist update in tracking service (data is stored in
+            // Aerospike)
             try {
                 watchlistUpdateTrackingService.recordUpdate(
-                    "OPENSANCTIONS",
-                    "SANCTIONS",
-                    java.time.LocalDate.now(),
-                    (long) recordsProcessed,
-                    opensanctionsUrl,
-                    currentVersion // Use version as checksum
+                        "OPENSANCTIONS",
+                        "SANCTIONS",
+                        java.time.LocalDate.now(),
+                        (long) recordsProcessed,
+                        opensanctionsUrl,
+                        currentVersion // Use version as checksum
                 );
                 log.info("Recorded watchlist update: {} records loaded to Aerospike", recordsProcessed);
             } catch (Exception e) {
@@ -248,7 +249,6 @@ public class SanctionsListDownloadService {
 
     /**
      * Insert batch of entities to Aerospike
-     * TODO: Implement actual Aerospike insertion
      */
     /**
      * Insert batch of entities to Aerospike

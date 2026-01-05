@@ -21,7 +21,7 @@ import java.util.TreeMap;
  * Provides high-level aggregated data for the dashboard
  */
 @RestController
-@RequestMapping("/api/v1/reporting/summary-detailed")
+@RequestMapping("/reporting/summary-detailed")
 public class ReportingSummaryController {
 
     private final ComplianceCaseRepository caseRepository;

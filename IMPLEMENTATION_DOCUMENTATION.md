@@ -416,7 +416,35 @@ Stores registered clients/users of the system.
 - Retry logic with exponential backoff
 - Error handling
 
-### 12. AmlService (Legacy)
+### 12. RegulatoryReportingService
+**Purpose**: Generates regulatory reports like IFTR.
+
+**Key Methods:**
+- `generateIftr(Long)` - Generates International Funds Transfer Report based on transaction details.
+
+### 13. CaseEscalationService
+**Purpose**: Handles automatic case risk scoring and escalation.
+
+**Key Methods:**
+- `getCaseRiskScore(Long)` - Calculates aggregate risk score for a case.
+- `getCaseTotalAmount(Long)` - Sums up all transaction amounts associated with a case.
+
+### 14. DocumentRetentionService
+**Purpose**: Manages document lifecycle and physical file deletion.
+
+**Key Methods:**
+- `cleanupExpiredDocuments()` - Deletes expired document records and their physical files from the filesystem.
+
+### 15. RealTimeTransactionScreeningService
+**Purpose**: Performs real-time screening of transactions.
+
+**Key Methods:**
+- `extractCounterpartyName(String)` - Extracts counterparty name from ISO8583 messages for screening.
+
+### 16. CustomerRiskProfilingService & MerchantOnboardingService
+**Enhancement**: Externalized high-risk country list to database-backed `HighRiskCountryRepository` for dynamic updates without code changes.
+
+### 17. AmlService (Legacy)
 **Purpose**: Legacy AML risk assessment service.
 
 **Key Methods:**
@@ -813,7 +841,7 @@ SELECT config_key, value, description FROM model_config;
 ### Core Dependencies
 
 - **Spring Boot**: 3.2.0
-- **Java**: 17
+- **Java**: 21
 - **Spring Data JPA**: Data access layer
 - **Spring Web**: REST API support
 - **Spring WebFlux**: Reactive support (for REST Assured compatibility)
@@ -1022,6 +1050,6 @@ src/
 ---
 
 **Document Generated**: 2024-01-15
-**Last Updated**: 2024-01-15
+**Last Updated**: 2025-12-29
 **Status**: Production Ready ✅
 

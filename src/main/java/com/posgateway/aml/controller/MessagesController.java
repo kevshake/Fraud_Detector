@@ -15,7 +15,7 @@ import java.util.Map;
  * Provides endpoints for internal messaging/notifications
  */
 @RestController
-@RequestMapping("/api/v1/messages")
+@RequestMapping("/messages")
 @PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'INVESTIGATOR', 'ANALYST')")
 public class MessagesController {
 

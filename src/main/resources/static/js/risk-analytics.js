@@ -9,7 +9,7 @@ window.loadRiskAnalytics = async function() {
     try {
         // Load customer risk heatmap
         const heatmapResponse = await fetch(
-            `/api/v1/analytics/risk/heatmap/customer?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`,
+            `analytics/risk/heatmap/customer?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`,
             { credentials: 'include' }
         );
         const heatmap = await heatmapResponse.json();
@@ -17,7 +17,7 @@ window.loadRiskAnalytics = async function() {
         
         // Load risk trends
         const trendsResponse = await fetch(
-            `/api/v1/analytics/risk/trends?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`,
+            `analytics/risk/trends?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`,
             { credentials: 'include' }
         );
         const trends = await trendsResponse.json();
@@ -25,7 +25,7 @@ window.loadRiskAnalytics = async function() {
         
         // Load false positive rate
         const fprResponse = await fetch(
-            `/api/v1/analytics/risk/false-positive-rate?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`,
+            `analytics/risk/false-positive-rate?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`,
             { credentials: 'include' }
         );
         const fpr = await fprResponse.json();

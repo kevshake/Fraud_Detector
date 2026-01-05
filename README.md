@@ -21,7 +21,7 @@ Merchant → Transaction Ingestion → Feature Extraction → ML Scoring → Dec
 
 ## Technology Stack
 
-- **Java 17**
+- **Java 21**
 - **Spring Boot 3.2.0**
 - **Spring Data JPA**
 - **REST Assured 5.3.2** (for all RESTful messaging)
@@ -85,10 +85,10 @@ SELECT config_key, value, description FROM model_config;
 
 ### Prerequisites
 
-- Java 17 or higher
+- Java 21 or higher
 - Maven 3.6+
-- PostgreSQL (optional, H2 can be used for testing)
-- Python ML Scoring Service (for XGBoost model - see below)
+- PostgreSQL
+- Aerospike (for sanctions screening and caching)
 
 ### Build
 
@@ -254,6 +254,10 @@ The Java service will automatically call the Python service for scoring.
 8. **Batch Processing**: Nightly batch scoring and feature backfilling
 9. **User & Role Management**: RBAC with dynamic roles and PSP-level data isolation
 10. **Web Dashboard**: Modern admin interface for monitoring and management
+11. **Regulatory Reporting**: Automated IFTR (International Funds Transfer Report) generation
+12. **Compliance Calendar**: Deadline management with automated notifications
+13. **Dynamic Risk Configuration**: High-risk country management via database
+14. **Document Retention**: Automated physical file cleanup policy
 
 ### Feature Extraction
 
@@ -281,6 +285,8 @@ The decision engine applies:
 3. **AML Rules**:
    - High-value transactions → ALERT
    - Cumulative amounts → Escalate
+   - High-risk country check (Database-backed)
+   - Sanctions screening (Aerospike-backed)
 
 ### Actions
 

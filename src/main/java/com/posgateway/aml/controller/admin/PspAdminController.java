@@ -13,7 +13,7 @@ import java.util.List;
 
 // @RequiredArgsConstructor removed
 @RestController
-@RequestMapping("/api/v1/admin/psp")
+@RequestMapping("/admin/psp")
 public class PspAdminController {
 
     private final PspRepository pspRepository;

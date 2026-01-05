@@ -4,6 +4,7 @@ import com.posgateway.aml.entity.User;
 import com.posgateway.aml.model.ActivityType;
 import jakarta.persistence.*;
 import org.hibernate.envers.Audited;
+import org.hibernate.envers.RelationTargetAuditMode;
 
 import java.time.LocalDateTime;
 
@@ -34,6 +35,7 @@ public class CaseActivity {
     @Column(columnDefinition = "TEXT")
     private String details; // JSON for structured data
 
+    @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "performed_by", nullable = false)
     private User performedBy;
@@ -52,8 +54,8 @@ public class CaseActivity {
     }
 
     public CaseActivity(Long id, ComplianceCase complianceCase, ActivityType activityType, String description,
-                       String details, User performedBy, LocalDateTime performedAt, Long relatedEntityId,
-                       String relatedEntityType) {
+            String details, User performedBy, LocalDateTime performedAt, Long relatedEntityId,
+            String relatedEntityType) {
         this.id = id;
         this.complianceCase = complianceCase;
         this.activityType = activityType;
@@ -214,4 +216,3 @@ public class CaseActivity {
         }
     }
 }
-

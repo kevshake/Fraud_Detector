@@ -9,6 +9,8 @@ import com.posgateway.aml.model.UserRole;
 import com.posgateway.aml.repository.ComplianceCaseRepository;
 import com.posgateway.aml.repository.EscalationRuleRepository;
 import com.posgateway.aml.repository.UserRepository;
+import com.posgateway.aml.repository.TransactionRepository;
+import com.posgateway.aml.service.risk.CustomerRiskProfilingService;
 import com.posgateway.aml.service.CaseWorkflowService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,6 +36,8 @@ public class CaseEscalationService {
     private static final Logger logger = LoggerFactory.getLogger(CaseEscalationService.class);
 
     private final ComplianceCaseRepository caseRepository;
+    private final TransactionRepository transactionRepository;
+    private final CustomerRiskProfilingService riskProfilingService;
     private final EscalationRuleRepository escalationRuleRepository;
     private final UserRepository userRepository;
     private final CaseWorkflowService caseWorkflowService;
@@ -50,11 +54,15 @@ public class CaseEscalationService {
 
     @Autowired
     public CaseEscalationService(ComplianceCaseRepository caseRepository,
-                                 EscalationRuleRepository escalationRuleRepository,
-                                 UserRepository userRepository,
-                                 CaseWorkflowService caseWorkflowService,
-                                 CaseActivityService caseActivityService) {
+            TransactionRepository transactionRepository,
+            CustomerRiskProfilingService riskProfilingService,
+            EscalationRuleRepository escalationRuleRepository,
+            UserRepository userRepository,
+            CaseWorkflowService caseWorkflowService,
+            CaseActivityService caseActivityService) {
         this.caseRepository = caseRepository;
+        this.transactionRepository = transactionRepository;
+        this.riskProfilingService = riskProfilingService;
         this.escalationRuleRepository = escalationRuleRepository;
         this.userRepository = userRepository;
         this.caseWorkflowService = caseWorkflowService;
@@ -75,19 +83,17 @@ public class CaseEscalationService {
                 caseId,
                 escalationTarget.getId(),
                 reason,
-                userRepository.findById(escalatedBy).orElseThrow()
-        );
+                userRepository.findById(escalatedBy).orElseThrow());
 
         caseActivityService.logEscalation(
                 caseId,
                 escalationTarget.getUsername(),
                 reason,
-                escalatedBy
-        );
+                escalatedBy);
 
-        logger.info("Case {} escalated to {} by user {}", 
-                complianceCase.getCaseReference(), 
-                escalationTarget.getUsername(), 
+        logger.info("Case {} escalated to {} by user {}",
+                complianceCase.getCaseReference(),
+                escalationTarget.getUsername(),
                 escalatedBy);
     }
 
@@ -106,7 +112,7 @@ public class CaseEscalationService {
             if (matchesEscalationRule(complianceCase, rule)) {
                 String reason = buildEscalationReason(complianceCase, rule);
                 escalateCase(complianceCase.getId(), reason, null); // System escalation
-                logger.info("Case {} automatically escalated based on rule: {}", 
+                logger.info("Case {} automatically escalated based on rule: {}",
                         complianceCase.getCaseReference(), rule.getRuleName());
                 break; // Only escalate once
             }
@@ -194,7 +200,7 @@ public class CaseEscalationService {
 
         // Get role from user's role entity
         String roleName = currentAssignee.getRole().getName().toUpperCase();
-        
+
         // Escalation hierarchy: ANALYST -> COMPLIANCE_OFFICER -> MLRO
         if (roleName.contains("ANALYST")) {
             return UserRole.COMPLIANCE_OFFICER;
@@ -250,19 +256,28 @@ public class CaseEscalationService {
     }
 
     /**
-     * Get case risk score (placeholder - implement based on your risk scoring system)
+     * Get case risk score (placeholder - implement based on your risk scoring
+     * system)
      */
     private Double getCaseRiskScore(ComplianceCase complianceCase) {
-        // TODO: Implement risk score calculation
-        return null;
+        // Implement risk score calculation
+        if (complianceCase.getMerchantId() == null)
+            return 0.0;
+        return riskProfilingService.calculateRiskRating(complianceCase.getMerchantId().toString()).getRiskScore();
     }
 
-    /**
-     * Get case total amount (placeholder - implement based on your transaction system)
-     */
-    private BigDecimal getCaseTotalAmount(ComplianceCase complianceCase) {
-        // TODO: Sum of all related transaction amounts
-        return null;
+    private java.math.BigDecimal getCaseTotalAmount(ComplianceCase complianceCase) {
+        // Sum of all related transaction amounts
+        if (complianceCase.getMerchantId() == null)
+            return java.math.BigDecimal.ZERO;
+
+        // For simplicity, we get sum of last 30 days transactions for this merchant
+        Long sumCents = transactionRepository.sumAmountByMerchantInTimeWindow(
+                complianceCase.getMerchantId() != null ? complianceCase.getMerchantId().toString() : null,
+                java.time.LocalDateTime.now().minusDays(30),
+                java.time.LocalDateTime.now());
+
+        return java.math.BigDecimal.valueOf(sumCents).divide(java.math.BigDecimal.valueOf(100));
     }
 
     /**
@@ -271,8 +286,7 @@ public class CaseEscalationService {
     private int getCurrentWorkload(User user) {
         return (int) caseRepository.countByAssignedTo_IdAndStatusIn(
                 user.getId(),
-                List.of(CaseStatus.ASSIGNED, CaseStatus.IN_PROGRESS, CaseStatus.PENDING_REVIEW)
-        );
+                List.of(CaseStatus.ASSIGNED, CaseStatus.IN_PROGRESS, CaseStatus.PENDING_REVIEW));
     }
 
     /**
@@ -300,8 +314,7 @@ public class CaseEscalationService {
         List<CaseStatus> openStatuses = List.of(
                 CaseStatus.NEW,
                 CaseStatus.ASSIGNED,
-                CaseStatus.IN_PROGRESS
-        );
+                CaseStatus.IN_PROGRESS);
 
         List<ComplianceCase> casesToCheck = caseRepository.findByStatusIn(openStatuses);
         int escalated = 0;
@@ -318,4 +331,3 @@ public class CaseEscalationService {
         }
     }
 }
-

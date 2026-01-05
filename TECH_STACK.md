@@ -1,7 +1,7 @@
 # Technology Stack Documentation
 
 ## Backend
-*   **Language**: Java 17+
+*   **Language**: Java 21
 *   **Framework**: Spring Boot 3.x
 *   **Database**:
     *   **Main**: PostgreSQL (Transaction data, Users)

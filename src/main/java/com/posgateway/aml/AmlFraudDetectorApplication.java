@@ -2,6 +2,7 @@ package com.posgateway.aml;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
@@ -12,7 +13,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  * This application provides Anti-Money Laundering (AML) and Fraud Detection
  * capabilities for payment gateway transactions.
  */
-@SpringBootApplication
+@SpringBootApplication(exclude = {RedisRepositoriesAutoConfiguration.class})
 @EnableConfigurationProperties
 @EnableAsync
 @EnableScheduling

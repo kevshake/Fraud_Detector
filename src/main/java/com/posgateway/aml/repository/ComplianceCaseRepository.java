@@ -23,7 +23,7 @@ public interface ComplianceCaseRepository extends JpaRepository<ComplianceCase, 
     /**
      * Find cases by merchant
      */
-    List<ComplianceCase> findByMerchantId(String merchantId);
+    List<ComplianceCase> findByMerchantId(Long merchantId);
 
     /**
      * Find cases assigned to user
@@ -53,12 +53,12 @@ public interface ComplianceCaseRepository extends JpaRepository<ComplianceCase, 
     /**
      * Count by merchant and status
      */
-    long countByMerchantIdAndStatus(String merchantId, CaseStatus status);
+    long countByMerchantIdAndStatus(Long merchantId, CaseStatus status);
 
     /**
      * Count by merchant and priority
      */
-    long countByMerchantIdAndPriority(String merchantId, CasePriority priority);
+    long countByMerchantIdAndPriority(Long merchantId, CasePriority priority);
 
     /**
      * Find overdue cases

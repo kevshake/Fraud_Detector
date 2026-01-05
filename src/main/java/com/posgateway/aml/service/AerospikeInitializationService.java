@@ -219,8 +219,22 @@ public class AerospikeInitializationService {
             client.put(writePolicy, testKey, testBin);
             logger.info("✅ Namespace '{}' is writable - sets will be created automatically on first insert", namespace);
 
+        } catch (com.aerospike.client.AerospikeException e) {
+            // Handle Aerospike-specific errors gracefully
+            if (e.getResultCode() == com.aerospike.client.ResultCode.INVALID_NAMESPACE) {
+                logger.warn("⚠️ Namespace '{}' does not exist or is not configured. Please create it in aerospike.conf", namespace);
+            } else if (e.getResultCode() == com.aerospike.client.ResultCode.NOT_AUTHENTICATED) {
+                logger.warn("⚠️ Aerospike authentication required. Check security configuration.");
+            } else {
+                logger.warn("Could not verify namespace writability (Error {}): {}. " +
+                    "This is non-critical - the application will continue, but write operations may fail. " +
+                    "Ensure Aerospike server is running and namespace '{}' has write permissions.",
+                    e.getResultCode(), e.getMessage(), namespace);
+            }
         } catch (Exception e) {
-            logger.warn("Could not verify namespace writability: {}", e.getMessage());
+            logger.warn("Could not verify namespace writability: {}. " +
+                "This is non-critical - the application will continue, but write operations may fail.",
+                e.getMessage());
         }
     }
 }

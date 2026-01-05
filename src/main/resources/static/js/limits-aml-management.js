@@ -65,7 +65,7 @@ function loadCurrentTab() {
 }
 
 function loadDashboardStats() {
-    fetch('/api/v1/limits/dashboard/stats', {
+    fetch('limits/dashboard/stats', {
         credentials: 'include'
     })
     .then(response => response.json())
@@ -86,7 +86,7 @@ function loadDashboardStats() {
 }
 
 function loadMerchantLimits() {
-    fetch('/api/v1/limits/merchant', {
+    fetch('limits/merchant', {
         credentials: 'include'
     })
     .then(response => response.json())
@@ -135,7 +135,7 @@ function createMerchantLimitRow(limit) {
 }
 
 function loadGlobalLimits() {
-    fetch('/api/v1/limits/global', {
+    fetch('limits/global', {
         credentials: 'include'
     })
     .then(response => response.json())
@@ -188,7 +188,7 @@ function createGlobalLimitRow(limit) {
 }
 
 function loadRiskThresholds() {
-    fetch('/api/v1/limits/risk-thresholds', {
+    fetch('limits/risk-thresholds', {
         credentials: 'include'
     })
     .then(response => response.json())
@@ -233,7 +233,7 @@ function createRiskThresholdRow(threshold) {
 }
 
 function loadVelocityRules() {
-    fetch('/api/v1/limits/velocity-rules', {
+    fetch('limits/velocity-rules', {
         credentials: 'include'
     })
     .then(response => response.json())
@@ -296,7 +296,7 @@ function createVelocityRuleRow(rule) {
 }
 
 function loadCountryCompliance() {
-    fetch('/api/v1/limits/country-compliance', {
+    fetch('limits/country-compliance', {
         credentials: 'include'
     })
     .then(response => response.json())
@@ -397,7 +397,7 @@ function editGlobalLimit(id) {
 
 function deleteGlobalLimit(id) {
     if (confirm('Are you sure you want to delete this global limit?')) {
-        fetch(`/api/v1/limits/global/${id}`, {
+        fetch(`limits/global/${id}`, {
             method: 'DELETE',
             credentials: 'include'
         })
@@ -416,7 +416,7 @@ function editVelocityRule(id) {
 
 function deleteVelocityRule(id) {
     if (confirm('Are you sure you want to delete this velocity rule?')) {
-        fetch(`/api/v1/limits/velocity-rules/${id}`, {
+        fetch(`limits/velocity-rules/${id}`, {
             method: 'DELETE',
             credentials: 'include'
         })

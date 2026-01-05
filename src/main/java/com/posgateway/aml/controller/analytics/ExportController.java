@@ -23,7 +23,7 @@ import java.util.List;
 
 // @RequiredArgsConstructor removed
 @RestController
-@RequestMapping("/api/v1/exports")
+@RequestMapping("/exports")
 public class ExportController {
 
     private final ComplianceCaseRepository caseRepository;

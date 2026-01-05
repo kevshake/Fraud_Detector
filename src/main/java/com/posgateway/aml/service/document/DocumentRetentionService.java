@@ -10,6 +10,9 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -56,7 +59,14 @@ public class DocumentRetentionService {
             try {
                 // Only delete if not current version and expired
                 if (doc.getIsCurrentVersion() == null || !doc.getIsCurrentVersion()) {
-                    // TODO: Actually delete file from storage
+                    // Actually delete file from storage
+                    if (doc.getFilePath() != null) {
+                        try {
+                            Files.deleteIfExists(Paths.get(doc.getFilePath()));
+                        } catch (IOException e) {
+                            logger.error("Failed to delete physical file: {}", doc.getFilePath(), e);
+                        }
+                    }
                     documentRepository.delete(doc);
                     deleted++;
                 }
@@ -90,4 +100,3 @@ public class DocumentRetentionService {
                 .toList();
     }
 }
-

@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
  * Provides endpoints for customer risk profiling
  */
 @RestController
-@RequestMapping("/api/v1/risk/customer")
+@RequestMapping("/risk/customer")
 @PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'ANALYST', 'INVESTIGATOR')")
 public class CustomerRiskController {
 

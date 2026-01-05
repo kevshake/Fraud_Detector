@@ -1,7 +1,5 @@
 package com.posgateway.aml.controller.analytics;
 
-
-
 import com.posgateway.aml.model.CaseStatus;
 import com.posgateway.aml.model.SarStatus;
 import com.posgateway.aml.service.ReportingService;
@@ -15,7 +13,7 @@ import java.util.Map;
 
 // @RequiredArgsConstructor removed
 @RestController
-@RequestMapping("/api/v1/reporting")
+@RequestMapping("/reporting")
 public class ReportingController {
 
     private final ReportingService reportingService;
@@ -23,7 +21,6 @@ public class ReportingController {
     public ReportingController(ReportingService reportingService) {
         this.reportingService = reportingService;
     }
-
 
     @GetMapping("/summary")
     public ResponseEntity<Map<String, Object>> summary() {
@@ -77,8 +74,7 @@ public class ReportingController {
      */
     @GetMapping("/cases/daily/merchant")
     public ResponseEntity<Map<String, Long>> casesDailyByMerchant(@RequestParam(defaultValue = "7") int days,
-                                                                  @RequestParam String merchantId) {
+            @RequestParam String merchantId) {
         return ResponseEntity.ok(reportingService.dailyCountsCases(days, merchantId));
     }
 }
-

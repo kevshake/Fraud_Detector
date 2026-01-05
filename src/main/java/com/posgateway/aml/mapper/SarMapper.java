@@ -12,7 +12,9 @@ public interface SarMapper {
     @Mapping(target = "caseId", source = "complianceCase.id")
     @Mapping(target = "filingDate", source = "filedAt")
     @Mapping(target = "createdBy", source = "createdBy.username")
-    // Status is enum to string, handled automatically
-    // Narrative, CreatedAt mapped automatically by name
+    @Mapping(target = "merchantId", ignore = true)
+    @Mapping(target = "priority", ignore = true)
+    @Mapping(target = "suspectInfo", ignore = true)
+    @Mapping(target = "activityInfo", ignore = true)
     SarResponse toResponse(SuspiciousActivityReport sar);
 }
