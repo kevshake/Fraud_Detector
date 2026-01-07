@@ -58,6 +58,32 @@ public class UserController {
         return ResponseEntity.ok(userService.getUsersByPsp(targetPsp));
     }
 
+    /**
+     * Get user by ID
+     * GET /api/v1/users/{id}
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<User> getUserById(@PathVariable Long id, @AuthenticationPrincipal User currentUser) {
+        if (currentUser == null) {
+            currentUser = userService.getSuperAdmin().orElse(null);
+        }
+
+        if (currentUser != null && !permissionService.hasPermission(currentUser.getRole(), Permission.MANAGE_USERS)) {
+            throw new SecurityException("Not authorized");
+        }
+
+        User user = userService.getUserById(id);
+        
+        // PSP scoping: PSP users can only see users from their PSP
+        if (currentUser != null && currentUser.getPsp() != null) {
+            if (user.getPsp() == null || !user.getPsp().getPspId().equals(currentUser.getPsp().getPspId())) {
+                throw new SecurityException("Cannot access user from another PSP");
+            }
+        }
+        
+        return ResponseEntity.ok(user);
+    }
+
     @PostMapping
     public ResponseEntity<User> createUser(@AuthenticationPrincipal User currentUser,
             @RequestBody CreateUserRequest req) {
@@ -95,6 +121,43 @@ public class UserController {
         return ResponseEntity.ok(userService.createUser(newUser, req.getRoleId(), targetPsp));
     }
 
+    @PutMapping("/{id}")
+    public ResponseEntity<User> updateUser(@PathVariable Long id, @RequestBody UpdateUserRequest req,
+            @AuthenticationPrincipal User currentUser) {
+        // Authorization checks...
+        if (currentUser != null && !permissionService.hasPermission(currentUser.getRole(), Permission.MANAGE_USERS)) {
+            throw new SecurityException("Not authorized");
+        }
+
+        User updates = new User();
+        updates.setFirstName(req.getFirstName());
+        updates.setLastName(req.getLastName());
+        updates.setEmail(req.getEmail());
+
+        return ResponseEntity.ok(userService.updateUser(id, updates, req.getRoleId()));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteUser(@PathVariable Long id, @AuthenticationPrincipal User currentUser) {
+        if (currentUser != null && !permissionService.hasPermission(currentUser.getRole(), Permission.MANAGE_USERS)) {
+            throw new SecurityException("Not authorized");
+        }
+        userService.deleteUser(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{id}/{action}")
+    public ResponseEntity<Void> toggleUserStatus(@PathVariable Long id, @PathVariable String action,
+            @AuthenticationPrincipal User currentUser) {
+        if (currentUser != null && !permissionService.hasPermission(currentUser.getRole(), Permission.MANAGE_USERS)) {
+            throw new SecurityException("Not authorized");
+        }
+
+        boolean enable = "enable".equalsIgnoreCase(action);
+        userService.toggleUserStatus(id, enable);
+        return ResponseEntity.ok().build();
+    }
+
     /**
      * Get current user profile
      * GET /api/v1/users/me
@@ -109,6 +172,45 @@ public class UserController {
             return ResponseEntity.notFound().build();
         }
         return ResponseEntity.ok(currentUser);
+    }
+
+    public static class UpdateUserRequest {
+        private String firstName;
+        private String lastName;
+        private String email;
+        private Long roleId;
+
+        public String getFirstName() {
+            return firstName;
+        }
+
+        public void setFirstName(String firstName) {
+            this.firstName = firstName;
+        }
+
+        public String getLastName() {
+            return lastName;
+        }
+
+        public void setLastName(String lastName) {
+            this.lastName = lastName;
+        }
+
+        public String getEmail() {
+            return email;
+        }
+
+        public void setEmail(String email) {
+            this.email = email;
+        }
+
+        public Long getRoleId() {
+            return roleId;
+        }
+
+        public void setRoleId(Long roleId) {
+            this.roleId = roleId;
+        }
     }
 
     public static class CreateUserRequest {

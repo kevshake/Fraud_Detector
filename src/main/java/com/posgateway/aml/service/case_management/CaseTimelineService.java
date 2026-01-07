@@ -2,13 +2,17 @@ package com.posgateway.aml.service.case_management;
 
 import com.posgateway.aml.entity.TransactionEntity;
 import com.posgateway.aml.entity.compliance.CaseActivity;
+import com.posgateway.aml.entity.compliance.CaseEvidence;
 import com.posgateway.aml.entity.compliance.CaseNote;
 import com.posgateway.aml.entity.compliance.CaseTransaction;
 import com.posgateway.aml.entity.compliance.ComplianceCase;
+import com.posgateway.aml.entity.compliance.SuspiciousActivityReport;
 import com.posgateway.aml.model.ActivityType;
 import com.posgateway.aml.repository.CaseActivityRepository;
+import com.posgateway.aml.repository.compliance.CaseEvidenceRepository;
 import com.posgateway.aml.repository.CaseTransactionRepository;
 import com.posgateway.aml.repository.ComplianceCaseRepository;
+import com.posgateway.aml.repository.SuspiciousActivityReportRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,7 +21,9 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -32,14 +38,20 @@ public class CaseTimelineService {
     private final ComplianceCaseRepository caseRepository;
     private final CaseActivityRepository activityRepository;
     private final CaseTransactionRepository caseTransactionRepository;
+    private final CaseEvidenceRepository evidenceRepository;
+    private final SuspiciousActivityReportRepository sarRepository;
 
     @Autowired
     public CaseTimelineService(ComplianceCaseRepository caseRepository,
                               CaseActivityRepository activityRepository,
-                              CaseTransactionRepository caseTransactionRepository) {
+                              CaseTransactionRepository caseTransactionRepository,
+                              CaseEvidenceRepository evidenceRepository,
+                              SuspiciousActivityReportRepository sarRepository) {
         this.caseRepository = caseRepository;
         this.activityRepository = activityRepository;
         this.caseTransactionRepository = caseTransactionRepository;
+        this.evidenceRepository = evidenceRepository;
+        this.sarRepository = sarRepository;
     }
 
     /**
@@ -55,7 +67,9 @@ public class CaseTimelineService {
         events.add(TimelineEvent.builder()
                 .timestamp(complianceCase.getCreatedAt())
                 .type("CASE_CREATED")
-                .description("Case created")
+                .description("Case " + complianceCase.getCaseReference() + " created")
+                .data(Map.of("caseReference", complianceCase.getCaseReference(), 
+                             "description", complianceCase.getDescription() != null ? complianceCase.getDescription() : ""))
                 .build());
 
         // Case assignments
@@ -66,6 +80,40 @@ public class CaseTimelineService {
                     .description("Assigned to " + 
                             (complianceCase.getAssignedTo() != null ? 
                                     complianceCase.getAssignedTo().getUsername() : "Unknown"))
+                    .data(Map.of("assignedTo", complianceCase.getAssignedTo() != null ? 
+                            complianceCase.getAssignedTo().getUsername() : "Unknown",
+                            "assignedBy", complianceCase.getAssignedBy() != null ? complianceCase.getAssignedBy() : 0L))
+                    .build());
+        }
+
+        // Status changes (tracked via updatedAt if status changed)
+        if (complianceCase.getUpdatedAt() != null && 
+            !complianceCase.getUpdatedAt().equals(complianceCase.getCreatedAt())) {
+            events.add(TimelineEvent.builder()
+                    .timestamp(complianceCase.getUpdatedAt())
+                    .type("CASE_STATUS_CHANGED")
+                    .description("Status changed to " + complianceCase.getStatus())
+                    .data(Map.of("status", complianceCase.getStatus().name()))
+                    .build());
+        }
+
+        // Priority tracking
+        if (complianceCase.getPriority() != null) {
+            events.add(TimelineEvent.builder()
+                    .timestamp(complianceCase.getCreatedAt())
+                    .type("CASE_PRIORITY_SET")
+                    .description("Priority set to " + complianceCase.getPriority())
+                    .data(Map.of("priority", complianceCase.getPriority().name()))
+                    .build());
+        }
+
+        // SLA Deadline
+        if (complianceCase.getSlaDeadline() != null) {
+            events.add(TimelineEvent.builder()
+                    .timestamp(complianceCase.getSlaDeadline())
+                    .type("SLA_DEADLINE")
+                    .description("SLA Deadline: " + complianceCase.getSlaDeadline())
+                    .data(Map.of("deadline", complianceCase.getSlaDeadline().toString()))
                     .build());
         }
 
@@ -89,18 +137,111 @@ public class CaseTimelineService {
                         .timestamp(note.getCreatedAt())
                         .type("NOTE")
                         .description("Note added by " + note.getAuthor().getUsername())
-                        .data(note)
+                        .data(Map.of("noteId", note.getId(),
+                                    "content", note.getContent() != null ? note.getContent() : "",
+                                    "author", note.getAuthor().getUsername(),
+                                    "internal", note.isInternal()))
                         .build());
             });
         }
+
+        // Evidence attachments
+        List<CaseEvidence> evidenceList = evidenceRepository.findByComplianceCase_Id(caseId);
+        evidenceList.forEach(evidence -> {
+            events.add(TimelineEvent.builder()
+                    .timestamp(evidence.getUploadedAt())
+                    .type("EVIDENCE_ATTACHED")
+                    .description("Evidence attached: " + evidence.getFileName() + 
+                            (evidence.getDescription() != null ? " - " + evidence.getDescription() : ""))
+                    .data(Map.of("evidenceId", evidence.getId(),
+                                "fileName", evidence.getFileName(),
+                                "fileType", evidence.getFileType(),
+                                "uploadedBy", evidence.getUploadedBy() != null ? evidence.getUploadedBy().getUsername() : "Unknown",
+                                "description", evidence.getDescription() != null ? evidence.getDescription() : ""))
+                    .build());
+        });
+
+        // SARs related to this case
+        List<SuspiciousActivityReport> sars = sarRepository.findAll().stream()
+                .filter(sar -> sar.getComplianceCase() != null && sar.getComplianceCase().getId().equals(caseId))
+                .collect(Collectors.toList());
+        sars.forEach(sar -> {
+            // SAR Creation
+            if (sar.getCreatedAt() != null) {
+                events.add(TimelineEvent.builder()
+                        .timestamp(sar.getCreatedAt())
+                        .type("SAR_CREATED")
+                        .description("SAR " + sar.getSarReference() + " created")
+                        .data(Map.of("sarId", sar.getId(),
+                                    "sarReference", sar.getSarReference(),
+                                    "status", sar.getStatus().name()))
+                        .build());
+            }
+            
+            // SAR Approval
+            if (sar.getApprovedAt() != null) {
+                events.add(TimelineEvent.builder()
+                        .timestamp(sar.getApprovedAt())
+                        .type("SAR_APPROVED")
+                        .description("SAR " + sar.getSarReference() + " approved by " + 
+                                (sar.getApprovedBy() != null ? sar.getApprovedBy().getUsername() : "Unknown"))
+                        .data(Map.of("sarId", sar.getId(),
+                                    "sarReference", sar.getSarReference(),
+                                    "approvedBy", sar.getApprovedBy() != null ? sar.getApprovedBy().getUsername() : "Unknown"))
+                        .build());
+            }
+            
+            // SAR Filing
+            if (sar.getFiledAt() != null) {
+                events.add(TimelineEvent.builder()
+                        .timestamp(sar.getFiledAt())
+                        .type("SAR_FILED")
+                        .description("SAR " + sar.getSarReference() + " filed with reference " + 
+                                (sar.getFilingReferenceNumber() != null ? sar.getFilingReferenceNumber() : "N/A"))
+                        .data(Map.of("sarId", sar.getId(),
+                                    "sarReference", sar.getSarReference(),
+                                    "filingReference", sar.getFilingReferenceNumber() != null ? sar.getFilingReferenceNumber() : "",
+                                    "filedBy", sar.getFiledBy() != null ? sar.getFiledBy().getUsername() : "Unknown"))
+                        .build());
+            }
+        });
 
         // Escalations
         if (complianceCase.getEscalatedAt() != null) {
             events.add(TimelineEvent.builder()
                     .timestamp(complianceCase.getEscalatedAt())
                     .type("ESCALATION")
-                    .description("Escalated: " + complianceCase.getEscalationReason())
+                    .description("Case escalated: " + 
+                            (complianceCase.getEscalationReason() != null ? complianceCase.getEscalationReason() : "No reason provided"))
+                    .data(Map.of("escalatedTo", complianceCase.getEscalatedTo() != null ? complianceCase.getEscalatedTo() : 0L,
+                                "reason", complianceCase.getEscalationReason() != null ? complianceCase.getEscalationReason() : ""))
                     .build());
+        }
+
+        // Resolution
+        if (complianceCase.getResolvedAt() != null) {
+            events.add(TimelineEvent.builder()
+                    .timestamp(complianceCase.getResolvedAt())
+                    .type("CASE_RESOLVED")
+                    .description("Case resolved: " + 
+                            (complianceCase.getResolution() != null ? complianceCase.getResolution() : "Unknown resolution"))
+                    .data(Map.of("resolution", complianceCase.getResolution() != null ? complianceCase.getResolution() : "",
+                                "resolutionNotes", complianceCase.getResolutionNotes() != null ? complianceCase.getResolutionNotes() : "",
+                                "resolvedBy", complianceCase.getResolvedBy() != null ? complianceCase.getResolvedBy() : 0L))
+                    .build());
+        }
+
+        // Related cases
+        if (complianceCase.getRelatedCases() != null && !complianceCase.getRelatedCases().isEmpty()) {
+            complianceCase.getRelatedCases().forEach(relatedCase -> {
+                events.add(TimelineEvent.builder()
+                        .timestamp(complianceCase.getCreatedAt()) // Use case creation time as default
+                        .type("CASE_LINKED")
+                        .description("Linked to case " + relatedCase.getCaseReference())
+                        .data(Map.of("relatedCaseId", relatedCase.getId(),
+                                    "relatedCaseReference", relatedCase.getCaseReference()))
+                        .build());
+            });
         }
 
         // Case activities

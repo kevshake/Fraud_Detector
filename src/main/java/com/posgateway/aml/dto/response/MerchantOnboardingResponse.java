@@ -41,6 +41,12 @@ public class MerchantOnboardingResponse {
     private java.math.BigDecimal dailyLimit;
     private java.math.BigDecimal currentUsage;
     private String mccDescription;
+    
+    // Additional fields for frontend display
+    private String tradingName;
+    private String contactEmail;
+    private String mcc;
+    private String businessType;
 
     public MerchantOnboardingResponse() {
     }
@@ -51,7 +57,8 @@ public class MerchantOnboardingResponse {
             List<String> riskFactors, Long complianceCaseId, String caseStatus, String casePriority,
             LocalDateTime screenedAt, String screeningProvider, Double screeningCost, String country,
             String kycStatus, String contractStatus, java.math.BigDecimal dailyLimit,
-            java.math.BigDecimal currentUsage, String mccDescription) {
+            java.math.BigDecimal currentUsage, String mccDescription, String tradingName,
+            String contactEmail, String mcc, String businessType) {
         this.merchantId = merchantId;
         this.legalName = legalName;
         this.status = status;
@@ -74,6 +81,10 @@ public class MerchantOnboardingResponse {
         this.dailyLimit = dailyLimit;
         this.currentUsage = currentUsage;
         this.mccDescription = mccDescription;
+        this.tradingName = tradingName;
+        this.contactEmail = contactEmail;
+        this.mcc = mcc;
+        this.businessType = businessType;
     }
 
     public Long getMerchantId() {
@@ -252,6 +263,38 @@ public class MerchantOnboardingResponse {
         this.mccDescription = mccDescription;
     }
 
+    public String getTradingName() {
+        return tradingName;
+    }
+
+    public void setTradingName(String tradingName) {
+        this.tradingName = tradingName;
+    }
+
+    public String getContactEmail() {
+        return contactEmail;
+    }
+
+    public void setContactEmail(String contactEmail) {
+        this.contactEmail = contactEmail;
+    }
+
+    public String getMcc() {
+        return mcc;
+    }
+
+    public void setMcc(String mcc) {
+        this.mcc = mcc;
+    }
+
+    public String getBusinessType() {
+        return businessType;
+    }
+
+    public void setBusinessType(String businessType) {
+        this.businessType = businessType;
+    }
+
     public static MerchantOnboardingResponseBuilder builder() {
         return new MerchantOnboardingResponseBuilder();
     }
@@ -279,6 +322,10 @@ public class MerchantOnboardingResponse {
         private java.math.BigDecimal dailyLimit;
         private java.math.BigDecimal currentUsage;
         private String mccDescription;
+        private String tradingName;
+        private String contactEmail;
+        private String mcc;
+        private String businessType;
 
         MerchantOnboardingResponseBuilder() {
         }
@@ -394,11 +441,32 @@ public class MerchantOnboardingResponse {
             return this;
         }
 
+        public MerchantOnboardingResponseBuilder tradingName(String tradingName) {
+            this.tradingName = tradingName;
+            return this;
+        }
+
+        public MerchantOnboardingResponseBuilder contactEmail(String contactEmail) {
+            this.contactEmail = contactEmail;
+            return this;
+        }
+
+        public MerchantOnboardingResponseBuilder mcc(String mcc) {
+            this.mcc = mcc;
+            return this;
+        }
+
+        public MerchantOnboardingResponseBuilder businessType(String businessType) {
+            this.businessType = businessType;
+            return this;
+        }
+
         public MerchantOnboardingResponse build() {
             return new MerchantOnboardingResponse(merchantId, legalName, status, decision, decisionReason,
                     merchantScreeningResult, beneficialOwnerResults, riskScore, riskLevel, riskFactors,
                     complianceCaseId, caseStatus, casePriority, screenedAt, screeningProvider, screeningCost, country,
-                    kycStatus, contractStatus, dailyLimit, currentUsage, mccDescription);
+                    kycStatus, contractStatus, dailyLimit, currentUsage, mccDescription, tradingName,
+                    contactEmail, mcc, businessType);
         }
 
         public String toString() {

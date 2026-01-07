@@ -1,0 +1,10 @@
+com\posgateway\aml\controller\AuditLogControllerTest.class
+com\posgateway\aml\service\SarWorkflowServiceTest.class
+com\posgateway\aml\service\risk\RiskRulesEngineTest.class
+com\posgateway\aml\service\risk\TransactionLimitServiceTest.class
+com\posgateway\aml\service\aml\SumsubAmlServiceTest.class
+com\posgateway\aml\service\psp\BillingServiceTest.class
+com\posgateway\aml\service\AerospikeMappingTest.class
+com\posgateway\aml\service\case_management\CaseQueueServiceTest.class
+com\posgateway\aml\service\notification\SlackServiceTest.class
+com\posgateway\aml\service\CaseWorkflowServiceTest.class

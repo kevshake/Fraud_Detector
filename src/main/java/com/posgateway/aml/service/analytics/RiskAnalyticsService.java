@@ -1,18 +1,17 @@
 package com.posgateway.aml.service.analytics;
 
 import com.posgateway.aml.entity.compliance.ComplianceCase;
-import com.posgateway.aml.entity.TransactionEntity;
+import com.posgateway.aml.entity.merchant.Merchant;
 import com.posgateway.aml.repository.ComplianceCaseRepository;
-import com.posgateway.aml.repository.TransactionRepository;
+import com.posgateway.aml.repository.MerchantRepository;
+import com.posgateway.aml.repository.risk.HighRiskCountryRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Risk Analytics Service
@@ -24,13 +23,16 @@ public class RiskAnalyticsService {
     private static final Logger logger = LoggerFactory.getLogger(RiskAnalyticsService.class);
 
     private final ComplianceCaseRepository caseRepository;
-    private final TransactionRepository transactionRepository;
+    private final MerchantRepository merchantRepository;
+    private final HighRiskCountryRepository highRiskCountryRepository;
 
     @Autowired
     public RiskAnalyticsService(ComplianceCaseRepository caseRepository,
-                                TransactionRepository transactionRepository) {
+                                MerchantRepository merchantRepository,
+                                HighRiskCountryRepository highRiskCountryRepository) {
         this.caseRepository = caseRepository;
-        this.transactionRepository = transactionRepository;
+        this.merchantRepository = merchantRepository;
+        this.highRiskCountryRepository = highRiskCountryRepository;
     }
 
     /**
@@ -58,10 +60,64 @@ public class RiskAnalyticsService {
 
     /**
      * Generate risk heatmap by geography
+     * Aggregates risk data by country based on merchants and cases
      */
     public Map<String, RiskHeatmapData> getGeographicRiskHeatmap(LocalDateTime startDate, LocalDateTime endDate) {
-        // TODO: Implement based on transaction geography data
-        return new HashMap<>();
+        Map<String, RiskHeatmapData> heatmap = new HashMap<>();
+        
+        // Get cases in date range
+        List<ComplianceCase> cases = caseRepository.findByCreatedAtBetween(startDate, endDate);
+        
+        // Aggregate by merchant country
+        Map<String, List<ComplianceCase>> casesByCountry = new HashMap<>();
+        for (ComplianceCase complianceCase : cases) {
+            Long merchantId = complianceCase.getMerchantId();
+            if (merchantId != null) {
+                Optional<Merchant> merchantOpt = merchantRepository.findById(merchantId);
+                if (merchantOpt.isPresent()) {
+                    Merchant merchant = merchantOpt.get();
+                    String country = merchant.getCountry() != null ? merchant.getCountry() : "UNKNOWN";
+                    casesByCountry.computeIfAbsent(country, k -> new ArrayList<>()).add(complianceCase);
+                }
+            }
+        }
+        
+        // Build heatmap data
+        for (Map.Entry<String, List<ComplianceCase>> entry : casesByCountry.entrySet()) {
+            String country = entry.getKey();
+            List<ComplianceCase> countryCases = entry.getValue();
+            
+            RiskHeatmapData data = new RiskHeatmapData(country, "GEOGRAPHY");
+            data.caseCount = countryCases.size();
+            
+            // Calculate average risk score
+            double totalRiskScore = countryCases.stream()
+                    .mapToDouble(c -> getPriorityRiskScore(c.getPriority()))
+                    .sum();
+            data.averageRiskScore = countryCases.isEmpty() ? 0.0 : totalRiskScore / countryCases.size();
+            
+            // Add high-risk country bonus
+            if (highRiskCountryRepository.existsByCountryCode(country)) {
+                data.averageRiskScore = Math.min(1.0, data.averageRiskScore + 0.2);
+            }
+            
+            heatmap.put(country, data);
+        }
+        
+        // Also include countries with merchants but no cases (for completeness)
+        List<Merchant> merchants = merchantRepository.findAll();
+        for (Merchant merchant : merchants) {
+            String country = merchant.getCountry();
+            if (country != null && !heatmap.containsKey(country)) {
+                RiskHeatmapData data = new RiskHeatmapData(country, "GEOGRAPHY");
+                data.caseCount = 0;
+                data.averageRiskScore = highRiskCountryRepository.existsByCountryCode(country) ? 0.3 : 0.1;
+                heatmap.put(country, data);
+            }
+        }
+        
+        logger.debug("Generated geographic risk heatmap with {} countries", heatmap.size());
+        return heatmap;
     }
 
     /**
@@ -172,6 +228,15 @@ public class RiskAnalyticsService {
         public void addRiskScore(double score) {
             riskScores.add(score);
             this.averageRiskScore = riskScores.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
+        }
+
+        // Setters for direct assignment
+        public void setCaseCount(int caseCount) {
+            this.caseCount = caseCount;
+        }
+
+        public void setAverageRiskScore(double averageRiskScore) {
+            this.averageRiskScore = averageRiskScore;
         }
 
         // Getters

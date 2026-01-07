@@ -112,4 +112,64 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
     @Query("SELECT MAX(t.txnTs) FROM TransactionEntity t WHERE t.merchantId = :merchantId AND t.txnTs < :beforeDate")
     LocalDateTime findLatestTransactionTimestampBefore(@Param("merchantId") String merchantId,
                                                        @Param("beforeDate") LocalDateTime beforeDate);
+
+    /**
+     * Get daily transaction volume (count) grouped by date, filtered by PSP ID
+     * Returns list of Object arrays: [date (LocalDate), count (Long)]
+     */
+    @Query(value = "SELECT DATE(t.txn_ts) as transaction_date, COUNT(*) as transaction_count " +
+            "FROM transactions t " +
+            "WHERE t.psp_id = :pspId AND t.txn_ts >= :startDate AND t.txn_ts < :endDate " +
+            "GROUP BY DATE(t.txn_ts) " +
+            "ORDER BY transaction_date ASC", nativeQuery = true)
+    List<Object[]> getDailyTransactionCountByPspId(@Param("pspId") Long pspId,
+                                                    @Param("startDate") LocalDateTime startDate,
+                                                    @Param("endDate") LocalDateTime endDate);
+
+    /**
+     * Get daily transaction volume (amount sum) grouped by date, filtered by PSP ID
+     * Returns list of Object arrays: [date (LocalDate), sum (Long)]
+     */
+    @Query(value = "SELECT DATE(t.txn_ts) as transaction_date, COALESCE(SUM(t.amount_cents), 0) as total_amount " +
+            "FROM transactions t " +
+            "WHERE t.psp_id = :pspId AND t.txn_ts >= :startDate AND t.txn_ts < :endDate " +
+            "GROUP BY DATE(t.txn_ts) " +
+            "ORDER BY transaction_date ASC", nativeQuery = true)
+    List<Object[]> getDailyTransactionVolumeByPspId(@Param("pspId") Long pspId,
+                                                      @Param("startDate") LocalDateTime startDate,
+                                                      @Param("endDate") LocalDateTime endDate);
+
+    /**
+     * Get daily transaction volume (count) grouped by date for all PSPs (admin view)
+     */
+    @Query(value = "SELECT DATE(t.txn_ts) as transaction_date, COUNT(*) as transaction_count " +
+            "FROM transactions t " +
+            "WHERE t.txn_ts >= :startDate AND t.txn_ts < :endDate " +
+            "GROUP BY DATE(t.txn_ts) " +
+            "ORDER BY transaction_date ASC", nativeQuery = true)
+    List<Object[]> getDailyTransactionCountAll(@Param("startDate") LocalDateTime startDate,
+                                                @Param("endDate") LocalDateTime endDate);
+
+    /**
+     * Get daily transaction volume (amount sum) grouped by date for all PSPs (admin view)
+     */
+    @Query(value = "SELECT DATE(t.txn_ts) as transaction_date, COALESCE(SUM(t.amount_cents), 0) as total_amount " +
+            "FROM transactions t " +
+            "WHERE t.txn_ts >= :startDate AND t.txn_ts < :endDate " +
+            "GROUP BY DATE(t.txn_ts) " +
+            "ORDER BY transaction_date ASC", nativeQuery = true)
+    List<Object[]> getDailyTransactionVolumeAll(@Param("startDate") LocalDateTime startDate,
+                                                 @Param("endDate") LocalDateTime endDate);
+
+    /**
+     * Find recent transactions filtered by PSP ID
+     * Returns transactions ordered by timestamp descending
+     */
+    List<TransactionEntity> findByPspIdOrderByTxnTsDesc(Long pspId);
+
+    /**
+     * Find recent transactions for all PSPs (admin view)
+     * Returns transactions ordered by timestamp descending
+     */
+    List<TransactionEntity> findAllByOrderByTxnTsDesc();
 }

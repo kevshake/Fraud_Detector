@@ -69,8 +69,31 @@ public class MessagesController {
      */
     @GetMapping("/unread/count")
     public ResponseEntity<Map<String, Long>> getUnreadCount() {
+        // Count unread messages from sample data
+        // In a real implementation, this would query the database
+        List<Map<String, Object>> allMessages = new ArrayList<>();
+        
+        // Add all sample messages (both read and unread)
+        Map<String, Object> msg1 = new HashMap<>();
+        msg1.put("id", 1L);
+        msg1.put("read", true);
+        allMessages.add(msg1);
+        
+        Map<String, Object> msg2 = new HashMap<>();
+        msg2.put("id", 2L);
+        msg2.put("read", false);
+        allMessages.add(msg2);
+        
+        // Count messages where read is false
+        long unreadCount = allMessages.stream()
+                .filter(msg -> {
+                    Object readValue = msg.get("read");
+                    return readValue != null && !Boolean.TRUE.equals(readValue);
+                })
+                .count();
+        
         Map<String, Long> response = new HashMap<>();
-        response.put("count", 1L);
+        response.put("count", unreadCount);
         return ResponseEntity.ok(response);
     }
 }

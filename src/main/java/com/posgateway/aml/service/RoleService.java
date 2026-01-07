@@ -62,6 +62,52 @@ public class RoleService {
         return roleRepository.save(role);
     }
 
+    @Transactional
+    public Role updateRole(Long roleId, String name, String description) {
+        Role role = roleRepository.findById(roleId)
+                .orElseThrow(() -> new IllegalArgumentException("Role not found"));
+
+        if (name != null && !name.equals(role.getName())) {
+            // Check uniqueness if name changed
+            if (role.getPsp() == null) {
+                if (roleRepository.findByNameAndPspIsNull(name).isPresent()) {
+                    throw new IllegalArgumentException("System role with this name already exists");
+                }
+            } else {
+                if (roleRepository.findByNameAndPsp(name, role.getPsp()).isPresent()) {
+                    throw new IllegalArgumentException("Role with this name already exists for this PSP");
+                }
+            }
+            role.setName(name);
+        }
+
+        if (description != null) {
+            role.setDescription(description);
+        }
+
+        return roleRepository.save(role);
+    }
+
+    public Role getRoleById(Long roleId) {
+        return roleRepository.findById(roleId)
+                .orElseThrow(() -> new IllegalArgumentException("Role not found: " + roleId));
+    }
+
+    @Transactional
+    public void deleteRole(Long roleId) {
+        Role role = roleRepository.findById(roleId)
+                .orElseThrow(() -> new IllegalArgumentException("Role not found"));
+
+        // Prevent deleting system roles if needed, or check usage
+        if (role.isSystemRole()) {
+            // Optional: allow deleting system custom roles but not default ones?
+            // For now allow, but maybe check if users are assigned?
+            // Assuming DB constraint will block if users assigned.
+        }
+
+        roleRepository.delete(role);
+    }
+
     @PostConstruct
     public void initDefaultRoles() {
         // Initialize basic system roles if they don't exist

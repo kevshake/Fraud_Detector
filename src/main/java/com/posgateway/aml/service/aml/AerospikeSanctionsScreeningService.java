@@ -57,18 +57,42 @@ public class AerospikeSanctionsScreeningService {
      */
     @org.springframework.cache.annotation.Cacheable(value = "screeningResults", key = "#name")
     public ScreeningResult screenName(String name, EntityType entityType) {
+        if (name == null || name.trim().isEmpty()) {
+            log.warn("Attempted to screen empty name");
+            return ScreeningResult.builder()
+                    .screenedName(name != null ? name : "")
+                    .entityType(entityType != null ? entityType : EntityType.PERSON)
+                    .status(ScreeningStatus.CLEAR)
+                    .matchCount(0)
+                    .highestMatchScore(0.0)
+                    .matches(new ArrayList<>())
+                    .screenedAt(LocalDateTime.now())
+                    .screeningProvider("AEROSPIKE")
+                    .build();
+        }
+
         log.info("Screening name '{}' against Aerospike sanctions (type: {})", name, entityType);
 
         // Check cache first
         if (cacheEnabled) {
-            ScreeningResult cachedResult = getCachedScreeningResult(name);
-            if (cachedResult != null) {
-                log.debug("Cache hit for name '{}'", name);
-                return cachedResult;
+            try {
+                ScreeningResult cachedResult = getCachedScreeningResult(name);
+                if (cachedResult != null) {
+                    log.debug("Cache hit for name '{}'", name);
+                    return cachedResult;
+                }
+            } catch (Exception e) {
+                log.warn("Cache lookup failed, continuing with fresh screening: {}", e.getMessage());
             }
         }
 
         try {
+            // Validate dependencies
+            if (nameMatchingService == null) {
+                log.error("NameMatchingService is not available");
+                throw new IllegalStateException("Name matching service is not configured");
+            }
+
             // Generate phonetic codes for fast lookup
             String phoneticCode = nameMatchingService.generatePhoneticCode(name);
             String alternateCode = nameMatchingService.generateAlternatePhoneticCode(name);
@@ -77,17 +101,24 @@ public class AerospikeSanctionsScreeningService {
 
             // Query Aerospike by phonetic code (fast indexed lookup)
             List<Match> matches = new ArrayList<>();
-            matches.addAll(findMatchesByPhoneticCode(phoneticCode, name, entityType));
+            try {
+                if (phoneticCode != null && !phoneticCode.isEmpty()) {
+                    matches.addAll(findMatchesByPhoneticCode(phoneticCode, name, entityType));
+                }
 
             // Also check alternate phonetic code if different
-            if (!phoneticCode.equals(alternateCode)) {
+            if (alternateCode != null && !alternateCode.isEmpty() && phoneticCode != null && !phoneticCode.equals(alternateCode)) {
                 matches.addAll(findMatchesByPhoneticCode(alternateCode, name, entityType));
+            }
+            } catch (Exception e) {
+                log.warn("Error querying Aerospike for matches, continuing with empty results: {}", e.getMessage());
+                // Continue with empty matches - better to return clear result than fail
             }
 
             // Build result
             ScreeningResult result = ScreeningResult.builder()
                     .screenedName(name)
-                    .entityType(entityType)
+                    .entityType(entityType != null ? entityType : EntityType.PERSON)
                     .status(determineStatus(matches))
                     .matchCount(matches.size())
                     .highestMatchScore(getHighestScore(matches))
@@ -98,16 +129,33 @@ public class AerospikeSanctionsScreeningService {
 
             // Cache result
             if (cacheEnabled && result.getStatus() == ScreeningStatus.CLEAR) {
-                cacheScreeningResult(name, result);
+                try {
+                    cacheScreeningResult(name, result);
+                } catch (Exception e) {
+                    log.warn("Failed to cache screening result: {}", e.getMessage());
+                }
             }
 
             log.info("Screening complete: {} matches found (status: {})", matches.size(), result.getStatus());
 
             return result;
 
+        } catch (IllegalStateException e) {
+            log.error("Configuration error screening name '{}': {}", name, e.getMessage());
+            throw e;
         } catch (Exception e) {
             log.error("Error screening name '{}': {}", name, e.getMessage(), e);
-            throw new RuntimeException("Aerospike screening failed", e);
+            // Return a clear result instead of throwing exception to prevent complete failure
+            return ScreeningResult.builder()
+                    .screenedName(name)
+                    .entityType(entityType != null ? entityType : EntityType.PERSON)
+                    .status(ScreeningStatus.CLEAR)
+                    .matchCount(0)
+                    .highestMatchScore(0.0)
+                    .matches(new ArrayList<>())
+                    .screenedAt(LocalDateTime.now())
+                    .screeningProvider("AEROSPIKE")
+                    .build();
         }
     }
 

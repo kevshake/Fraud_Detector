@@ -287,18 +287,65 @@ public class TransactionController {
     }
 
     /**
+     * Get transaction by ID
+     * GET /transactions/{id}
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<TransactionEntity> getTransactionById(@PathVariable Long id) {
+        logger.info("Get transaction by ID: {}", id);
+        return transactionRepository.findById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    /**
      * Get all transactions
-     * GET /api/v1/transactions
+     * GET /transactions
      */
     @GetMapping
     public ResponseEntity<List<TransactionEntity>> getAllTransactions(
-            @RequestParam(required = false, defaultValue = "100") int limit) {
-        logger.info("Get all transactions request (limit: {})", limit);
-        List<TransactionEntity> transactions = transactionRepository.findAll().stream()
-                .limit(limit)
-                .sorted((a, b) -> b.getTxnTs().compareTo(a.getTxnTs()))
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(transactions);
+            @RequestParam(required = false, defaultValue = "100") int limit,
+            @RequestParam(required = false) Long pspId) {
+        logger.info("Get all transactions request (limit: {}, pspId: {})", limit, pspId);
+        try {
+            List<TransactionEntity> transactions;
+            
+            if (pspId != null) {
+                // Filter by PSP ID - get more than limit to ensure we have enough after filtering nulls
+                transactions = transactionRepository.findByPspIdOrderByTxnTsDesc(pspId).stream()
+                        .filter(t -> t.getTxnTs() != null) // Filter out null timestamps
+                        .limit(limit)
+                        .collect(Collectors.toList());
+            } else {
+                // Get all transactions, sorted by timestamp descending
+                // Use findAllByOrderByTxnTsDesc if available, otherwise sort manually
+                try {
+                    transactions = transactionRepository.findAllByOrderByTxnTsDesc().stream()
+                            .filter(t -> t.getTxnTs() != null) // Filter out null timestamps
+                            .limit(limit)
+                            .collect(Collectors.toList());
+                } catch (Exception e) {
+                    // Fallback to manual sorting if method doesn't exist
+                    logger.debug("Using fallback sorting method");
+                    transactions = transactionRepository.findAll().stream()
+                            .filter(t -> t.getTxnTs() != null) // Filter out null timestamps
+                            .sorted((a, b) -> {
+                                if (a.getTxnTs() == null && b.getTxnTs() == null) return 0;
+                                if (a.getTxnTs() == null) return 1;
+                                if (b.getTxnTs() == null) return -1;
+                                return b.getTxnTs().compareTo(a.getTxnTs());
+                            })
+                            .limit(limit)
+                            .collect(Collectors.toList());
+                }
+            }
+            
+            logger.info("Returning {} transactions", transactions.size());
+            return ResponseEntity.ok(transactions);
+        } catch (Exception e) {
+            logger.error("Error fetching transactions: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     /**

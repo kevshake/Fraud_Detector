@@ -101,6 +101,7 @@ D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\r
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\entity\psp\Invoice.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\service\AmlService.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\service\ReportingService.java
+D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\repository\PasswordResetTokenRepository.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\service\sanctions\NameMatchingService.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\controller\compliance\SarWorkflowController.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\config\RedisConfig.java
@@ -124,6 +125,7 @@ D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\s
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\service\compliance\AuditReportService.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\service\RedisInitializationService.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\controller\reporting\RegulatoryReportingController.java
+D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\controller\alert\AlertTuningController.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\entity\billing\CostMetrics.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\controller\AerospikeConnectionController.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\controller\MonitoringController.java
@@ -137,6 +139,7 @@ D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\e
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\config\SchedulingConfig.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\repository\sanctions\CustomWatchlistEntryRepository.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\service\risk\RiskRulesEngine.java
+D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\controller\auth\PasswordResetController.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\repository\UserRepository.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\repository\InvoiceLineItemRepository.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\service\AerospikeConnectionService.java
@@ -158,6 +161,7 @@ D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\e
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\service\case_management\ComplianceCaseService.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\service\billing\MeteringEventPublisher.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\dto\psp\PspReportConfigResponse.java
+D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\dto\auth\EmergencyPasswordResetRequest.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\service\MemoryOptimizedTransactionIngestion.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\service\RequestBufferingService.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\repository\BeneficialOwnerRepository.java
@@ -191,6 +195,7 @@ D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\r
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\model\RiskAssessment.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\model\RiskLevel.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\model\SarType.java
+D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\dto\auth\PasswordResetRequest.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\service\sanctions\ScreeningCoverageService.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\entity\compliance\EscalationRule.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\repository\WebhookSubscriptionRepository.java
@@ -212,6 +217,7 @@ D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\s
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\service\SarWorkflowService.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\service\compliance\EnhancedAuditService.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\entity\merchant\BeneficialOwner.java
+D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\entity\auth\PasswordResetToken.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\service\kyc\TriggerBasedKycService.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\repository\alert\FalsePositiveFeedbackRepository.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\service\Http2HealthMonitorService.java
@@ -235,6 +241,7 @@ D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\m
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\entity\risk\HighRiskCountry.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\service\auth\CustomUserDetailsService.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\exception\GlobalExceptionHandler.java
+D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\service\auth\PasswordResetService.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\repository\limits\VelocityRuleRepository.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\service\ConnectionCleanupService.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\repository\CaseActivityRepository.java
@@ -264,6 +271,7 @@ D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\r
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\service\monitoring\ContentMonitoringService.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\controller\SettingsController.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\mapper\PspMapper.java
+D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\dto\ErrorResponse.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\repository\alert\RuleAbTestRepository.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\repository\sanctions\WatchlistUpdateRepository.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\util\InputValidator.java
@@ -324,6 +332,7 @@ D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\e
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\service\billing\BillingCalculationEngine.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\service\reporting\SchemeReportingService.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\service\alert\AlertDispositionService.java
+D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\config\OpenApiConfig.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\entity\merchant\ExternalAmlResponse.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\service\case_management\CaseSlaService.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\service\BatchTransactionIngestionService.java
@@ -354,6 +363,7 @@ D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\r
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\entity\Alert.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\service\HighConcurrencyFraudOrchestrator.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\controller\SanctionsScreeningController.java
+D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\dto\auth\PasswordResetConfirmRequest.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\service\cache\KycDataCacheService.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\controller\compliance\CaseWorkflowController.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\src\main\java\com\posgateway\aml\entity\Client.java

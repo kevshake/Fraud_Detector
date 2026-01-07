@@ -70,5 +70,23 @@ public class TransactionMonitoringController {
     public ResponseEntity<List<Map<String, Object>>> getMonitoringSARs() {
         return ResponseEntity.ok(monitoringService.getMonitoringSARs());
     }
+
+    /**
+     * Generate decline report
+     * GET /api/v1/monitoring/reports/declines
+     */
+    @GetMapping("/reports/declines")
+    public ResponseEntity<Map<String, Object>> generateDeclineReport() {
+        return ResponseEntity.ok(monitoringService.generateDeclineReport());
+    }
+
+    /**
+     * Generate monitoring summary report
+     * GET /api/v1/monitoring/reports/summary
+     */
+    @GetMapping("/reports/summary")
+    public ResponseEntity<Map<String, Object>> generateMonitoringSummary() {
+        return ResponseEntity.ok(monitoringService.generateMonitoringSummary());
+    }
 }
 

@@ -1,11 +1,15 @@
 package com.posgateway.aml.service.case_management;
 
 import com.posgateway.aml.entity.TransactionEntity;
+import com.posgateway.aml.entity.User;
 import com.posgateway.aml.entity.compliance.ComplianceCase;
 import com.posgateway.aml.entity.compliance.CaseTransaction;
+import com.posgateway.aml.entity.compliance.SuspiciousActivityReport;
 import com.posgateway.aml.repository.ComplianceCaseRepository;
 import com.posgateway.aml.repository.CaseTransactionRepository;
+import com.posgateway.aml.repository.SuspiciousActivityReportRepository;
 import com.posgateway.aml.repository.TransactionRepository;
+import com.posgateway.aml.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,14 +30,20 @@ public class CaseNetworkService {
     private final ComplianceCaseRepository caseRepository;
     private final CaseTransactionRepository caseTransactionRepository;
     private final TransactionRepository transactionRepository;
+    private final SuspiciousActivityReportRepository sarRepository;
+    private final UserRepository userRepository;
 
     @Autowired
     public CaseNetworkService(ComplianceCaseRepository caseRepository,
                               CaseTransactionRepository caseTransactionRepository,
-                              TransactionRepository transactionRepository) {
+                              TransactionRepository transactionRepository,
+                              SuspiciousActivityReportRepository sarRepository,
+                              UserRepository userRepository) {
         this.caseRepository = caseRepository;
         this.caseTransactionRepository = caseTransactionRepository;
         this.transactionRepository = transactionRepository;
+        this.sarRepository = sarRepository;
+        this.userRepository = userRepository;
     }
 
     /**
@@ -77,6 +87,39 @@ public class CaseNetworkService {
             graph.addNode(entityNode);
             graph.addEdge(createCaseEntityEdge(rootCase, entity));
         });
+
+        // Find related SARs
+        List<SuspiciousActivityReport> sars = sarRepository.findAll().stream()
+                .filter(sar -> sar.getComplianceCase() != null && sar.getComplianceCase().getId().equals(caseId))
+                .collect(Collectors.toList());
+        sars.forEach(sar -> {
+            graph.addNode(createSarNode(sar));
+            graph.addEdge(createCaseSarEdge(rootCase, sar));
+        });
+
+        // Find assigned users
+        if (rootCase.getAssignedTo() != null) {
+            graph.addNode(createUserNode(rootCase.getAssignedTo()));
+            graph.addEdge(createCaseUserEdge(rootCase, rootCase.getAssignedTo(), "ASSIGNED_TO"));
+        }
+
+        // Find merchant if case has merchantId
+        if (rootCase.getMerchantId() != null) {
+            String merchantId = "MERCHANT_" + rootCase.getMerchantId();
+            NetworkNode merchantNode = NetworkNode.builder()
+                    .id(merchantId)
+                    .type("MERCHANT")
+                    .label("Merchant: " + rootCase.getMerchantId())
+                    .data(null)
+                    .build();
+            graph.addNode(merchantNode);
+            graph.addEdge(NetworkEdge.builder()
+                    .from("CASE_" + rootCase.getId())
+                    .to(merchantId)
+                    .type("HAS_MERCHANT")
+                    .label("Merchant")
+                    .build());
+        }
 
         return graph;
     }
@@ -182,6 +225,54 @@ public class CaseNetworkService {
                 .to(entity.getId())
                 .type("RELATED_ENTITY")
                 .label("Related " + entity.getType())
+                .build();
+    }
+
+    /**
+     * Create SAR node
+     */
+    private NetworkNode createSarNode(SuspiciousActivityReport sar) {
+        return NetworkNode.builder()
+                .id("SAR_" + sar.getId())
+                .type("SAR")
+                .label(sar.getSarReference())
+                .data(sar)
+                .build();
+    }
+
+    /**
+     * Create case-SAR edge
+     */
+    private NetworkEdge createCaseSarEdge(ComplianceCase complianceCase, SuspiciousActivityReport sar) {
+        return NetworkEdge.builder()
+                .from("CASE_" + complianceCase.getId())
+                .to("SAR_" + sar.getId())
+                .type("HAS_SAR")
+                .label("Has SAR")
+                .build();
+    }
+
+    /**
+     * Create user node
+     */
+    private NetworkNode createUserNode(User user) {
+        return NetworkNode.builder()
+                .id("USER_" + user.getId())
+                .type("USER")
+                .label(user.getUsername())
+                .data(user)
+                .build();
+    }
+
+    /**
+     * Create case-user edge
+     */
+    private NetworkEdge createCaseUserEdge(ComplianceCase complianceCase, User user, String relationshipType) {
+        return NetworkEdge.builder()
+                .from("CASE_" + complianceCase.getId())
+                .to("USER_" + user.getId())
+                .type(relationshipType)
+                .label(relationshipType.replace("_", " "))
                 .build();
     }
 

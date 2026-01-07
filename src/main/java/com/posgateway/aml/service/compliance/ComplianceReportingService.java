@@ -43,6 +43,24 @@ public class ComplianceReportingService {
         return userRepository.findByUsername(auth.getName()).orElse(null);
     }
 
+    @Transactional(readOnly = true)
+    public java.util.List<SarResponse> getAllSars(String status) {
+        java.util.List<SuspiciousActivityReport> sars;
+        if (status != null && !status.isEmpty()) {
+            try {
+                SarStatus sarStatus = SarStatus.valueOf(status);
+                sars = sarRepository.findByStatus(sarStatus);
+            } catch (IllegalArgumentException e) {
+                sars = java.util.List.of();
+            }
+        } else {
+            sars = sarRepository.findAll();
+        }
+        return sars.stream()
+                .map(sarMapper::toResponse)
+                .collect(java.util.stream.Collectors.toList());
+    }
+
     @Transactional
     public SarResponse createSar(CreateSarRequest request) {
         log.info("Creating new SAR (caseId={} merchantId={})", request.getCaseId(), request.getMerchantId());
@@ -169,8 +187,9 @@ public class ComplianceReportingService {
         if (json == null)
             return null;
         try {
-            return objectMapper.readValue(json, 
-                new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
+            return objectMapper.readValue(json,
+                    new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {
+                    });
         } catch (JsonProcessingException e) {
             log.error("Error deserializing JSON", e);
             return null;

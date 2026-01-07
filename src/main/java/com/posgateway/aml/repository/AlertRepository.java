@@ -61,5 +61,22 @@ public interface AlertRepository extends JpaRepository<Alert, Long> {
     @Query("SELECT a FROM Alert a WHERE a.createdAt >= :startDate AND a.createdAt <= :endDate")
     List<Alert> findByCreatedAtBetween(@Param("startDate") LocalDateTime startDate,
                                         @Param("endDate") LocalDateTime endDate);
+
+    /**
+     * Find recent open alerts filtered by PSP ID (through merchant)
+     * Returns alerts for merchants belonging to the specified PSP
+     */
+    @Query(value = "SELECT DISTINCT a.* FROM alerts a " +
+            "INNER JOIN merchants m ON a.merchant_id = m.merchant_id " +
+            "WHERE m.psp_id = :pspId AND a.status = 'open' " +
+            "ORDER BY a.created_at DESC LIMIT :limit", nativeQuery = true)
+    List<Alert> findRecentOpenAlertsByPspId(@Param("pspId") Long pspId, @Param("limit") int limit);
+
+    /**
+     * Find recent open alerts for all PSPs (admin view)
+     * Limited to most recent alerts
+     */
+    @Query("SELECT a FROM Alert a WHERE a.status = 'open' ORDER BY a.createdAt DESC")
+    List<Alert> findRecentOpenAlerts();
 }
 

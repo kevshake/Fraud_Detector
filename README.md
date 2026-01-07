@@ -87,8 +87,8 @@ SELECT config_key, value, description FROM model_config;
 
 - Java 21 or higher
 - Maven 3.6+
-- PostgreSQL
-- Aerospike (for sanctions screening and caching)
+- PostgreSQL 13+
+- Aerospike 6.0+ (for sanctions screening and caching)
 
 ### Build
 
@@ -96,7 +96,7 @@ SELECT config_key, value, description FROM model_config;
 mvn clean install
 ```
 
-### Run
+### Run (Development)
 
 ```bash
 mvn spring-boot:run
@@ -105,14 +105,32 @@ mvn spring-boot:run
 Or with environment variables:
 
 ```bash
-export DATABASE_URL=jdbc:postgresql://localhost:5432/aml_fraud_db
-export DATABASE_USERNAME=postgres
-export DATABASE_PASSWORD=postgres
+export SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/aml_fraud_db
+export SPRING_DATASOURCE_USERNAME=postgres
+export SPRING_DATASOURCE_PASSWORD=postgres
 export SCORING_SERVICE_URL=http://localhost:8000
+export AEROSPIKE_HOSTS=localhost:3000
 mvn spring-boot:run
 ```
 
+### Production Deployment
+
+For production deployment, see **[DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)** for detailed instructions including:
+- Environment setup
+- Database configuration
+- Systemd service configuration
+- Docker deployment
+- Reverse proxy setup
+- Monitoring and maintenance
+
 ## API Endpoints
+
+### API Documentation
+
+**Swagger UI:** Available at `http://localhost:2637/swagger-ui.html`  
+**OpenAPI JSON:** Available at `http://localhost:2637/api-docs`
+
+See **[SWAGGER_OPENAPI_SETUP.md](SWAGGER_OPENAPI_SETUP.md)** for details.
 
 ### Transaction Ingestion
 
@@ -127,6 +145,37 @@ mvn spring-boot:run
 - **GET** `/api/v1/clients/by-api-key/{apiKey}` - Get client by API key
 - **PUT** `/api/v1/clients/{clientId}/status` - Update client status
 - **GET** `/api/v1/clients/health` - Health check
+
+### Merchant Management
+
+- **GET** `/api/v1/merchants` - Get all merchants
+- **GET** `/api/v1/merchants/{id}` - Get merchant by ID
+- **POST** `/api/v1/merchants` - Create new merchant
+- **PUT** `/api/v1/merchants/{id}` - Update merchant
+- **DELETE** `/api/v1/merchants/{id}` - Delete merchant
+
+### Case Management
+
+- **GET** `/api/v1/compliance/cases` - Get all compliance cases
+- **GET** `/api/v1/compliance/cases/{id}` - Get case by ID
+- **GET** `/api/v1/cases/{caseId}/timeline` - Get case timeline
+- **GET** `/api/v1/cases/{caseId}/network` - Get case network graph
+
+### Risk Analytics
+
+- **GET** `/api/v1/analytics/risk/heatmap/customer` - Customer risk heatmap
+- **GET** `/api/v1/analytics/risk/heatmap/merchant` - Merchant risk heatmap
+- **GET** `/api/v1/analytics/risk/heatmap/geographic` - Geographic risk heatmap
+- **GET** `/api/v1/analytics/risk/trends` - Risk trend analysis
+
+### Alert Management
+
+- **GET** `/api/v1/alerts` - Get all alerts
+- **GET** `/api/v1/alerts/{id}` - Get alert by ID
+- **PUT** `/api/v1/alerts/{id}/resolve` - Resolve alert
+- **GET** `/api/v1/alerts/disposition-stats` - Alert disposition statistics
+- **POST** `/api/v1/alerts/tuning/suggest` - Suggest alert tuning
+- **GET** `/api/v1/alerts/tuning/pending` - Get pending tuning recommendations
 
 ### Feedback and Labeling
 
@@ -259,6 +308,25 @@ The Java service will automatically call the Python service for scoring.
 13. **Dynamic Risk Configuration**: High-risk country management via database
 14. **Document Retention**: Automated physical file cleanup policy
 
+### Enhanced Features (Latest)
+
+15. **Merchant Onboarding**: Complete merchant registration with KYC and sanctions screening
+16. **Beneficial Ownership**: Management and screening of beneficial owners
+17. **Case Management**: Full case lifecycle with timeline, network graph, and SLA tracking
+18. **Dashboard Analytics**: Risk breakdown, transaction volume, fraud metrics, case aging, alert disposition
+19. **Geographic Risk Heatmap**: Country-level risk visualization with interactive world map
+20. **Alert Tuning**: Automated alert tuning recommendations and A/B testing
+21. **Enhanced Error Handling**: Detailed error responses with error codes and trace IDs
+22. **API Documentation**: Complete Swagger/OpenAPI documentation
+23. **Connection Pooling**: Optimized HTTP connection management
+24. **Circuit Breaker**: Resilience4j integration for fault tolerance
+25. **Aerospike Integration**: High-performance sanctions screening and caching
+26. **Database Query Optimization**: Comprehensive indexing and query performance monitoring
+27. **Multi-Tier Caching**: Aerospike + Spring Cache for optimal performance
+28. **Query Logging**: Configurable slow query detection and performance analysis
+29. **Interactive Map Visualization**: Leaflet.js-based geographic risk heatmap
+30. **Performance Monitoring**: Hibernate statistics and PostgreSQL query analysis
+
 ### Feature Extraction
 
 The system extracts comprehensive features including:
@@ -369,8 +437,27 @@ The system tracks:
 - Average latency
 - Feature drift scores
 - Alert statistics
+- Database query performance
+- Cache hit rates
+- Geographic risk distribution
 
 Metrics are stored in the `model_metrics` table and can be exposed via Actuator endpoints.
+
+### Performance Monitoring
+
+**Database Query Monitoring:**
+- Slow query logging (configurable threshold)
+- Hibernate statistics
+- PostgreSQL `pg_stat_statements` integration
+- Query execution plan analysis
+
+**Caching Performance:**
+- Aerospike cache hit rates
+- Spring Cache statistics
+- Cache TTL monitoring
+- Memory usage tracking
+
+See **[DATABASE_QUERY_OPTIMIZATION.md](DATABASE_QUERY_OPTIMIZATION.md)** and **[CACHING_STRATEGY.md](CACHING_STRATEGY.md)** for detailed monitoring guides.
 
 ## Security Considerations
 
@@ -378,6 +465,16 @@ Metrics are stored in the `model_metrics` table and can be exposed via Actuator 
 - Configuration access: Should be restricted via RBAC
 - Scoring service: Should be on internal network with mTLS/JWT
 - Audit logging: All config changes are logged with user and timestamp
+
+## Additional Documentation
+
+- **[DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)** - Complete production deployment guide
+- **[SWAGGER_OPENAPI_SETUP.md](SWAGGER_OPENAPI_SETUP.md)** - API documentation setup
+- **[ERROR_HANDLING_ENHANCEMENT.md](ERROR_HANDLING_ENHANCEMENT.md)** - Error handling implementation details
+- **[CACHING_STRATEGY.md](CACHING_STRATEGY.md)** - Multi-tier caching strategy and best practices
+- **[DATABASE_QUERY_OPTIMIZATION.md](DATABASE_QUERY_OPTIMIZATION.md)** - Query optimization and performance monitoring
+- **[GEOGRAPHIC_MAP_IMPLEMENTATION.md](GEOGRAPHIC_MAP_IMPLEMENTATION.md)** - Geographic risk heatmap map implementation
+- **[COMPLETION_SUMMARY.md](COMPLETION_SUMMARY.md)** - Feature completion summary
 
 ## License
 

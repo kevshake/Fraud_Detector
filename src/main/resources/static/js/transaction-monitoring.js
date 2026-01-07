@@ -7,88 +7,121 @@ let currentMonitoringTab = 'live-monitoring';
 let currentRiskFilter = 'All';
 let currentDecisionFilter = 'All';
 
+let transactionMonitoringStreamInterval = null;
+
 function initTransactionMonitoring() {
-    setupMonitoringTabs();
-    loadCurrentMonitoringTab();
-}
-
-function setupMonitoringTabs() {
-    document.querySelectorAll('.monitoring-tab').forEach(tab => {
-        tab.addEventListener('click', function() {
-            const tabName = this.getAttribute('data-tab');
-            switchMonitoringTab(tabName);
-        });
-    });
-}
-
-function switchMonitoringTab(tabName) {
-    currentMonitoringTab = tabName;
+    // Determine which view is active based on current view ID
+    const currentView = Array.from(document.querySelectorAll('[id$="-view"]'))
+        .find(el => el.style.display !== 'none');
     
-    // Update tab buttons
-    document.querySelectorAll('.monitoring-tab').forEach(tab => {
-        tab.classList.remove('active');
-        if (tab.getAttribute('data-tab') === tabName) {
-            tab.classList.add('active');
-        }
-    });
+    if (!currentView) return;
     
-    // Update tab content
-    document.querySelectorAll('.monitoring-tab-content').forEach(content => {
-        content.classList.remove('active');
-    });
+    const viewId = currentView.id;
     
-    const targetContent = document.getElementById(tabName + '-tab');
-    if (targetContent) {
-        targetContent.classList.add('active');
+    if (viewId === 'transaction-monitoring-live-view') {
+        loadLiveMonitoring();
+        startTransactionMonitoringStream();
+    } else if (viewId === 'transaction-monitoring-analytics-view') {
+        loadAnalytics();
+    } else if (viewId === 'transaction-monitoring-sars-view') {
+        loadMonitoringSARs();
+    } else if (viewId === 'transaction-monitoring-reports-view') {
+        // Reports view initialization if needed
     }
-    
-    loadCurrentMonitoringTab();
 }
 
-function loadCurrentMonitoringTab() {
-    switch(currentMonitoringTab) {
-        case 'live-monitoring':
+function startTransactionMonitoringStream() {
+    if (transactionMonitoringStreamInterval !== null) {
+        clearInterval(transactionMonitoringStreamInterval);
+    }
+    transactionMonitoringStreamInterval = setInterval(() => {
+        const liveView = document.getElementById('transaction-monitoring-live-view');
+        if (liveView && liveView.style.display !== 'none') {
             loadLiveMonitoring();
-            break;
-        case 'analytics':
-            loadAnalytics();
-            break;
-        case 'sars':
-            loadMonitoringSARs();
-            break;
-        case 'reports':
-            // Reports tab is static for now
-            break;
+        } else {
+            stopTransactionMonitoringStream();
+        }
+    }, 5000); // Refresh every 5 seconds
+}
+
+function stopTransactionMonitoringStream() {
+    if (transactionMonitoringStreamInterval !== null) {
+        clearInterval(transactionMonitoringStreamInterval);
+        transactionMonitoringStreamInterval = null;
     }
 }
+
+window.toggleTransactionStream = function() {
+    if (transactionMonitoringStreamInterval === null) {
+        startTransactionMonitoringStream();
+        const btn = document.getElementById('stream-toggle-btn');
+        if (btn) btn.innerHTML = '<i class="fas fa-pause"></i> Pause Stream';
+    } else {
+        stopTransactionMonitoringStream();
+        const btn = document.getElementById('stream-toggle-btn');
+        if (btn) btn.innerHTML = '<i class="fas fa-play"></i> Resume Stream';
+    }
+};
 
 // Live Monitoring
 function loadLiveMonitoring() {
+    const container = document.getElementById('transactions-list');
+    if (!container) return;
+    
     const riskLevel = document.getElementById('risk-level-filter')?.value || 'All';
     const decision = document.getElementById('decision-filter')?.value || 'All';
     
-    fetch(`monitoring/transactions?riskLevel=${riskLevel}&decision=${decision}&limit=50`, {
-        credentials: 'include'
+    // Show loading state
+    if (container.innerHTML.trim() === '' || container.innerHTML.includes('Loading')) {
+        container.innerHTML = '<div class="loading-spinner"></div><p style="text-align:center;margin-top:10px;">Loading transactions...</p>';
+    }
+    
+    fetch(`monitoring/transactions?riskLevel=${riskLevel}&decision=${decision}&limit=100`, getFetchOptions())
+    .then(response => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        return response.json();
     })
-    .then(response => response.json())
     .then(data => {
+        if (!data || data.length === 0) {
+            container.innerHTML = '<div class="empty-state"><i class="fas fa-inbox"></i><p>No transactions found matching the filters.</p><p class="text-muted">Transactions will appear here as they are processed.</p></div>';
+            return;
+        }
         renderTransactions(data);
     })
     .catch(error => {
         console.error('Error loading transactions:', error);
+        container.innerHTML = `
+            <div class="error-state">
+                <i class="fas fa-exclamation-circle"></i>
+                <p><strong>Error loading transactions</strong></p>
+                <p class="text-muted">${error.message || 'Please try again later.'}</p>
+                <button class="btn-primary" onclick="loadLiveMonitoring()" style="margin-top:10px;">
+                    <i class="fas fa-redo"></i> Retry
+                </button>
+            </div>
+        `;
     });
 }
 
 function renderTransactions(transactions) {
     const container = document.getElementById('transactions-list');
+    if (!container) return;
+    
     container.innerHTML = '';
     
-    if (transactions.length === 0) {
-        container.innerHTML = '<div class="empty-state">No transactions found</div>';
+    if (!transactions || transactions.length === 0) {
+        container.innerHTML = '<div class="empty-state"><i class="fas fa-inbox"></i><p>No transactions found.</p></div>';
         return;
     }
     
-    transactions.forEach(txn => {
+    // Sort by timestamp descending (newest first)
+    const sortedTransactions = [...transactions].sort((a, b) => {
+        const timeA = a.timestamp || a.txnTs || a.createdAt || 0;
+        const timeB = b.timestamp || b.txnTs || b.createdAt || 0;
+        return new Date(timeB) - new Date(timeA);
+    });
+    
+    sortedTransactions.forEach(txn => {
         const card = createTransactionCard(txn);
         container.appendChild(card);
     });
@@ -98,43 +131,79 @@ function createTransactionCard(txn) {
     const card = document.createElement('div');
     card.className = 'transaction-card';
     
-    const riskClass = getRiskLevelClass(txn.riskLevel);
-    const decisionClass = getDecisionClass(txn.decision);
+    // Extract transaction data - handle both monitoring format and raw transaction format
+    const txnId = txn.id || txn.txnId || txn.transactionId || 'N/A';
+    const currency =
+        txn.currency ||
+        (window.currencyFormatter && typeof window.currencyFormatter.getDefaultCurrency === 'function'
+            ? window.currencyFormatter.getDefaultCurrency()
+            : 'USD');
+    const amount = txn.amount != null ? txn.amount : (txn.amountCents ? (txn.amountCents / 100) : 0);
+    const merchantId = txn.merchantId || 'N/A';
+    const timestamp = txn.timestamp || txn.txnTs || txn.createdAt;
+    const riskLevel = txn.riskLevel || (txn.riskScore >= 75 ? 'HIGH' : txn.riskScore >= 50 ? 'MEDIUM' : 'LOW');
+    const riskScore = txn.riskScore || 0;
+    const decision = txn.decision || txn.action || 'PROCESSED';
+
+    const amountDisplay =
+        window.currencyFormatter && typeof window.currencyFormatter.format === 'function'
+            ? window.currencyFormatter.format(amount, currency)
+            : `${currency} ${Number(amount || 0).toFixed(2)}`;
+    
+    const riskClass = getRiskLevelClass(riskLevel);
+    const decisionClass = getDecisionClass(decision);
     
     card.innerHTML = `
         <div class="transaction-header">
             <div class="transaction-summary">
-                <div class="transaction-amount">${txn.amount}</div>
-                <div class="transaction-risk-score">Risk Score: ${txn.riskScore}/100</div>
+                <div class="transaction-id">Transaction #${txnId}</div>
+                <div class="transaction-amount">${amountDisplay}</div>
+                <div class="transaction-merchant">Merchant: ${merchantId}</div>
+                <div class="transaction-risk-score">Risk Score: ${riskScore}/100</div>
             </div>
             <div class="transaction-badges">
-                <span class="badge badge-${riskClass}">${txn.riskLevel}</span>
-                <span class="badge badge-${decisionClass}">${formatDecision(txn.decision)}</span>
+                <span class="badge badge-${riskClass}">${riskLevel}</span>
+                <span class="badge badge-${decisionClass}">${formatDecision(decision)}</span>
             </div>
         </div>
         <div class="transaction-details">
             ${txn.riskIndicators ? txn.riskIndicators.map(ind => `<span class="risk-tag">${ind}</span>`).join('') : ''}
             <div class="transaction-meta">
                 <div class="meta-item">
+                    <span class="meta-label">Terminal ID:</span>
+                    <span class="meta-value">${txn.terminalId || 'N/A'}</span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">IP Address:</span>
+                    <span class="meta-value">${txn.ipAddress || 'N/A'}</span>
+                </div>
+                ${txn.deviceRisk !== undefined ? `
+                <div class="meta-item">
                     <span class="meta-label">Device Risk:</span>
                     <span class="meta-value">${txn.deviceRisk || 0}/100</span>
                 </div>
+                ` : ''}
+                ${txn.vpnDetected !== undefined ? `
                 <div class="meta-item">
                     <span class="meta-label">VPN/TOR:</span>
                     <span class="meta-value ${txn.vpnDetected ? 'warning' : 'success'}">${txn.vpnDetected ? 'Detected' : 'Clean'}</span>
                 </div>
+                ` : ''}
+                ${txn.sanctionsStatus !== undefined ? `
                 <div class="meta-item">
                     <span class="meta-label">Sanctions:</span>
                     <span class="meta-value ${txn.sanctionsStatus === 'FLAGGED' ? 'danger' : 'success'}">${txn.sanctionsStatus || 'CLEAR'}</span>
                 </div>
+                ` : ''}
                 <div class="meta-item">
                     <span class="meta-label">Time:</span>
-                    <span class="meta-value">${formatTimestamp(txn.timestamp)}</span>
+                    <span class="meta-value">${formatTimestamp(timestamp)}</span>
+                    ${timestamp ? `<small class="text-muted">${formatTimeAgo(timestamp)}</small>` : ''}
                 </div>
             </div>
         </div>
         <div class="transaction-actions">
-            <button class="btn-secondary" onclick="viewTransactionDetails('${txn.id}')">
+            <button class="btn-secondary" onclick="viewTransactionDetails('${txnId}')">
                 <i class="fas fa-eye"></i> Details
             </button>
         </div>
@@ -146,48 +215,83 @@ function createTransactionCard(txn) {
 // Analytics
 function loadAnalytics() {
     // Load dashboard stats
-    fetch('monitoring/dashboard/stats', {
-        credentials: 'include'
+    fetch('monitoring/dashboard/stats', getFetchOptions())
+    .then(response => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json();
     })
-    .then(response => response.json())
     .then(data => {
-        document.getElementById('total-monitored').textContent = data.totalMonitored || 0;
-        document.getElementById('flagged-count').textContent = data.flagged || 0;
-        document.getElementById('flag-rate').textContent = (data.flagRate || 0).toFixed(1) + '% flag rate';
-        document.getElementById('high-risk-count').textContent = data.highRisk || 0;
-        document.getElementById('blocked-count').textContent = data.blocked || 0;
+        const totalEl = document.getElementById('total-monitored');
+        const flaggedEl = document.getElementById('flagged-count');
+        const flagRateEl = document.getElementById('flag-rate');
+        const highRiskEl = document.getElementById('high-risk-count');
+        const blockedEl = document.getElementById('blocked-count');
+        
+        if (totalEl) totalEl.textContent = data.totalMonitored || 0;
+        if (flaggedEl) flaggedEl.textContent = data.flagged || 0;
+        if (flagRateEl) flagRateEl.textContent = (data.flagRate || 0).toFixed(1) + '% flag rate';
+        if (highRiskEl) highRiskEl.textContent = data.highRisk || 0;
+        if (blockedEl) blockedEl.textContent = data.blocked || 0;
     })
-    .catch(error => console.error('Error loading stats:', error));
+    .catch(error => {
+        console.error('Error loading stats:', error);
+        const totalEl = document.getElementById('total-monitored');
+        if (totalEl) totalEl.textContent = 'Error';
+    });
     
     // Load risk distribution
-    fetch('monitoring/risk-distribution', {
-        credentials: 'include'
-    })
-    .then(response => response.json())
-    .then(data => {
-        renderRiskDistribution(data);
-    })
-    .catch(error => console.error('Error loading risk distribution:', error));
+    const riskChartEl = document.getElementById('risk-distribution-chart');
+    if (riskChartEl) {
+        riskChartEl.innerHTML = '<div class="loading-spinner"></div>';
+        fetch('monitoring/risk-distribution', getFetchOptions())
+        .then(response => {
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return response.json();
+        })
+        .then(data => {
+            renderRiskDistribution(data);
+        })
+        .catch(error => {
+            console.error('Error loading risk distribution:', error);
+            riskChartEl.innerHTML = '<div class="error-state"><p>Error loading risk distribution</p></div>';
+        });
+    }
     
     // Load top risk indicators
-    fetch('monitoring/risk-indicators', {
-        credentials: 'include'
-    })
-    .then(response => response.json())
-    .then(data => {
-        renderRiskIndicators(data);
-    })
-    .catch(error => console.error('Error loading risk indicators:', error));
+    const indicatorsEl = document.getElementById('risk-indicators-list');
+    if (indicatorsEl) {
+        indicatorsEl.innerHTML = '<div class="loading-spinner"></div>';
+        fetch('monitoring/risk-indicators', getFetchOptions())
+        .then(response => {
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return response.json();
+        })
+        .then(data => {
+            renderRiskIndicators(data);
+        })
+        .catch(error => {
+            console.error('Error loading risk indicators:', error);
+            indicatorsEl.innerHTML = '<div class="error-state"><p>Error loading risk indicators</p></div>';
+        });
+    }
     
     // Load recent activity
-    fetch('monitoring/recent-activity', {
-        credentials: 'include'
-    })
-    .then(response => response.json())
-    .then(data => {
-        renderRecentActivity(data);
-    })
-    .catch(error => console.error('Error loading recent activity:', error));
+    const activityEl = document.getElementById('recent-activity-list');
+    if (activityEl) {
+        activityEl.innerHTML = '<div class="loading-spinner"></div>';
+        fetch('monitoring/recent-activity', getFetchOptions())
+        .then(response => {
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return response.json();
+        })
+        .then(data => {
+            renderRecentActivity(data);
+        })
+        .catch(error => {
+            console.error('Error loading recent activity:', error);
+            activityEl.innerHTML = '<div class="error-state"><p>Error loading recent activity</p></div>';
+        });
+    }
 }
 
 function renderRiskDistribution(distribution) {
@@ -269,15 +373,35 @@ function renderRecentActivity(activities) {
 
 // SARs
 function loadMonitoringSARs() {
-    fetch('monitoring/sars', {
-        credentials: 'include'
+    const container = document.getElementById('sars-list');
+    if (!container) return;
+    
+    container.innerHTML = '<div class="loading-spinner"></div><p style="text-align:center;margin-top:10px;">Loading SARs...</p>';
+    
+    fetch('monitoring/sars', getFetchOptions())
+    .then(response => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        return response.json();
     })
-    .then(response => response.json())
     .then(data => {
+        if (!data || data.length === 0) {
+            container.innerHTML = '<div class="empty-state"><i class="fas fa-file-alt"></i><p>No SARs found.</p><p class="text-muted">SARs generated from monitoring will appear here.</p></div>';
+            return;
+        }
         renderSARs(data);
     })
     .catch(error => {
         console.error('Error loading SARs:', error);
+        container.innerHTML = `
+            <div class="error-state">
+                <i class="fas fa-exclamation-circle"></i>
+                <p><strong>Error loading SARs</strong></p>
+                <p class="text-muted">${error.message || 'Please try again later.'}</p>
+                <button class="btn-primary" onclick="loadMonitoringSARs()" style="margin-top:10px;">
+                    <i class="fas fa-redo"></i> Retry
+                </button>
+            </div>
+        `;
     });
 }
 
@@ -300,30 +424,46 @@ function createSARCard(sar) {
     const card = document.createElement('div');
     card.className = 'sar-card';
     
-    const priorityClass = getPriorityClass(sar.priority);
-    const statusClass = getStatusClass(sar.status);
+    const sarId = sar.id || sar.sarId || 'N/A';
+    const sarRef = sar.sarReference || `SAR-${sarId}`;
+    const priority = sar.priority || 'MEDIUM';
+    const status = sar.status || 'DRAFT';
+    const priorityClass = getPriorityClass(priority);
+    const statusClass = getStatusClass(status);
     
     card.innerHTML = `
         <div class="sar-header">
-            <div class="sar-id">${sar.id}</div>
+            <div class="sar-id">${sarRef}</div>
             <div class="sar-badges">
-                <span class="badge badge-${priorityClass}">${sar.priority}</span>
-                <span class="badge badge-${statusClass}">${formatStatus(sar.status)}</span>
+                <span class="badge badge-${priorityClass}">${priority}</span>
+                <span class="badge badge-${statusClass}">${formatStatus(status)}</span>
             </div>
         </div>
-        <div class="sar-title">${sar.title || 'Suspicious Activity'}</div>
-        <div class="sar-description">${sar.description || ''}</div>
+        <div class="sar-title">${sar.sarType || sar.title || 'Suspicious Activity Report'}</div>
+        <div class="sar-description">${sar.description || sar.reason || 'No description available'}</div>
         <div class="sar-footer">
             <div class="sar-meta">
                 <span>Created: ${formatDate(sar.createdAt)}</span>
-                <span>Transactions: ${sar.transactionCount || 0}</span>
-                <span>Submitted: ${sar.submitted ? 'Yes' : 'No'}</span>
+                <span>Jurisdiction: ${sar.jurisdiction || 'N/A'}</span>
+                <span>Transactions: ${sar.transactionCount || sar.relatedTransactionCount || 0}</span>
+                <span>Status: ${formatStatus(status)}</span>
+            </div>
+            <div class="sar-actions">
+                <button class="btn-secondary btn-sm" onclick="viewSARDetails(${sarId})">
+                    <i class="fas fa-eye"></i> View
+                </button>
             </div>
         </div>
     `;
     
     return card;
 }
+
+window.viewSARDetails = function(sarId) {
+    // Navigate to SAR view or show details
+    window.showView('sar-view');
+    // Could also load specific SAR details here
+};
 
 // Utility functions
 function getRiskLevelClass(riskLevel) {
@@ -424,8 +564,102 @@ function viewTransactionDetails(transactionId) {
     alert('View transaction details: ' + transactionId);
 }
 
-function generateSampleReport() {
-    alert('Generating sample report...');
+window.generateDeclineReport = function() {
+    const resultsEl = document.getElementById('reports-results');
+    if (resultsEl) {
+        resultsEl.innerHTML = '<div class="loading-spinner"></div><p>Generating decline report...</p>';
+    }
+    
+    // Fetch decline report data from backend
+    fetch('monitoring/reports/declines', getFetchOptions())
+    .then(response => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json();
+    })
+    .then(data => {
+        if (resultsEl) {
+            resultsEl.innerHTML = `
+                <div class="report-result-card">
+                    <h4>Decline Report Generated</h4>
+                    <p><strong>Total Declines:</strong> ${data.totalDeclines || 0}</p>
+                    <p><strong>Period:</strong> ${data.startDate || 'N/A'} to ${data.endDate || 'N/A'}</p>
+                    <button class="btn-primary" onclick="exportReport('decline', ${JSON.stringify(data).replace(/"/g, '&quot;')})">
+                        <i class="fas fa-download"></i> Export Report
+                    </button>
+                </div>
+            `;
+        }
+    })
+    .catch(error => {
+        console.error('Error generating decline report:', error);
+        if (resultsEl) {
+            resultsEl.innerHTML = `<div class="error-state"><p>Error generating report: ${error.message}</p></div>`;
+        }
+    });
+};
+
+window.generateMonitoringReport = function() {
+    const resultsEl = document.getElementById('reports-results');
+    if (resultsEl) {
+        resultsEl.innerHTML = '<div class="loading-spinner"></div><p>Generating monitoring summary...</p>';
+    }
+    
+    fetch('monitoring/reports/summary', getFetchOptions())
+    .then(response => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json();
+    })
+    .then(data => {
+        if (resultsEl) {
+            resultsEl.innerHTML = `
+                <div class="report-result-card">
+                    <h4>Monitoring Summary Report</h4>
+                    <p><strong>Total Monitored:</strong> ${data.totalMonitored || 0}</p>
+                    <p><strong>Flagged:</strong> ${data.flagged || 0}</p>
+                    <p><strong>High Risk:</strong> ${data.highRisk || 0}</p>
+                    <p><strong>Blocked:</strong> ${data.blocked || 0}</p>
+                    <button class="btn-primary" onclick="exportReport('monitoring', ${JSON.stringify(data).replace(/"/g, '&quot;')})">
+                        <i class="fas fa-download"></i> Export Report
+                    </button>
+                </div>
+            `;
+        }
+    })
+    .catch(error => {
+        console.error('Error generating monitoring report:', error);
+        if (resultsEl) {
+            resultsEl.innerHTML = `<div class="error-state"><p>Error generating report: ${error.message}</p></div>`;
+        }
+    });
+};
+
+window.exportReport = function(type, data) {
+    const dataStr = JSON.stringify(data, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${type}_report_${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+};
+
+// Make getFetchOptions available if not already global
+if (typeof getFetchOptions === 'undefined') {
+    window.getFetchOptions = function(method = 'GET', body = null) {
+        const options = {
+            method: method,
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        };
+        if (body) {
+            options.body = typeof body === 'string' ? body : JSON.stringify(body);
+        }
+        return options;
+    };
 }
 
 // Filter event listeners

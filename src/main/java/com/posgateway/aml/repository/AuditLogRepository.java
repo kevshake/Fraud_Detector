@@ -1,6 +1,7 @@
 package com.posgateway.aml.repository;
 
 import com.posgateway.aml.entity.AuditLog;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -11,7 +12,11 @@ import java.util.List;
  * Repository for Audit Logs
  */
 @Repository
-public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
+public interface AuditLogRepository extends JpaRepository<AuditLog, Long>, JpaSpecificationExecutor<AuditLog> {
+
+    // Allows dynamic filtering for audit log search UI
+    // (e.g. username, actionType, entityType, time range, success, IP, session)
+
 
     List<AuditLog> findByEntityTypeAndEntityIdOrderByTimestampDesc(String entityType, String entityId);
 

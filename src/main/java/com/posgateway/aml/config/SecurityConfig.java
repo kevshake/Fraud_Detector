@@ -7,14 +7,15 @@ import org.springframework.security.authentication.dao.DaoAuthenticationProvider
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 import com.posgateway.aml.service.auth.CustomUserDetailsService;
+import com.posgateway.aml.config.CustomAuthenticationFailureHandler;
 
-@Configuration
+@Configuration(proxyBeanMethods = false)
 @EnableWebSecurity
 @EnableMethodSecurity
 @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name = "spring.security.enabled", havingValue = "true", matchIfMissing = true)
@@ -32,28 +33,28 @@ public class SecurityConfig {
         // ...
 
         @Bean
-        public PasswordEncoder passwordEncoder() {
-                return new BCryptPasswordEncoder();
-        }
-
-        @Bean
-        public AuthenticationProvider authenticationProvider() {
+        public AuthenticationProvider authenticationProvider(PasswordEncoder passwordEncoder) {
                 DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
                 authProvider.setUserDetailsService(userDetailsService);
-                authProvider.setPasswordEncoder(passwordEncoder());
+                authProvider.setPasswordEncoder(passwordEncoder);
                 return authProvider;
         }
 
         @Bean
-        public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        public SecurityFilterChain securityFilterChain(HttpSecurity http, AuthenticationProvider authenticationProvider)
+                        throws Exception {
                 http
                                 .csrf(csrf -> csrf
                                                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                                                 .ignoringRequestMatchers("/actuator/**", "/api/v1/merchants/health",
                                                                 "/api/v1/*/health", "/api/v1/pricing/**",
-                                                                "/perform_login", "/api/v1/perform_login"))
-                                .authenticationProvider(authenticationProvider())
+                                                                "/perform_login", "/api/v1/perform_login",
+                                                                // Password reset endpoints are public; avoid CSRF 403s for forgot-password flows
+                                                                "/auth/password-reset/**", "/api/v1/auth/password-reset/**"))
+                                .authenticationProvider(authenticationProvider)
                                 .authorizeHttpRequests(auth -> auth
+                                                // Password reset endpoints must be accessible even when not authenticated
+                                                .requestMatchers("/auth/password-reset/**", "/api/v1/auth/password-reset/**").permitAll()
                                                 .requestMatchers("/api/v1/merchants/onboard").permitAll()
                                                 .requestMatchers("/api/v1/merchants/health").permitAll()
                                                 .requestMatchers("/api/v1/pricing/**").permitAll()
@@ -65,7 +66,7 @@ public class SecurityConfig {
                                                 .requestMatchers("/api/v1/roles/**").hasAnyRole("ADMIN", "MANAGE_ROLES")
                                                 .requestMatchers("/api/v1/auth/login", "/api/v1/psps/auth/login")
                                                 .permitAll()
-                                                .requestMatchers("/api/v1/auth/csrf").permitAll()
+                                                .requestMatchers("/auth/csrf", "/api/v1/auth/csrf").permitAll()
                                                 .requestMatchers("/api/v1/auth/session/check",
                                                                 "/api/v1/auth/session/refresh")
                                                 .authenticated()
@@ -84,6 +85,8 @@ public class SecurityConfig {
                                                 // Static resources
                                                 .requestMatchers("/css/**", "/js/**", "/images/**", "/error")
                                                 .permitAll()
+                                                // Some deployments include context-path in the matcher path; allow both forms.
+                                                .requestMatchers("/password-reset.html", "/api/v1/password-reset.html").permitAll()
                                                 .requestMatchers("/logout-success.html").permitAll()
                                                 .requestMatchers("/", "/index.html").permitAll() // Login page should be
                                                                                                  // public usually, but
@@ -101,7 +104,7 @@ public class SecurityConfig {
                                                 .failureHandler(failureHandler)
                                                 .permitAll())
                                 .logout(logout -> logout
-                                                .logoutUrl("/logout")
+                                                .logoutRequestMatcher(new AntPathRequestMatcher("/logout", "GET"))
                                                 .logoutSuccessUrl("/logout-success.html")
                                                 .deleteCookies("JSESSIONID")
                                                 .invalidateHttpSession(true)

@@ -1,9 +1,12 @@
 package com.posgateway.aml.controller.limits;
 
 import com.posgateway.aml.entity.limits.*;
+import com.posgateway.aml.entity.User;
+import com.posgateway.aml.repository.UserRepository;
 import com.posgateway.aml.service.limits.LimitsManagementService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -17,15 +20,26 @@ import java.util.Map;
 public class LimitsManagementController {
 
     private final LimitsManagementService limitsService;
+    private final UserRepository userRepository;
 
-    public LimitsManagementController(LimitsManagementService limitsService) {
+    public LimitsManagementController(LimitsManagementService limitsService, UserRepository userRepository) {
         this.limitsService = limitsService;
+        this.userRepository = userRepository;
+    }
+
+    private User getCurrentUser() {
+        org.springframework.security.core.Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null)
+            return null;
+        return userRepository.findByUsername(auth.getName()).orElse(null);
     }
 
     // Dashboard Stats
     @GetMapping("/dashboard/stats")
     public ResponseEntity<Map<String, Object>> getDashboardStats() {
-        return ResponseEntity.ok(limitsService.getDashboardStats());
+        User user = getCurrentUser();
+        Long pspId = (user != null && user.getPsp() != null) ? user.getPsp().getPspId() : null;
+        return ResponseEntity.ok(limitsService.getDashboardStats(pspId));
     }
 
     // Merchant Limits
@@ -54,8 +68,18 @@ public class LimitsManagementController {
 
     // Global Limits
     @GetMapping("/global")
-    public ResponseEntity<List<GlobalLimit>> getAllGlobalLimits() {
-        return ResponseEntity.ok(limitsService.getAllGlobalLimits());
+    public ResponseEntity<?> getAllGlobalLimits() {
+        try {
+            List<GlobalLimit> limits = limitsService.getAllGlobalLimits();
+            return ResponseEntity.ok(limits != null ? limits : new java.util.ArrayList<>());
+        } catch (Exception e) {
+            org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(LimitsManagementController.class);
+            log.error("Error loading global limits: {}", e.getMessage(), e);
+            java.util.Map<String, Object> error = new java.util.HashMap<>();
+            error.put("error", "Error loading transaction limits");
+            error.put("message", e.getMessage());
+            return ResponseEntity.status(500).body(error);
+        }
     }
 
     @PostMapping("/global")

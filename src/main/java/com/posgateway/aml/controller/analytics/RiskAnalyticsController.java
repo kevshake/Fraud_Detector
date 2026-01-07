@@ -44,6 +44,15 @@ public class RiskAnalyticsController {
         return ResponseEntity.ok(riskAnalyticsService.getMerchantRiskHeatmap(startDate, endDate));
     }
 
+    @GetMapping("/heatmap/geographic")
+    public ResponseEntity<Map<String, RiskAnalyticsService.RiskHeatmapData>> getGeographicRiskHeatmap(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate) {
+        if (startDate == null) startDate = LocalDateTime.now().minusMonths(3);
+        if (endDate == null) endDate = LocalDateTime.now();
+        return ResponseEntity.ok(riskAnalyticsService.getGeographicRiskHeatmap(startDate, endDate));
+    }
+
     @GetMapping("/trends")
     public ResponseEntity<RiskAnalyticsService.RiskTrendAnalysis> analyzeRiskTrends(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,

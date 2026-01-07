@@ -9,6 +9,7 @@ import com.posgateway.aml.entity.merchant.BeneficialOwner;
 import com.posgateway.aml.entity.merchant.Merchant;
 import com.posgateway.aml.model.ScreeningResult;
 import com.posgateway.aml.repository.AuditTrailRepository;
+import com.posgateway.aml.repository.BeneficialOwnerRepository;
 import com.posgateway.aml.repository.ComplianceCaseRepository;
 import com.posgateway.aml.repository.MerchantRepository;
 import com.posgateway.aml.repository.MerchantScreeningResultRepository;
@@ -46,6 +47,9 @@ public class MerchantOnboardingService {
 
     @Autowired
     private MerchantScreeningResultRepository screeningResultRepository;
+
+    @Autowired
+    private BeneficialOwnerRepository beneficialOwnerRepository;
 
     @Autowired
     private AmlScreeningOrchestrator screeningOrchestrator;
@@ -154,29 +158,97 @@ public class MerchantOnboardingService {
         String provider = "UNKNOWN";
 
         if (screeningRecord.isPresent()) {
-            // Convert entity to model
-            // simplified for display
-            result.setStatus(ScreeningResult.ScreeningStatus.valueOf(screeningRecord.get().getScreeningStatus()));
-            result.setMatchCount(screeningRecord.get().getMatchCount());
-            provider = screeningRecord.get().getScreeningProvider();
+            try {
+                // Convert entity to model
+                // simplified for display
+                String statusStr = screeningRecord.get().getScreeningStatus();
+                if (statusStr != null) {
+                    result.setStatus(ScreeningResult.ScreeningStatus.valueOf(statusStr));
+                }
+                result.setMatchCount(screeningRecord.get().getMatchCount());
+                provider = screeningRecord.get().getScreeningProvider();
+            } catch (Exception e) {
+                log.warn("Error parsing screening result for merchant {}: {}", id, e.getMessage());
+            }
         }
 
-        return MerchantOnboardingResponse.builder()
+        // Build response with all fields needed by frontend
+        MerchantOnboardingResponse.MerchantOnboardingResponseBuilder builder = MerchantOnboardingResponse.builder()
                 .merchantId(merchant.getMerchantId())
                 .legalName(merchant.getLegalName())
-                .status(merchant.getStatus())
+                .status(merchant.getStatus() != null ? merchant.getStatus() : "PENDING_SCREENING")
                 .merchantScreeningResult(result)
                 .screeningProvider(provider)
                 .screenedAt(screeningRecord
                         .map(com.posgateway.aml.entity.merchant.MerchantScreeningResult::getScreenedAt).orElse(null))
                 .country(merchant.getCountry())
-                .kycStatus(merchant.getKycStatus())
-                .contractStatus(merchant.getContractStatus())
+                .kycStatus(merchant.getKycStatus() != null ? merchant.getKycStatus() : "PENDING")
+                .contractStatus(merchant.getContractStatus() != null ? merchant.getContractStatus() : "NO_CONTRACT")
                 .dailyLimit(merchant.getDailyLimit())
                 .currentUsage(merchant.getCurrentUsage())
-                .riskLevel(merchant.getRiskLevel())
-                .mccDescription(mccMappingService.getDescription(merchant.getMcc()))
-                .build();
+                .riskLevel(merchant.getRiskLevel() != null ? merchant.getRiskLevel() : "UNKNOWN");
+
+        // Add MCC description safely
+        if (merchant.getMcc() != null) {
+            try {
+                builder.mccDescription(mccMappingService.getDescription(merchant.getMcc()));
+            } catch (Exception e) {
+                log.warn("Error getting MCC description for merchant {}: {}", id, e.getMessage());
+                builder.mccDescription("Unknown Category");
+            }
+        } else {
+            builder.mccDescription("Unknown Category");
+        }
+
+        // Get beneficial owners with their screening results
+        List<BeneficialOwner> owners = beneficialOwnerRepository.findByMerchant_MerchantId(id);
+        List<MerchantOnboardingResponse.OwnerScreeningDetail> ownerDetails = new ArrayList<>();
+        
+        for (BeneficialOwner owner : owners) {
+            ScreeningResult ownerResult = new ScreeningResult();
+            ownerResult.setStatus(owner.getIsSanctioned() != null && owner.getIsSanctioned() 
+                ? ScreeningResult.ScreeningStatus.MATCH 
+                : ScreeningResult.ScreeningStatus.CLEAR);
+            ownerResult.setMatchCount(owner.getIsSanctioned() != null && owner.getIsSanctioned() ? 1 : 0);
+            
+            MerchantOnboardingResponse.OwnerScreeningDetail detail = 
+                MerchantOnboardingResponse.OwnerScreeningDetail.builder()
+                    .ownerId(owner.getOwnerId())
+                    .fullName(owner.getFullName())
+                    .screeningResult(ownerResult)
+                    .isSanctioned(owner.getIsSanctioned() != null ? owner.getIsSanctioned() : false)
+                    .isPep(owner.getIsPep() != null ? owner.getIsPep() : false)
+                    .build();
+            ownerDetails.add(detail);
+        }
+        
+        builder.beneficialOwnerResults(ownerDetails);
+        builder.tradingName(merchant.getTradingName());
+        builder.contactEmail(merchant.getContactEmail());
+        builder.mcc(merchant.getMcc());
+        builder.businessType(merchant.getBusinessType() != null ? merchant.getBusinessType().toString() : null);
+        
+        // Calculate risk score if not already set
+        if (merchant.getRiskLevel() == null || "UNKNOWN".equals(merchant.getRiskLevel())) {
+            // Simple risk calculation based on screening results
+            int riskScore = 0;
+            if (result.getStatus() == ScreeningResult.ScreeningStatus.MATCH) riskScore += 50;
+            if (ownerDetails.stream().anyMatch(o -> o.getIsSanctioned())) riskScore += 30;
+            if (ownerDetails.stream().anyMatch(o -> o.getIsPep())) riskScore += 20;
+            builder.riskScore(riskScore);
+            builder.riskLevel(riskScore >= 80 ? "CRITICAL" : riskScore >= 60 ? "HIGH" : riskScore >= 30 ? "MEDIUM" : "LOW");
+        } else {
+            // Try to get risk score from merchant
+            // Risk score might not be stored directly, so we'll calculate it
+            int riskScore = 0;
+            if (result.getStatus() == ScreeningResult.ScreeningStatus.MATCH) riskScore += 50;
+            if (ownerDetails.stream().anyMatch(o -> o.getIsSanctioned())) riskScore += 30;
+            if (ownerDetails.stream().anyMatch(o -> o.getIsPep())) riskScore += 20;
+            builder.riskScore(riskScore);
+        }
+
+        MerchantOnboardingResponse response = builder.build();
+        return response;
     }
 
     /**

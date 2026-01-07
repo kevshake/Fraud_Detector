@@ -3,14 +3,17 @@ package com.posgateway.aml.service.limits;
 import com.posgateway.aml.entity.limits.*;
 import com.posgateway.aml.entity.merchant.Merchant;
 import com.posgateway.aml.repository.MerchantRepository;
+import com.posgateway.aml.repository.TransactionRepository;
 import com.posgateway.aml.repository.limits.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Service for managing Limits & AML Management
@@ -24,6 +27,7 @@ public class LimitsManagementService {
     private final VelocityRuleRepository velocityRuleRepository;
     private final CountryComplianceRuleRepository countryComplianceRepository;
     private final MerchantRepository merchantRepository;
+    private final TransactionRepository transactionRepository;
 
     public LimitsManagementService(
             MerchantTransactionLimitRepository merchantLimitRepository,
@@ -31,13 +35,15 @@ public class LimitsManagementService {
             RiskThresholdRepository riskThresholdRepository,
             VelocityRuleRepository velocityRuleRepository,
             CountryComplianceRuleRepository countryComplianceRepository,
-            MerchantRepository merchantRepository) {
+            MerchantRepository merchantRepository,
+            TransactionRepository transactionRepository) {
         this.merchantLimitRepository = merchantLimitRepository;
         this.globalLimitRepository = globalLimitRepository;
         this.riskThresholdRepository = riskThresholdRepository;
         this.velocityRuleRepository = velocityRuleRepository;
         this.countryComplianceRepository = countryComplianceRepository;
         this.merchantRepository = merchantRepository;
+        this.transactionRepository = transactionRepository;
     }
 
     // Merchant Limits
@@ -91,7 +97,14 @@ public class LimitsManagementService {
     }
 
     public List<GlobalLimit> getAllGlobalLimits() {
-        return globalLimitRepository.findAll();
+        try {
+            return globalLimitRepository.findAll();
+        } catch (Exception e) {
+            org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(LimitsManagementService.class);
+            log.error("Error fetching global limits: {}", e.getMessage(), e);
+            // Return empty list instead of throwing to prevent complete failure
+            return new java.util.ArrayList<>();
+        }
     }
 
     @Transactional
@@ -191,24 +204,114 @@ public class LimitsManagementService {
     }
 
     // Dashboard Statistics
-    public Map<String, Object> getDashboardStats() {
+    public Map<String, Object> getDashboardStats(Long pspId) {
         Map<String, Object> stats = new HashMap<>();
         
+        // Get merchants for this PSP
+        List<Merchant> merchants;
+        if (pspId != null) {
+            merchants = merchantRepository.findByPspPspId(pspId);
+        } else {
+            merchants = merchantRepository.findAll();
+        }
+        
         // Active Merchants
-        long activeMerchants = merchantRepository.findAll().stream()
+        long activeMerchants = merchants.stream()
                 .filter(m -> "ACTIVE".equals(m.getStatus()))
                 .count();
         stats.put("activeMerchants", activeMerchants);
 
-        // Total Daily Usage
-        BigDecimal totalDailyUsage = globalLimitRepository.findAll().stream()
-                .filter(g -> "VOLUME".equals(g.getLimitType()) && "DAY".equals(g.getPeriod()))
-                .map(GlobalLimit::getCurrentUsage)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        // Calculate Daily Transaction Limit (sum of all merchant daily limits for this PSP)
+        BigDecimal dailyTransactionLimit = BigDecimal.ZERO;
+        List<MerchantTransactionLimit> merchantLimits;
+        if (pspId != null) {
+            merchantLimits = merchantLimitRepository.findAll().stream()
+                    .filter(limit -> limit.getMerchant() != null && 
+                            limit.getMerchant().getPsp() != null &&
+                            limit.getMerchant().getPsp().getPspId().equals(pspId))
+                    .collect(Collectors.toList());
+        } else {
+            merchantLimits = merchantLimitRepository.findAll();
+        }
+        
+        for (MerchantTransactionLimit limit : merchantLimits) {
+            if (limit.getDailyLimit() != null && "ACTIVE".equals(limit.getStatus())) {
+                dailyTransactionLimit = dailyTransactionLimit.add(limit.getDailyLimit());
+            }
+        }
+        stats.put("dailyTransactionLimit", dailyTransactionLimit);
+
+        // Calculate Monthly Volume Cap (sum of all merchant monthly limits for this PSP)
+        BigDecimal monthlyVolumeCap = BigDecimal.ZERO;
+        for (MerchantTransactionLimit limit : merchantLimits) {
+            if (limit.getMonthlyLimit() != null && "ACTIVE".equals(limit.getStatus())) {
+                monthlyVolumeCap = monthlyVolumeCap.add(limit.getMonthlyLimit());
+            }
+        }
+        stats.put("monthlyVolumeCap", monthlyVolumeCap);
+
+        // Calculate High-Risk Threshold (get highest risk threshold from active risk thresholds)
+        RiskThreshold highRiskThreshold = riskThresholdRepository.findAll().stream()
+                .filter(rt -> "ACTIVE".equals(rt.getStatus()))
+                .filter(rt -> "HIGH".equalsIgnoreCase(rt.getRiskLevel()) || "CRITICAL".equalsIgnoreCase(rt.getRiskLevel()))
+                .findFirst()
+                .orElse(null);
+        
+        BigDecimal highRiskThresholdValue = BigDecimal.ZERO;
+        if (highRiskThreshold != null) {
+            highRiskThresholdValue = highRiskThreshold.getDailyLimit();
+        }
+        stats.put("highRiskThreshold", highRiskThresholdValue);
+
+        // Count Active Rules (velocity rules + risk thresholds)
+        long activeVelocityRules = velocityRuleRepository.findAll().stream()
+                .filter(vr -> "ACTIVE".equals(vr.getStatus()))
+                .count();
+        long activeRiskThresholds = riskThresholdRepository.findAll().stream()
+                .filter(rt -> "ACTIVE".equals(rt.getStatus()))
+                .count();
+        stats.put("activeRulesCount", activeVelocityRules + activeRiskThresholds);
+
+        // Calculate actual daily usage from transactions (for this PSP's merchants)
+        LocalDateTime startOfDay = LocalDateTime.now().withHour(0).withMinute(0).withSecond(0);
+        LocalDateTime endOfDay = LocalDateTime.now().withHour(23).withMinute(59).withSecond(59);
+        
+        BigDecimal totalDailyUsage = BigDecimal.ZERO;
+        if (pspId != null && !merchants.isEmpty()) {
+            // Get merchant IDs as strings (since TransactionEntity uses String merchantId)
+            List<String> merchantIdStrings = merchants.stream()
+                    .map(m -> String.valueOf(m.getMerchantId()))
+                    .collect(Collectors.toList());
+            
+            // Query transactions for today
+            List<com.posgateway.aml.entity.TransactionEntity> todayTransactions = 
+                transactionRepository.findAll().stream()
+                    .filter(tx -> tx.getMerchantId() != null &&
+                            merchantIdStrings.contains(tx.getMerchantId()) &&
+                            tx.getTxnTs() != null &&
+                            tx.getTxnTs().isAfter(startOfDay) &&
+                            tx.getTxnTs().isBefore(endOfDay))
+                    .collect(Collectors.toList());
+            
+            // Sum transaction amounts
+            for (com.posgateway.aml.entity.TransactionEntity tx : todayTransactions) {
+                if (tx.getAmountCents() != null) {
+                    totalDailyUsage = totalDailyUsage.add(
+                        BigDecimal.valueOf(tx.getAmountCents()).divide(BigDecimal.valueOf(100))
+                    );
+                }
+            }
+        } else {
+            // For global admin, sum from global limits
+            totalDailyUsage = globalLimitRepository.findAll().stream()
+                    .filter(g -> "VOLUME".equals(g.getLimitType()) && "DAY".equals(g.getPeriod()))
+                    .map(GlobalLimit::getCurrentUsage)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+        }
         stats.put("totalDailyUsage", totalDailyUsage);
 
         // Risk Alerts (merchants with HIGH or CRITICAL risk)
-        long riskAlerts = merchantRepository.findAll().stream()
+        long riskAlerts = merchants.stream()
                 .filter(m -> {
                     String riskLevel = m.getRiskLevel();
                     return riskLevel != null && 

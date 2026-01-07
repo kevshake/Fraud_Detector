@@ -108,6 +108,13 @@ public class UserService {
         userRepository.deleteById(userId);
     }
 
+    @Transactional
+    public void toggleUserStatus(Long userId, boolean enable) {
+        User user = getUserById(userId);
+        user.setEnabled(enable);
+        userRepository.save(user);
+    }
+
     public java.util.Optional<User> getSuperAdmin() {
         return userRepository.findByUsername("super.admin@aml.com"); // Matches dummy data
     }

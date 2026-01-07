@@ -79,7 +79,31 @@ public class MerchantController {
         try {
             List<Merchant> merchants = merchantRepository.findAll();
             List<MerchantOnboardingResponse> responses = merchants.stream()
-                    .map(m -> onboardingService.getMerchantById(m.getMerchantId()))
+                    .filter(m -> m.getMerchantId() != null) // Filter out null IDs
+                    .map(m -> {
+                        try {
+                            return onboardingService.getMerchantById(m.getMerchantId());
+                        } catch (Exception e) {
+                            log.warn("Error fetching merchant {}: {}", m.getMerchantId(), e.getMessage());
+                            // Return a minimal response for failed merchants
+                            return MerchantOnboardingResponse.builder()
+                                    .merchantId(m.getMerchantId())
+                                    .legalName(m.getLegalName() != null ? m.getLegalName() : "Unknown")
+                                    .tradingName(m.getTradingName())
+                                    .contactEmail(m.getContactEmail())
+                                    .mcc(m.getMcc())
+                                    .businessType(m.getBusinessType())
+                                    .status(m.getStatus() != null ? m.getStatus() : "PENDING_SCREENING")
+                                    .country(m.getCountry())
+                                    .kycStatus(m.getKycStatus() != null ? m.getKycStatus() : "PENDING")
+                                    .contractStatus(m.getContractStatus() != null ? m.getContractStatus() : "NO_CONTRACT")
+                                    .dailyLimit(m.getDailyLimit())
+                                    .currentUsage(m.getCurrentUsage())
+                                    .riskLevel(m.getRiskLevel() != null ? m.getRiskLevel() : "UNKNOWN")
+                                    .mccDescription(m.getMcc() != null ? "Unknown Category" : null)
+                                    .build();
+                        }
+                    })
                     .collect(java.util.stream.Collectors.toList());
             return ResponseEntity.ok(responses);
         } catch (Exception e) {
@@ -126,6 +150,25 @@ public class MerchantController {
             return ResponseEntity.notFound().build();
         } catch (Exception e) {
             log.error("Error updating merchant: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /**
+     * Delete merchant
+     * DELETE /api/v1/merchants/{id}
+     */
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> deleteMerchant(@PathVariable Long id) {
+        log.info("Delete merchant request for ID: {}", id);
+        try {
+            updateService.deleteMerchant(id);
+            return ResponseEntity.noContent().build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            log.error("Error deleting merchant: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }

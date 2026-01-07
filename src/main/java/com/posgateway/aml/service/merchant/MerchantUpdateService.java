@@ -1,7 +1,5 @@
 package com.posgateway.aml.service.merchant;
 
-
-
 import com.posgateway.aml.dto.request.MerchantUpdateRequest;
 import com.posgateway.aml.entity.compliance.AuditTrail;
 import com.posgateway.aml.entity.merchant.Merchant;
@@ -23,12 +21,12 @@ public class MerchantUpdateService {
     private final AmlScreeningOrchestrator screeningOrchestrator;
     private final AuditTrailRepository auditTrailRepository;
 
-    public MerchantUpdateService(MerchantRepository merchantRepository, AmlScreeningOrchestrator screeningOrchestrator, AuditTrailRepository auditTrailRepository) {
+    public MerchantUpdateService(MerchantRepository merchantRepository, AmlScreeningOrchestrator screeningOrchestrator,
+            AuditTrailRepository auditTrailRepository) {
         this.merchantRepository = merchantRepository;
         this.screeningOrchestrator = screeningOrchestrator;
         this.auditTrailRepository = auditTrailRepository;
     }
-
 
     @Transactional
     public Merchant updateMerchant(Long merchantId, MerchantUpdateRequest request) {
@@ -93,6 +91,24 @@ public class MerchantUpdateService {
                 .evidence(changes)
                 .build();
 
+        auditTrailRepository.save(audit);
+    }
+
+    @Transactional
+    public void deleteMerchant(Long merchantId) {
+        if (!merchantRepository.existsById(merchantId)) {
+            throw new IllegalArgumentException("Merchant not found: " + merchantId);
+        }
+        merchantRepository.deleteById(merchantId);
+
+        // Audit log for deletion
+        AuditTrail audit = AuditTrail.builder()
+                .merchantId(merchantId)
+                .action("DELETE")
+                .performedBy("SYSTEM")
+                .decision("DELETED")
+                .decisionReason("Merchant deleted by user")
+                .build();
         auditTrailRepository.save(audit);
     }
 }

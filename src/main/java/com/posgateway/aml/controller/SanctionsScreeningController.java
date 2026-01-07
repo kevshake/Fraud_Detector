@@ -10,6 +10,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * REST Controller for direct sanctions screening
@@ -29,20 +31,80 @@ public class SanctionsScreeningController {
      * POST /api/v1/sanctions/screen
      */
     @PostMapping("/screen")
-    public ResponseEntity<ScreeningResult> screenName(@RequestBody ScreeningRequest request) {
-        log.info("Screening name: {}", request.getName());
+    public ResponseEntity<Map<String, Object>> screenName(@RequestBody ScreeningRequest request) {
+        log.info("Screening name: {}, entityType: {}", request.getName(), request.getEntityType());
 
         try {
-            ScreeningResult result = screeningService.screenName(
-                    request.getName(),
-                    request.getEntityType() != null ? ScreeningResult.EntityType.valueOf(request.getEntityType())
-                            : ScreeningResult.EntityType.PERSON);
+            if (request.getName() == null || request.getName().trim().isEmpty()) {
+                Map<String, Object> error = new HashMap<>();
+                error.put("error", "Name is required");
+                return ResponseEntity.badRequest().body(error);
+            }
 
-            return ResponseEntity.ok(result);
+            // Convert entity type string to enum, defaulting to PERSON
+            ScreeningResult.EntityType entityType = ScreeningResult.EntityType.PERSON;
+            if (request.getEntityType() != null && !request.getEntityType().trim().isEmpty()) {
+                try {
+                    entityType = ScreeningResult.EntityType.valueOf(request.getEntityType().toUpperCase());
+                } catch (IllegalArgumentException e) {
+                    log.warn("Invalid entity type '{}', defaulting to PERSON", request.getEntityType());
+                    entityType = ScreeningResult.EntityType.PERSON;
+                }
+            }
+
+            ScreeningResult result = screeningService.screenName(request.getName().trim(), entityType);
+
+            // Convert ScreeningResult to frontend-expected format
+            Map<String, Object> response = new HashMap<>();
+            response.put("match", result.hasMatches());
+            response.put("status", result.getStatus() != null ? result.getStatus().name() : "CLEAR");
+            response.put("matchCount", result.getMatchCount() != null ? result.getMatchCount() : 0);
+            response.put("highestMatchScore", result.getHighestMatchScore());
+            response.put("confidence", result.getHighestMatchScore() != null ? result.getHighestMatchScore() / 100.0 : 0.0);
+            response.put("screenedName", result.getScreenedName());
+            response.put("entityType", result.getEntityType() != null ? result.getEntityType().name() : "PERSON");
+            response.put("screeningProvider", result.getScreeningProvider());
+            response.put("screenedAt", result.getScreenedAt());
+
+            // Convert matches to frontend format
+            if (result.getMatches() != null && !result.getMatches().isEmpty()) {
+                java.util.List<Map<String, Object>> matchesList = new java.util.ArrayList<>();
+                java.util.List<Map<String, Object>> hitsList = new java.util.ArrayList<>();
+                
+                for (ScreeningResult.Match match : result.getMatches()) {
+                    Map<String, Object> matchMap = new HashMap<>();
+                    matchMap.put("name", match.getMatchedName());
+                    matchMap.put("matchedName", match.getMatchedName());
+                    matchMap.put("list", match.getListName());
+                    matchMap.put("sourceList", match.getListName());
+                    matchMap.put("listName", match.getListName());
+                    matchMap.put("similarityScore", match.getSimilarityScore());
+                    matchMap.put("reason", match.getSanctionType() != null ? match.getSanctionType() : "Sanctions match");
+                    matchMap.put("entityType", match.getEntityType() != null ? match.getEntityType().name() : "PERSON");
+                    matchesList.add(matchMap);
+                    
+                    Map<String, Object> hitMap = new HashMap<>();
+                    hitMap.put("matchedName", match.getMatchedName());
+                    hitMap.put("sourceList", match.getListName());
+                    hitMap.put("reason", match.getSanctionType() != null ? match.getSanctionType() : "Sanctions match");
+                    hitsList.add(hitMap);
+                }
+                
+                response.put("matches", matchesList);
+                response.put("hits", hitsList);
+            } else {
+                response.put("matches", new java.util.ArrayList<>());
+                response.put("hits", new java.util.ArrayList<>());
+            }
+
+            return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            log.error("Error screening name: {}", e.getMessage(), e);
-            return ResponseEntity.internalServerError().build();
+            log.error("Error screening name '{}': {}", request.getName(), e.getMessage(), e);
+            Map<String, Object> error = new HashMap<>();
+            error.put("error", "Error performing screening: " + e.getMessage());
+            error.put("message", "Error performing screening. Please try again.");
+            return ResponseEntity.status(500).body(error);
         }
     }
 

@@ -160,5 +160,58 @@ public class CaseQueueService {
     public List<CaseQueue> getAllQueues() {
         return queueRepository.findAll();
     }
+
+    /**
+     * Enable/disable a queue
+     */
+    @Transactional
+    public CaseQueue setQueueEnabled(Long queueId, Boolean enabled) {
+        CaseQueue queue = queueRepository.findById(queueId)
+                .orElseThrow(() -> new IllegalArgumentException("Queue not found: " + queueId));
+        queue.setEnabled(enabled != null ? enabled : queue.getEnabled());
+        return queueRepository.save(queue);
+    }
+
+    /**
+     * Update queue configuration (partial updates supported)
+     */
+    @Transactional
+    public CaseQueue updateQueue(Long queueId,
+                                 Boolean enabled,
+                                 Boolean autoAssign,
+                                 Integer maxQueueSize,
+                                 String targetRole,
+                                 CasePriority minPriority) {
+        CaseQueue queue = queueRepository.findById(queueId)
+                .orElseThrow(() -> new IllegalArgumentException("Queue not found: " + queueId));
+
+        if (enabled != null) {
+            queue.setEnabled(enabled);
+        }
+        if (autoAssign != null) {
+            queue.setAutoAssign(autoAssign);
+        }
+        if (maxQueueSize != null) {
+            queue.setMaxQueueSize(maxQueueSize);
+        }
+        if (targetRole != null && !targetRole.isBlank()) {
+            queue.setTargetRole(targetRole);
+        }
+        if (minPriority != null) {
+            queue.setMinPriority(minPriority);
+        }
+
+        return queueRepository.save(queue);
+    }
+
+    /**
+     * Trigger processing (auto-assignment) for a queue now.
+     */
+    @Transactional
+    public void processQueue(Long queueId) {
+        CaseQueue queue = queueRepository.findById(queueId)
+                .orElseThrow(() -> new IllegalArgumentException("Queue not found: " + queueId));
+        autoAssignFromQueue(queue);
+    }
 }
 

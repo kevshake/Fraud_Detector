@@ -5,10 +5,22 @@
 
 let currentTab = 'merchant-limits';
 
+let limitsRefreshInterval = null;
+
 function initLimitsAmlManagement() {
     loadDashboardStats();
+    loadTransactionLimits(); // Load the Transaction Limits table
     setupTabNavigation();
     loadCurrentTab();
+    
+    // Set up real-time refresh every 30 seconds
+    if (limitsRefreshInterval) {
+        clearInterval(limitsRefreshInterval);
+    }
+    limitsRefreshInterval = setInterval(() => {
+        loadDashboardStats();
+        loadTransactionLimits(); // Refresh transaction limits table
+    }, 30000); // Refresh every 30 seconds
 }
 
 function setupTabNavigation() {
@@ -66,19 +78,77 @@ function loadCurrentTab() {
 
 function loadDashboardStats() {
     fetch('limits/dashboard/stats', {
-        credentials: 'include'
+        credentials: 'include',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        }
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json();
+    })
     .then(data => {
-        document.getElementById('limits-active-merchants').textContent = data.activeMerchants || 0;
-        document.getElementById('limits-daily-usage').textContent = formatCurrency(data.totalDailyUsage || 0);
+        // Update Daily Transaction Limit card
+        const dailyLimitEl = document.getElementById('dailyLimit');
+        if (dailyLimitEl) {
+            dailyLimitEl.textContent = formatCurrency(data.dailyTransactionLimit || 0);
+        }
         
-        // Calculate usage percentage (mock for now)
-        const usagePercent = 57.0; // This would come from global limits
-        document.getElementById('limits-usage-percent').textContent = usagePercent.toFixed(1) + '% of limit';
+        // Update Monthly Volume Cap card
+        const monthlyLimitEl = document.getElementById('monthlyLimit');
+        if (monthlyLimitEl) {
+            monthlyLimitEl.textContent = formatCurrency(data.monthlyVolumeCap || 0);
+        }
         
-        document.getElementById('limits-risk-alerts').textContent = data.riskAlerts || 0;
-        document.getElementById('limits-success-rate').textContent = (data.avgSuccessRate || 0).toFixed(1) + '%';
+        // Update High-Risk Threshold card
+        const riskThresholdEl = document.getElementById('riskThreshold');
+        if (riskThresholdEl) {
+            riskThresholdEl.textContent = formatCurrency(data.highRiskThreshold || 0);
+        }
+        
+        // Update Active Rules card
+        const activeRulesEl = document.getElementById('activeRulesCount');
+        if (activeRulesEl) {
+            activeRulesEl.textContent = data.activeRulesCount || 0;
+        }
+        
+        // Update other stats if elements exist
+        const activeMerchantsEl = document.getElementById('limits-active-merchants');
+        if (activeMerchantsEl) {
+            activeMerchantsEl.textContent = data.activeMerchants || 0;
+        }
+        
+        const dailyUsageEl = document.getElementById('limits-daily-usage');
+        if (dailyUsageEl) {
+            dailyUsageEl.textContent = formatCurrency(data.totalDailyUsage || 0);
+        }
+        
+        // Calculate usage percentage
+        const usagePercentEl = document.getElementById('limits-usage-percent');
+        if (usagePercentEl && data.dailyTransactionLimit) {
+            const dailyLimit = typeof data.dailyTransactionLimit === 'string' ? 
+                parseFloat(data.dailyTransactionLimit) : data.dailyTransactionLimit;
+            const dailyUsage = typeof data.totalDailyUsage === 'string' ? 
+                parseFloat(data.totalDailyUsage) : data.totalDailyUsage;
+            
+            if (dailyLimit && dailyLimit > 0) {
+                const usagePercent = (dailyUsage / dailyLimit * 100).toFixed(1);
+                usagePercentEl.textContent = usagePercent + '% of limit';
+            } else {
+                usagePercentEl.textContent = 'N/A';
+            }
+        }
+        
+        const riskAlertsEl = document.getElementById('limits-risk-alerts');
+        if (riskAlertsEl) {
+            riskAlertsEl.textContent = data.riskAlerts || 0;
+        }
+        
+        const successRateEl = document.getElementById('limits-success-rate');
+        if (successRateEl) {
+            successRateEl.textContent = (data.avgSuccessRate || 0).toFixed(1) + '%';
+        }
     })
     .catch(error => {
         console.error('Error loading dashboard stats:', error);
@@ -341,22 +411,45 @@ function createCountryComplianceRow(rule) {
 }
 
 // Utility functions
-function formatCurrency(amount) {
-    if (!amount || amount === 0) return '$0';
-    const num = typeof amount === 'string' ? parseFloat(amount) : amount;
-    if (num >= 1000000) {
-        return '$' + (num / 1000000).toFixed(1) + 'M';
-    } else if (num >= 1000) {
-        return '$' + (num / 1000).toFixed(0) + 'K';
+function formatCurrency(amount, currencyCode) {
+    const currency =
+        currencyCode ||
+        (window.currencyFormatter && typeof window.currencyFormatter.getDefaultCurrency === 'function'
+            ? window.currencyFormatter.getDefaultCurrency()
+            : (window.appDefaultCurrency || 'USD'));
+
+    if (window.currencyFormatter && typeof window.currencyFormatter.formatCompact === 'function') {
+        return window.currencyFormatter.formatCompact(amount, currency);
     }
-    return '$' + num.toFixed(2);
+
+    // Fallback (should rarely happen)
+    const num = amount == null ? 0 : (typeof amount === 'string' ? parseFloat(amount) : Number(amount));
+    const safeNum = Number.isFinite(num) ? num : 0;
+    try {
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(safeNum);
+    } catch (e) {
+        return `${currency} ${safeNum.toFixed(2)}`;
+    }
 }
 
 function formatLimitValue(value, type) {
-    if (type === 'COUNT' || type === 'VELOCITY') {
-        return value.toLocaleString();
+    if (!value && value !== 0) {
+        if (type === 'COUNT' || type === 'VELOCITY') return '0';
+        return formatCurrency(0);
     }
-    return formatCurrency(value);
+    
+    // Handle BigDecimal from backend (may come as number or string)
+    const num = typeof value === 'string' ? parseFloat(value) : (typeof value === 'number' ? value : parseFloat(value));
+    if (isNaN(num)) {
+        if (type === 'COUNT' || type === 'VELOCITY') return '0';
+        return formatCurrency(0);
+    }
+    
+    if (type === 'COUNT' || type === 'VELOCITY') {
+        return num.toLocaleString();
+    }
+    // For VOLUME type, values are already in dollars (not cents)
+    return formatCurrency(num);
 }
 
 function getRiskLevelClass(riskLevel) {
@@ -371,8 +464,51 @@ function getRiskLevelClass(riskLevel) {
 }
 
 // Modal functions (stubs for now)
+function openAddLimitModal() {
+    openEditTransactionLimitModal(null);
+}
+
+function openEditTransactionLimitModal(limit) {
+    const modal = document.getElementById('editTransactionLimitModal');
+    if (!modal) {
+        alert('Edit modal not found. Please refresh the page.');
+        return;
+    }
+    
+    if (limit) {
+        // Edit mode
+        document.getElementById('editLimitId').value = limit.id || '';
+        document.getElementById('editLimitName').value = limit.name || '';
+        document.getElementById('editLimitDescription').value = limit.description || '';
+        document.getElementById('editLimitType').value = limit.limitType || 'VOLUME';
+        document.getElementById('editLimitValue').value = limit.limitValue || '';
+        document.getElementById('editLimitPeriod').value = limit.period || 'DAY';
+        document.getElementById('editLimitStatus').value = limit.status || 'ACTIVE';
+        document.querySelector('#editTransactionLimitModal h2').textContent = 'Edit Transaction Limit';
+    } else {
+        // Add mode
+        document.getElementById('editLimitId').value = '';
+        document.getElementById('editLimitName').value = '';
+        document.getElementById('editLimitDescription').value = '';
+        document.getElementById('editLimitType').value = 'VOLUME';
+        document.getElementById('editLimitValue').value = '';
+        document.getElementById('editLimitPeriod').value = 'DAY';
+        document.getElementById('editLimitStatus').value = 'ACTIVE';
+        document.querySelector('#editTransactionLimitModal h2').textContent = 'Add Transaction Limit';
+    }
+    
+    modal.style.display = 'block';
+}
+
+function closeEditTransactionLimitModal() {
+    const modal = document.getElementById('editTransactionLimitModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
 function openAddGlobalLimitModal() {
-    alert('Add Global Limit modal - to be implemented');
+    openAddLimitModal();
 }
 
 function openAddRiskThresholdModal() {
@@ -391,9 +527,165 @@ function editMerchantLimit(merchantId) {
     alert('Edit Merchant Limit - to be implemented');
 }
 
-function editGlobalLimit(id) {
-    alert('Edit Global Limit - to be implemented');
+// Load Transaction Limits table (uses Global Limits)
+function loadTransactionLimits() {
+    fetch('limits/global', {
+        credentials: 'include',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(errorData => {
+                throw new Error(errorData.message || errorData.error || `HTTP ${response.status}`);
+            }).catch(() => {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            });
+        }
+        return response.json();
+    })
+    .then(data => {
+        const tbody = document.querySelector('#limits-table tbody');
+        if (!tbody) {
+            console.warn('Limits table tbody not found');
+            return;
+        }
+        
+        tbody.innerHTML = '';
+        
+        // Handle error response
+        if (data.error) {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 2rem; color: #e74c3c;">${data.message || data.error || 'Error loading transaction limits'}</td></tr>`;
+            return;
+        }
+        
+        // Ensure data is an array
+        const limits = Array.isArray(data) ? data : [];
+        
+        if (limits.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem;">No transaction limits configured</td></tr>';
+            return;
+        }
+        
+        limits.forEach(limit => {
+            try {
+                const row = createTransactionLimitRow(limit);
+                tbody.appendChild(row);
+            } catch (e) {
+                console.error('Error creating limit row:', e, limit);
+            }
+        });
+    })
+    .catch(error => {
+        console.error('Error loading transaction limits:', error);
+        const tbody = document.querySelector('#limits-table tbody');
+        if (tbody) {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 2rem; color: #e74c3c;">Error loading transaction limits: ${error.message || 'Please try again'}</td></tr>`;
+        }
+    });
 }
+
+function createTransactionLimitRow(limit) {
+    if (!limit) {
+        console.error('Invalid limit object:', limit);
+        return null;
+    }
+    
+    const tr = document.createElement('tr');
+    
+    // Format limit type for display
+    const limitTypeDisplay = formatLimitTypeName(limit.name || limit.limitType || 'N/A');
+    
+    // Format period for display
+    const periodDisplay = formatPeriodDisplay(limit.period || 'N/A');
+    
+    // Format limit value
+    const limitValueDisplay = formatLimitValue(limit.limitValue, limit.limitType);
+    
+    // Determine applies to text
+    const appliesTo = limit.description ? limit.description : 'All Merchants';
+    
+    // Status badge
+    const statusClass = limit.status === 'ACTIVE' ? 'resolved' : 'escalated';
+    const statusText = limit.status === 'ACTIVE' ? 'Active' : (limit.status || 'Inactive');
+    
+    // Ensure id exists for edit button
+    const limitId = limit.id || limit.limitId || 0;
+    
+    tr.innerHTML = `
+        <td>${limitTypeDisplay}</td>
+        <td>${limitValueDisplay}</td>
+        <td>${periodDisplay}</td>
+        <td>${appliesTo}</td>
+        <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+        <td>
+            <button class="action-btn" onclick="editTransactionLimit(${limitId})" title="Edit Transaction Limit">
+                <i class="fas fa-edit"></i>
+            </button>
+        </td>
+    `;
+    return tr;
+}
+
+function formatLimitTypeName(name) {
+    if (!name) return 'N/A';
+    // Convert names like "Daily Transaction Limit" to "Daily Transaction"
+    return name.replace(/Limit$/i, '').trim();
+}
+
+function formatPeriodDisplay(period) {
+    if (!period) return 'N/A';
+    const periodMap = {
+        'DAY': '24 Hours',
+        'HOUR': '1 Hour',
+        'MINUTE': 'Per Minute',
+        'WEEK': '7 Days',
+        'MONTH': '30 Days',
+        'TRANSACTION': 'Per Transaction'
+    };
+    return periodMap[period.toUpperCase()] || period;
+}
+
+function editGlobalLimit(id) {
+    if (!id) {
+        alert('Error: Limit ID is missing.');
+        return;
+    }
+    
+    // Fetch the limit details
+    fetch(`limits/global`, {
+        credentials: 'include',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json();
+    })
+    .then(limits => {
+        const limit = limits.find(l => l.id === id);
+        if (!limit) {
+            alert('Limit not found');
+            return;
+        }
+        
+        // Populate edit modal
+        openEditTransactionLimitModal(limit);
+    })
+    .catch(error => {
+        console.error('Error loading limit details:', error);
+        alert('Failed to load limit details: ' + error.message);
+    });
+}
+
+// Alias for editTransactionLimit
+window.editTransactionLimit = function(id) {
+    editGlobalLimit(id);
+};
 
 function deleteGlobalLimit(id) {
     if (confirm('Are you sure you want to delete this global limit?')) {
@@ -433,4 +725,73 @@ function toggleVelocityRuleStatus(id, active) {
 function editCountryCompliance(countryCode) {
     alert('Edit Country Compliance - to be implemented');
 }
+
+// Handle Edit Transaction Limit form submission
+document.addEventListener('DOMContentLoaded', function() {
+    const editLimitForm = document.getElementById('editTransactionLimitForm');
+    if (editLimitForm) {
+        editLimitForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const limitId = document.getElementById('editLimitId').value;
+            const isEdit = limitId && limitId !== '';
+            
+            const data = {
+                name: document.getElementById('editLimitName').value,
+                description: document.getElementById('editLimitDescription').value,
+                limitType: document.getElementById('editLimitType').value,
+                limitValue: parseFloat(document.getElementById('editLimitValue').value),
+                period: document.getElementById('editLimitPeriod').value,
+                status: document.getElementById('editLimitStatus').value
+            };
+            
+            // Validate required fields
+            if (!data.name || !data.limitType || data.limitValue === null || !data.period || !data.status) {
+                alert('Please fill in all required fields.');
+                return;
+            }
+            
+            const url = isEdit ? `limits/global/${limitId}` : 'limits/global';
+            const method = isEdit ? 'PUT' : 'POST';
+            
+            fetch(url, {
+                method: method,
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => {
+                        throw new Error(text || `HTTP ${response.status}`);
+                    });
+                }
+                return response.json();
+            })
+            .then(result => {
+                alert(isEdit ? 'Transaction limit updated successfully!' : 'Transaction limit created successfully!');
+                closeEditTransactionLimitModal();
+                loadTransactionLimits(); // Refresh the table
+                loadDashboardStats(); // Refresh dashboard stats
+            })
+            .catch(error => {
+                console.error('Error saving transaction limit:', error);
+                alert('Failed to save transaction limit: ' + error.message);
+            });
+        });
+    }
+    
+    // Close modal when clicking outside
+    const editLimitModal = document.getElementById('editTransactionLimitModal');
+    if (editLimitModal) {
+        editLimitModal.addEventListener('click', function(e) {
+            if (e.target === editLimitModal) {
+                closeEditTransactionLimitModal();
+            }
+        });
+    }
+});
 

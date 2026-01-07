@@ -75,4 +75,12 @@ public class ComplianceCaseService {
         return caseRepository.findById(caseId)
                 .orElseThrow(() -> new IllegalArgumentException("Case not found: " + caseId));
     }
+
+    @Transactional
+    public void deleteCase(Long caseId) {
+        if (!caseRepository.existsById(caseId)) {
+            throw new IllegalArgumentException("Case not found: " + caseId);
+        }
+        caseRepository.deleteById(caseId);
+    }
 }

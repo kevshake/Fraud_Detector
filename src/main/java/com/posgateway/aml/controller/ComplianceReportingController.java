@@ -14,7 +14,9 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 // @Slf4j removed
 // @RequiredArgsConstructor removed
@@ -38,21 +40,10 @@ public class ComplianceReportingController {
      * GET /api/v1/compliance/sar
      */
     @GetMapping
-    public ResponseEntity<List<SuspiciousActivityReport>> getAllSars(
+    public ResponseEntity<List<SarResponse>> getAllSars(
             @RequestParam(required = false) String status) {
         log.info("Get all SAR reports (status filter: {})", status);
-        List<SuspiciousActivityReport> sars;
-        if (status != null && !status.isEmpty()) {
-            try {
-                com.posgateway.aml.model.SarStatus sarStatus = com.posgateway.aml.model.SarStatus.valueOf(status);
-                sars = sarRepository.findByStatus(sarStatus);
-            } catch (IllegalArgumentException e) {
-                sars = List.of();
-            }
-        } else {
-            sars = sarRepository.findAll();
-        }
-        return ResponseEntity.ok(sars);
+        return ResponseEntity.ok(reportingService.getAllSars(status));
     }
 
     @PostMapping
@@ -73,6 +64,16 @@ public class ComplianceReportingController {
         return ResponseEntity.ok(reportingService.fileSar(id));
     }
 
+    /**
+     * Get SAR by ID
+     * GET /api/v1/compliance/sar/{id}
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<SuspiciousActivityReport> getSarById(@PathVariable Long id) {
+        log.info("Get SAR by ID: {}", id);
+        return ResponseEntity.of(sarRepository.findById(id));
+    }
+
     @GetMapping("/{id}/xml")
     public ResponseEntity<String> downloadSarXml(@PathVariable Long id) {
         log.info("Download SAR XML: {}", id);
@@ -82,5 +83,35 @@ public class ComplianceReportingController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"sar_" + id + ".xml\"")
                 .contentType(MediaType.APPLICATION_XML)
                 .body(xml);
+    }
+
+    /**
+     * Delete SAR
+     * DELETE /api/v1/compliance/sar/{id}
+     */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteSar(@PathVariable Long id) {
+        log.info("Delete SAR: {}", id);
+        if (sarRepository.existsById(id)) {
+            sarRepository.deleteById(id);
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.notFound().build();
+    }
+
+    /**
+     * Get count of SAR reports that are not yet exported (not FILED)
+     * GET /api/v1/compliance/sar/count/not-exported
+     */
+    @GetMapping("/count/not-exported")
+    public ResponseEntity<Map<String, Long>> getNotExportedSarCount() {
+        // Count all SARs except FILED status (FILED means exported to regulatory body)
+        long totalCount = sarRepository.count();
+        long filedCount = sarRepository.countByStatus(com.posgateway.aml.model.SarStatus.FILED);
+        long notExportedCount = totalCount - filedCount;
+
+        Map<String, Long> response = new HashMap<>();
+        response.put("count", notExportedCount);
+        return ResponseEntity.ok(response);
     }
 }
