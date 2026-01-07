@@ -25,6 +25,7 @@ public class RiskAssessmentService {
     private final com.posgateway.aml.repository.MerchantRepository merchantRepository;
     private final com.posgateway.aml.service.analytics.LinkAnalysisService linkAnalysisService;
     private final com.posgateway.aml.service.analytics.BehavioralProfilingService behavioralProfilingService;
+    private final com.posgateway.aml.repository.TransactionRepository transactionRepository;
 
     @Autowired
     public RiskAssessmentService(AmlService amlService,
@@ -32,13 +33,15 @@ public class RiskAssessmentService {
             com.posgateway.aml.service.risk.RiskRulesEngine riskRulesEngine,
             com.posgateway.aml.repository.MerchantRepository merchantRepository,
             com.posgateway.aml.service.analytics.LinkAnalysisService linkAnalysisService,
-            com.posgateway.aml.service.analytics.BehavioralProfilingService behavioralProfilingService) {
+            com.posgateway.aml.service.analytics.BehavioralProfilingService behavioralProfilingService,
+            com.posgateway.aml.repository.TransactionRepository transactionRepository) {
         this.amlService = amlService;
         this.fraudDetectionService = fraudDetectionService;
         this.riskRulesEngine = riskRulesEngine;
         this.merchantRepository = merchantRepository;
         this.linkAnalysisService = linkAnalysisService;
         this.behavioralProfilingService = behavioralProfilingService;
+        this.transactionRepository = transactionRepository;
     }
 
     /**
@@ -78,11 +81,28 @@ public class RiskAssessmentService {
             boolean isLinked = !linkedBlocked.isEmpty();
             boolean isAnomaly = behavioralProfilingService.isAmountAnomaly(transaction);
 
-            // Kenya Specific Logic (Stubbed for Rule Engine)
-            // In a real system, these would come from specialized checks
-            boolean isStructuring = transaction.getAmount().remainder(new java.math.BigDecimal("99000"))
-                    .compareTo(java.math.BigDecimal.ZERO) == 0; // Simple example based on scenario
-            boolean isThirdParty = false; // Stub: Would require name matching logic
+            // Structuring Detection (Kenya Scenario - 1M KES threshold ~ $10,000)
+            boolean isStructuring = false;
+            java.math.BigDecimal amount = transaction.getAmount();
+            if (amount != null) {
+                // Check if amount is just under $10,000 threshold
+                if (amount.compareTo(new java.math.BigDecimal("9000")) >= 0
+                        && amount.compareTo(new java.math.BigDecimal("10000")) < 0) {
+                    isStructuring = true;
+                }
+            }
+
+            // Third Party Usage Suspected
+            boolean isThirdParty = false;
+            if (transaction.getMerchantName() != null && merchant.getLegalName() != null) {
+                // If the transaction merchant name doesn't match the registered legal name,
+                // suspect third party usage
+                String txMerchant = transaction.getMerchantName().toLowerCase();
+                String regLegal = merchant.getLegalName().toLowerCase();
+                if (!txMerchant.contains(regLegal) && !regLegal.contains(txMerchant)) {
+                    isThirdParty = true;
+                }
+            }
 
             // Pass facts to engine
             java.util.Map<String, Object> extraFacts = new java.util.HashMap<>();

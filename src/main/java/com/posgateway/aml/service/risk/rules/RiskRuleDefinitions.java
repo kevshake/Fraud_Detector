@@ -154,6 +154,39 @@ public class RiskRuleDefinitions {
                 })
                 .build());
 
+        // 10. High Risk Industry (MCC based)
+        rules.register(new RuleBuilder()
+                .name("High Risk Industry")
+                .description("Merchant belongs to a high risk category (e.g., Casinos, Crypto)")
+                .priority(3)
+                .when(facts -> {
+                    Merchant m = facts.get("merchant");
+                    if (m == null || m.getMcc() == null)
+                        return false;
+                    String mcc = m.getMcc();
+                    // Example high risk MCCs: 7995 (Gambling), 6051 (Crypto/Quasi Cash)
+                    return List.of("7995", "6051", "5967", "5966").contains(mcc);
+                })
+                .then(facts -> {
+                    List<String> triggered = facts.get("triggeredRules");
+                    triggered.add("HIGH_RISK_INDUSTRY");
+                })
+                .build());
+
+        // 11. Sanctions Match
+        rules.register(new RuleBuilder()
+                .name("Sanctions Match")
+                .description("Transaction or Merchant matches a restricted sanctions list")
+                .priority(1)
+                .when(facts -> {
+                    return facts.get("isSanctionsMatch") != null && (Boolean) facts.get("isSanctionsMatch");
+                })
+                .then(facts -> {
+                    List<String> triggered = facts.get("triggeredRules");
+                    triggered.add("SANCTIONS_MATCH");
+                })
+                .build());
+
         return rules;
     }
 

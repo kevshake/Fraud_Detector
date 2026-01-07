@@ -49,6 +49,12 @@ public class DashboardController {
             stats.put("openCases", caseRepository.countByPspIdAndStatus(pspId, com.posgateway.aml.model.CaseStatus.NEW)
                     + caseRepository.countByPspIdAndStatus(pspId, com.posgateway.aml.model.CaseStatus.ASSIGNED)
                     + caseRepository.countByPspIdAndStatus(pspId, com.posgateway.aml.model.CaseStatus.IN_PROGRESS));
+
+            // Real logic for urgent cases (overdue SLA)
+            java.time.LocalDateTime now = java.time.LocalDateTime.now();
+            stats.put("urgentCases", (long) caseRepository
+                    .findBySlaDeadlineBeforeAndStatusNot(now, com.posgateway.aml.model.CaseStatus.CLOSED_CLEARED)
+                    .size());
         } else {
             stats.put("totalMerchants", merchantRepository.count());
             stats.put("activeMerchants", merchantRepository.countByStatus("ACTIVE"));
@@ -57,8 +63,12 @@ public class DashboardController {
             stats.put("openCases", caseRepository.countByStatus(com.posgateway.aml.model.CaseStatus.NEW)
                     + caseRepository.countByStatus(com.posgateway.aml.model.CaseStatus.ASSIGNED)
                     + caseRepository.countByStatus(com.posgateway.aml.model.CaseStatus.IN_PROGRESS));
+
+            java.time.LocalDateTime now = java.time.LocalDateTime.now();
+            stats.put("urgentCases", (long) caseRepository
+                    .findBySlaDeadlineBeforeAndStatusNot(now, com.posgateway.aml.model.CaseStatus.CLOSED_CLEARED)
+                    .size());
         }
-        stats.put("urgentCases", 0L); // Placeholder
 
         return ResponseEntity.ok(stats);
     }
@@ -97,12 +107,10 @@ public class DashboardController {
 
     @GetMapping("/risk-distribution")
     public ResponseEntity<Map<String, Long>> getRiskDistribution() {
-        // Mock data or simple aggregation if DB supports it.
-        // real imp: merchantRiskScoreRepository.groupByScoreRange()
         Map<String, Long> distribution = new HashMap<>();
-        distribution.put("LOW", 150L);
-        distribution.put("MEDIUM", 45L);
-        distribution.put("HIGH", 12L);
+        distribution.put("LOW", merchantRepository.countByRiskLevel("LOW"));
+        distribution.put("MEDIUM", merchantRepository.countByRiskLevel("MEDIUM"));
+        distribution.put("HIGH", merchantRepository.countByRiskLevel("HIGH"));
         return ResponseEntity.ok(distribution);
     }
 
@@ -123,6 +131,13 @@ public class DashboardController {
         metrics.put("recall", "92.1%");
         metrics.put("f1", "95.2%");
         metrics.put("falsePositives", "0.4%");
+
+        // Calculate simple SAR filing rate
+        long filedSars = caseRepository.countByStatus(com.posgateway.aml.model.CaseStatus.CLOSED_SAR_FILED);
+        long totalClosed = filedSars + caseRepository.countByStatus(com.posgateway.aml.model.CaseStatus.CLOSED_CLEARED);
+        double sarRate = totalClosed > 0 ? (double) filedSars / totalClosed * 100 : 0.0;
+        metrics.put("sarFilingRate", String.format("%.1f%%", sarRate));
+
         return ResponseEntity.ok(metrics);
     }
 }

@@ -25,16 +25,52 @@ public class ComplianceCaseService {
     public ComplianceCase createCase(String description) {
         log.info("Creating compliance case (legacy service) without merchant binding");
 
+        CasePriority priority = CasePriority.MEDIUM;
+        LocalDateTime now = LocalDateTime.now();
+
         ComplianceCase newCase = ComplianceCase.builder()
                 .caseReference("CASE-" + UUID.randomUUID())
                 .description(description)
                 .status(CaseStatus.NEW)
-                .priority(CasePriority.MEDIUM)
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
+                .priority(priority)
+                .slaDeadline(calculateSlaDeadline(priority, now))
+                .daysOpen(0)
+                .createdAt(now)
+                .updatedAt(now)
                 .build();
 
         return caseRepository.save(newCase);
+    }
+
+    private LocalDateTime calculateSlaDeadline(CasePriority priority, LocalDateTime startTime) {
+        return switch (priority) {
+            case CRITICAL -> startTime.plusDays(2);
+            case HIGH -> startTime.plusDays(7);
+            case MEDIUM -> startTime.plusDays(14);
+            case LOW -> startTime.plusDays(30);
+        };
+    }
+
+    /**
+     * Daily job to increment 'daysOpen' for all non-closed cases
+     */
+    @org.springframework.scheduling.annotation.Scheduled(cron = "0 0 1 * * *") // Run at 1 AM
+    @Transactional
+    public void updateCaseAging() {
+        log.info("Running daily case aging update...");
+        java.util.List<CaseStatus> openStatuses = java.util.List.of(
+                CaseStatus.NEW, CaseStatus.ASSIGNED, CaseStatus.IN_PROGRESS, CaseStatus.PENDING_INFO);
+
+        java.util.List<ComplianceCase> activeCases = caseRepository.findByStatusIn(openStatuses);
+        for (ComplianceCase c : activeCases) {
+            if (c.getDaysOpen() == null) {
+                c.setDaysOpen(1);
+            } else {
+                c.setDaysOpen(c.getDaysOpen() + 1);
+            }
+        }
+        caseRepository.saveAll(activeCases);
+        log.info("Updated aging for {} active cases", activeCases.size());
     }
 
     @Transactional
