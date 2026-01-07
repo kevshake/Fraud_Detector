@@ -15,7 +15,6 @@ import com.posgateway.aml.repository.MerchantRepository;
 import com.posgateway.aml.repository.MerchantScreeningResultRepository;
 import com.posgateway.aml.repository.risk.HighRiskCountryRepository;
 import com.posgateway.aml.service.aml.AmlScreeningOrchestrator;
-import com.posgateway.aml.service.merchant.MccMappingService;
 import com.posgateway.aml.service.workflow.WorkflowAutomationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;

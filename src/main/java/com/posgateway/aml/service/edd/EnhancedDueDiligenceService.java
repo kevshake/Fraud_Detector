@@ -1,10 +1,8 @@
 package com.posgateway.aml.service.edd;
 
-import com.posgateway.aml.entity.merchant.Merchant;
 import com.posgateway.aml.repository.MerchantRepository;
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 

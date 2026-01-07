@@ -3,7 +3,6 @@ package com.posgateway.aml.service;
 import com.posgateway.aml.entity.Role;
 import com.posgateway.aml.entity.psp.Psp;
 import com.posgateway.aml.model.Permission;
-import com.posgateway.aml.model.UserRole;
 import com.posgateway.aml.repository.RoleRepository;
 import jakarta.annotation.PostConstruct;
 import org.springframework.stereotype.Service;

@@ -2,7 +2,6 @@ package com.posgateway.aml.service.case_management;
 
 import com.posgateway.aml.entity.User;
 import com.posgateway.aml.entity.compliance.ComplianceCase;
-import com.posgateway.aml.model.CasePriority;
 import com.posgateway.aml.model.UserRole;
 import com.posgateway.aml.model.CaseStatus;
 import com.posgateway.aml.repository.ComplianceCaseRepository;

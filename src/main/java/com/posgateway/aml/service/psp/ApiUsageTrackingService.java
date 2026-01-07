@@ -3,7 +3,6 @@ package com.posgateway.aml.service.psp;
 
 
 import com.posgateway.aml.dto.psp.ApiUsageEvent;
-import com.posgateway.aml.entity.User;
 import com.posgateway.aml.entity.psp.ApiUsageLog;
 import com.posgateway.aml.entity.psp.Psp;
 import com.posgateway.aml.repository.ApiUsageLogRepository;

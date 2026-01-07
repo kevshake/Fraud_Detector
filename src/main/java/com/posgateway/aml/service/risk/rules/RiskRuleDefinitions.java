@@ -2,7 +2,6 @@ package com.posgateway.aml.service.risk.rules;
 
 import com.posgateway.aml.entity.merchant.Merchant;
 import com.posgateway.aml.model.Transaction;
-import org.jeasy.rules.api.Rule;
 import org.jeasy.rules.api.Rules;
 import org.jeasy.rules.core.RuleBuilder;
 import org.springframework.context.annotation.Configuration;

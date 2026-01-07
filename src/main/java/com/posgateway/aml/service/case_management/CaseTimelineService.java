@@ -1,13 +1,10 @@
 package com.posgateway.aml.service.case_management;
 
-import com.posgateway.aml.entity.TransactionEntity;
 import com.posgateway.aml.entity.compliance.CaseActivity;
 import com.posgateway.aml.entity.compliance.CaseEvidence;
-import com.posgateway.aml.entity.compliance.CaseNote;
 import com.posgateway.aml.entity.compliance.CaseTransaction;
 import com.posgateway.aml.entity.compliance.ComplianceCase;
 import com.posgateway.aml.entity.compliance.SuspiciousActivityReport;
-import com.posgateway.aml.model.ActivityType;
 import com.posgateway.aml.repository.CaseActivityRepository;
 import com.posgateway.aml.repository.compliance.CaseEvidenceRepository;
 import com.posgateway.aml.repository.CaseTransactionRepository;
@@ -21,7 +18,6 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;

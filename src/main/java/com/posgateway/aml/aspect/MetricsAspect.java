@@ -74,10 +74,8 @@ public class MetricsAspect {
     @Around("execution(* com.posgateway.aml.service.*ScoringService.*(..))")
     public Object measureModelScoring(ProceedingJoinPoint joinPoint) throws Throwable {
         long startTime = System.currentTimeMillis();
-        boolean success = false;
         try {
             Object result = joinPoint.proceed();
-            success = true;
             long duration = System.currentTimeMillis() - startTime;
             metricsService.recordModelScoringTime(duration);
             metricsService.incrementModelScoring(true);

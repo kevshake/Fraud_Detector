@@ -5,7 +5,6 @@ import com.posgateway.aml.model.RiskLevel;
 import com.posgateway.aml.model.SarStatus;
 import com.posgateway.aml.repository.ComplianceCaseRepository;
 import com.posgateway.aml.repository.SuspiciousActivityReportRepository;
-import com.posgateway.aml.repository.TransactionRepository;
 import io.micrometer.core.instrument.*;
 import io.micrometer.core.instrument.DistributionSummary;
 import jakarta.annotation.PostConstruct;

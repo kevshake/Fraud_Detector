@@ -2,7 +2,6 @@ package com.posgateway.aml.service.analytics;
 
 import com.posgateway.aml.entity.compliance.ComplianceCase;
 import com.posgateway.aml.entity.compliance.SuspiciousActivityReport;
-import com.posgateway.aml.model.CaseStatus;
 import com.posgateway.aml.model.SarStatus;
 import com.posgateway.aml.repository.ComplianceCaseRepository;
 import com.posgateway.aml.repository.SuspiciousActivityReportRepository;

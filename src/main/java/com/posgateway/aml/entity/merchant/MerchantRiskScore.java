@@ -2,7 +2,6 @@ package com.posgateway.aml.entity.merchant;
 
 import jakarta.persistence.*;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**

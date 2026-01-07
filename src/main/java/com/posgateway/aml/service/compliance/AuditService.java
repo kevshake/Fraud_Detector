@@ -1,6 +1,5 @@
 package com.posgateway.aml.service.compliance;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.posgateway.aml.entity.compliance.AuditTrail;
 import com.posgateway.aml.repository.AuditTrailRepository;

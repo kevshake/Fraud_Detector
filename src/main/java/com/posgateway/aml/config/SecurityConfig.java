@@ -13,7 +13,6 @@ import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 import com.posgateway.aml.service.auth.CustomUserDetailsService;
-import com.posgateway.aml.config.CustomAuthenticationFailureHandler;
 
 @Configuration(proxyBeanMethods = false)
 @EnableWebSecurity

@@ -1,11 +1,7 @@
 package com.posgateway.aml.service.reporting;
 
-import com.posgateway.aml.model.MerchantMetrics;
 import com.posgateway.aml.repository.AerospikeMetricsRepository;
-import com.posgateway.aml.service.risk.HecmSimulator;
-import com.posgateway.aml.service.risk.VfmpSimulator;
 import com.posgateway.aml.service.risk.SchemeSimulatorService;
-import com.posgateway.aml.service.risk.SchemeSimulatorService.MerchantRiskAssessment;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
