@@ -8,6 +8,7 @@ import com.posgateway.aml.entity.psp.Psp;
 import com.posgateway.aml.repository.ApiUsageLogRepository;
 import com.posgateway.aml.repository.PspRepository;
 import com.posgateway.aml.repository.UserRepository;
+import com.posgateway.aml.service.PrometheusMetricsService;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,12 +24,14 @@ public class ApiUsageTrackingService {
     private final PspRepository pspRepository;
     private final UserRepository userRepository;
     private final BillingService billingService;
+    private final PrometheusMetricsService metricsService;
 
-    public ApiUsageTrackingService(ApiUsageLogRepository apiUsageLogRepository, PspRepository pspRepository, UserRepository userRepository, BillingService billingService) {
+    public ApiUsageTrackingService(ApiUsageLogRepository apiUsageLogRepository, PspRepository pspRepository, UserRepository userRepository, BillingService billingService, PrometheusMetricsService metricsService) {
         this.apiUsageLogRepository = apiUsageLogRepository;
         this.pspRepository = pspRepository;
         this.userRepository = userRepository;
         this.billingService = billingService;
+        this.metricsService = metricsService;
     }
 
 
@@ -73,6 +76,21 @@ public class ApiUsageTrackingService {
                     .build();
 
             apiUsageLogRepository.save(usageLog);
+
+            // Record revenue metrics for Prometheus
+            if (cost.compareTo(BigDecimal.ZERO) > 0) {
+                try {
+                    metricsService.recordRevenue(
+                        cost.doubleValue(),
+                        psp.getPspId(),
+                        psp.getPspCode(),
+                        event.getServiceType()
+                    );
+                } catch (Exception metricsEx) {
+                    log.warn("Failed to record revenue metrics", metricsEx);
+                    // Don't fail the main flow if metrics recording fails
+                }
+            }
 
         } catch (Exception e) {
             log.error("Failed to log API usage event", e);

@@ -28,6 +28,7 @@ public class HighConcurrencyFraudOrchestrator {
     private final OptimizedFeatureExtractionService featureExtractionService;
     private final ScoringService scoringService;
     private final DecisionEngine decisionEngine;
+    private final PrometheusMetricsService metricsService;
 
     @Value("${ultra.throughput.enabled:true}")
     private boolean ultraThroughputEnabled;
@@ -36,10 +37,12 @@ public class HighConcurrencyFraudOrchestrator {
     public HighConcurrencyFraudOrchestrator(
             OptimizedFeatureExtractionService featureExtractionService,
             ScoringService scoringService,
-            DecisionEngine decisionEngine) {
+            DecisionEngine decisionEngine,
+            PrometheusMetricsService metricsService) {
         this.featureExtractionService = featureExtractionService;
         this.scoringService = scoringService;
         this.decisionEngine = decisionEngine;
+        this.metricsService = metricsService;
     }
 
     /**
@@ -67,6 +70,43 @@ public class HighConcurrencyFraudOrchestrator {
 
             long latencyMs = System.currentTimeMillis() - startTime;
 
+            // Record PSP-aware metrics
+            Long pspId = transaction.getPspId();
+            String pspCode = getPspCode(pspId);
+
+            // Record transaction decision metrics with PSP context
+            String action = decision.getAction();
+            switch (action) {
+                case "BLOCK":
+                    metricsService.incrementTransactionBlocked(
+                        transaction.getMerchantId(), "fraud_detected", pspId, pspCode);
+                    break;
+                case "ALLOW":
+                    metricsService.incrementTransactionAllowed(
+                        transaction.getMerchantId(), pspId, pspCode);
+                    break;
+                case "HOLD":
+                    metricsService.incrementTransactionHeld(
+                        transaction.getMerchantId(), pspId, pspCode);
+                    break;
+                case "ALERT":
+                    metricsService.incrementTransactionAlerted(
+                        transaction.getMerchantId(), pspId, pspCode);
+                    break;
+            }
+
+            // Record fraud detection metrics with PSP context
+            boolean fraudDetected = "BLOCK".equals(action);
+            metricsService.incrementFraudAssessment(fraudDetected, pspId, pspCode);
+
+            if (fraudDetected) {
+                metricsService.incrementFraudFalsePositive(pspId, pspCode); // Will be corrected based on actual outcomes
+            }
+
+            // Record processing time with PSP context
+            metricsService.recordTransactionProcessingTime(latencyMs);
+            metricsService.recordFraudAssessmentTime(latencyMs, pspId, pspCode);
+
             FraudDetectionResult result = new FraudDetectionResult();
             result.setTxnId(transaction.getTxnId());
             result.setScore(scoringResult.getScore());
@@ -77,7 +117,7 @@ public class HighConcurrencyFraudOrchestrator {
             return CompletableFuture.completedFuture(result);
 
         } catch (Exception e) {
-            logger.error("Error in ultra-high throughput processing for transaction {}", 
+            logger.error("Error in ultra-high throughput processing for transaction {}",
                 transaction.getTxnId(), e);
             return CompletableFuture.completedFuture(createErrorResult(transaction.getTxnId()));
         } finally {
@@ -119,6 +159,19 @@ public class HighConcurrencyFraudOrchestrator {
         result.setAction("ALLOW"); // Fail open for availability
         result.setLatencyMs(0L);
         return result;
+    }
+
+    /**
+     * Helper method to get PSP code from PSP ID
+     * In production, this would query the PSP repository
+     */
+    private String getPspCode(Long pspId) {
+        if (pspId == null) {
+            return "unknown";
+        }
+        // TODO: Implement proper PSP code lookup from repository
+        // For now, return a placeholder based on PSP ID
+        return "PSP_" + pspId;
     }
 
     /**

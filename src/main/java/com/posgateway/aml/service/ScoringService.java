@@ -20,6 +20,10 @@ public class ScoringService {
     private static final Logger logger = LoggerFactory.getLogger(ScoringService.class);
 
     private final RestClientService restClientService;
+    private final com.posgateway.aml.service.risk.SchemeSimulatorService schemeSimulatorService;
+    private final com.posgateway.aml.service.graph.AerospikeGraphCacheService aerospikeGraphCacheService;
+    private final com.posgateway.aml.service.rules.DroolsRulesService droolsRulesService;
+    private final com.posgateway.aml.service.deeplearning.DL4JAnomalyService dl4jAnomalyService;
 
     @Value("${scoring.service.enabled:true}")
     private boolean scoringEnabled;
@@ -30,13 +34,20 @@ public class ScoringService {
     @Value("${scoring.service.retry.max:3}")
     private int maxRetries;
 
-    private final com.posgateway.aml.service.risk.SchemeSimulatorService schemeSimulatorService;
+    @Value("${scoring.cache.enabled:true}")
+    private boolean cacheEnabled;
 
     @Autowired
     public ScoringService(RestClientService restClientService,
-            com.posgateway.aml.service.risk.SchemeSimulatorService schemeSimulatorService) {
+            com.posgateway.aml.service.risk.SchemeSimulatorService schemeSimulatorService,
+            @org.springframework.beans.factory.annotation.Autowired(required = false) com.posgateway.aml.service.graph.AerospikeGraphCacheService aerospikeGraphCacheService,
+            @org.springframework.beans.factory.annotation.Autowired(required = false) com.posgateway.aml.service.rules.DroolsRulesService droolsRulesService,
+            @org.springframework.beans.factory.annotation.Autowired(required = false) com.posgateway.aml.service.deeplearning.DL4JAnomalyService dl4jAnomalyService) {
         this.restClientService = restClientService;
         this.schemeSimulatorService = schemeSimulatorService;
+        this.aerospikeGraphCacheService = aerospikeGraphCacheService;
+        this.droolsRulesService = droolsRulesService;
+        this.dl4jAnomalyService = dl4jAnomalyService;
     }
 
     /**
@@ -48,6 +59,20 @@ public class ScoringService {
      * @return Scoring result with score and latency
      */
     public ScoringResult scoreTransaction(Long txnId, Map<String, Object> features) {
+        // 0. Check Aerospike cache first for ultra-fast response
+        if (cacheEnabled && aerospikeGraphCacheService != null) {
+            Map<String, Object> cached = aerospikeGraphCacheService.getXGBoostScore(txnId);
+            if (cached != null) {
+                Double cachedScore = (Double) cached.get("score");
+                Long cachedLatency = (Long) cached.get("latencyMs");
+                @SuppressWarnings("unchecked")
+                Map<String, Object> cachedRiskDetails = (Map<String, Object>) cached.get("riskDetails");
+                logger.debug("Cache HIT for txn {} - score: {}", txnId, cachedScore);
+                return new ScoringResult(txnId, cachedScore, cachedLatency != null ? cachedLatency : 0L,
+                        cachedRiskDetails != null ? cachedRiskDetails : new HashMap<>());
+            }
+        }
+
         // 1. Run Scheme Simulators (Local check)
         com.posgateway.aml.service.risk.SchemeSimulatorService.MerchantRiskAssessment assessment = null;
         try {
@@ -99,6 +124,58 @@ public class ScoringService {
 
                 // Add ML score to riskDetails as requested
                 riskDetails.put("ml_score", score);
+
+                // --- KIE DROOLS RULES ENGINE INTEGRATION (PHASE 4) ---
+                if (droolsRulesService != null) {
+                    com.posgateway.aml.rules.RuleEvaluationResult ruleResult = droolsRulesService.evaluate(txnId,
+                            features, score);
+
+                    // Add rule details to risk response
+                    riskDetails.put("rule_decision", ruleResult.getDecision());
+                    riskDetails.put("rules_triggered", ruleResult.getTriggeredRules());
+                    riskDetails.put("rule_reasons", ruleResult.getReasons());
+                    riskDetails.put("sar_required", ruleResult.isSarRequired());
+
+                    // CRITICAL: Regulatory Rules Override ML Score
+                    if ("BLOCK".equals(ruleResult.getDecision())) {
+                        score = 1.0; // Force High Risk
+                        logger.warn("Regulatory Rule BLOCK override for txn {}: {}", txnId, ruleResult.getReasons());
+                    } else if ("HOLD".equals(ruleResult.getDecision()) && score < 0.7) {
+                        score = 0.85; // Force Review if Model missed it
+                        logger.info("Regulatory Rule HOLD override for txn {}: {}", txnId, ruleResult.getReasons());
+                    }
+                }
+                // -----------------------------------------------------
+
+                // --- DL4J DEEP ANOMALY DETECTION (PHASE 5) ---
+                if (dl4jAnomalyService != null) {
+                    try {
+                        com.posgateway.aml.service.deeplearning.DL4JAnomalyService.AnomalyResult anomalyResult = dl4jAnomalyService
+                                .detectAnomaly(txnId, features);
+
+                        riskDetails.put("anomaly_score", anomalyResult.getAnomalyScore());
+                        riskDetails.put("is_anomaly", anomalyResult.isAnomaly());
+                        riskDetails.put("anomaly_reason", anomalyResult.getReason());
+
+                        if (anomalyResult.isAnomaly() && anomalyResult.getAnomalyScore() > 0.95) {
+                            logger.warn("High Anomaly Score (Novel Pattern) detected for txn {}: {}", txnId,
+                                    anomalyResult.getAnomalyScore());
+                            if (!riskDetails.containsKey("rule_decision")
+                                    || !"BLOCK".equals(riskDetails.get("rule_decision"))) {
+                                // If not blocked by rules, mark for review
+                                riskDetails.put("requires_enhanced_review", true);
+                            }
+                        }
+                    } catch (Exception e) {
+                        logger.error("DL4J Anomaly Detection failed for txn {}", txnId, e);
+                    }
+                }
+                // -----------------------------------------------------
+
+                // Cache result in Aerospike for fast subsequent lookups
+                if (cacheEnabled && aerospikeGraphCacheService != null) {
+                    aerospikeGraphCacheService.cacheXGBoostScore(txnId, score, latencyMs, riskDetails);
+                }
 
                 logger.info("Transaction {} scored: score={}, latency={}ms", txnId, score, latencyMs);
                 return new ScoringResult(txnId, score, latencyMs, riskDetails);

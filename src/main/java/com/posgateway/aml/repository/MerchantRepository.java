@@ -23,8 +23,9 @@ public interface MerchantRepository extends JpaRepository<Merchant, Long> {
 
     /**
      * Find merchants needing rescreening (next_screening_due <= today)
+     * Excludes already REJECTED or TERMINATED merchants
      */
-    @Query("SELECT m FROM Merchant m WHERE m.status = 'ACTIVE' " +
+    @Query("SELECT m FROM Merchant m WHERE m.status NOT IN ('REJECTED', 'TERMINATED') " +
             "AND (m.nextScreeningDue IS NULL OR m.nextScreeningDue <= :today)")
     List<Merchant> findMerchantsNeedingRescreening(@Param("today") LocalDate today);
 

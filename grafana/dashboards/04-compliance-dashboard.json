@@ -6,6 +6,36 @@
     "schemaVersion": 27,
     "version": 1,
     "refresh": "10s",
+    "templating": {
+      "list": [
+        {
+          "current": {
+            "selected": false,
+            "text": "All PSPs",
+            "value": "$__all"
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "definition": "label_values(psp_code)",
+          "hide": 0,
+          "includeAll": true,
+          "multi": true,
+          "name": "PSP",
+          "options": [],
+          "query": {
+            "query": "label_values(psp_code)",
+            "refId": "StandardVariableQuery"
+          },
+          "refresh": 1,
+          "regex": "",
+          "skipUrlSync": false,
+          "sort": 1,
+          "type": "query"
+        }
+      ]
+    },
     "panels": [
       {
         "id": 1,
@@ -14,7 +44,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
         "targets": [
           {
-            "expr": "rate(compliance_cases_created_total[5m])",
+            "expr": "rate(compliance_cases_created_total{psp_code=~\"$PSP\"}[5m])",
             "legendFormat": "Cases Created",
             "refId": "A"
           }
@@ -31,7 +61,7 @@
         "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
         "targets": [
           {
-            "expr": "compliance_open_cases",
+            "expr": "sum(compliance_open_cases{psp_code=~\"$PSP\"})",
             "refId": "A"
           }
         ],
@@ -56,7 +86,7 @@
         "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
         "targets": [
           {
-            "expr": "compliance_pending_sars",
+            "expr": "sum(compliance_pending_sars{psp_code=~\"$PSP\"})",
             "refId": "A"
           }
         ],
@@ -81,7 +111,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
         "targets": [
           {
-            "expr": "sum(rate(compliance_cases_by_status_total[5m])) by (status)",
+            "expr": "sum(rate(compliance_cases_by_status_total{psp_code=~\"$PSP\"}[5m])) by (status, psp_code)",
             "legendFormat": "{{status}}",
             "refId": "A"
           }
@@ -98,7 +128,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
         "targets": [
           {
-            "expr": "sum(rate(compliance_cases_by_priority_total[5m])) by (priority)",
+            "expr": "sum(rate(compliance_cases_by_priority_total{psp_code=~\"$PSP\"}[5m])) by (priority, psp_code)",
             "legendFormat": "{{priority}}",
             "refId": "A"
           }
@@ -115,22 +145,22 @@
         "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
         "targets": [
           {
-            "expr": "rate(compliance_sars_created_total[5m])",
+            "expr": "rate(compliance_sars_created_total{psp_code=~\"$PSP\"}[5m])",
             "legendFormat": "SARs Created",
             "refId": "A"
           },
           {
-            "expr": "rate(compliance_sars_filed_total[5m])",
+            "expr": "rate(compliance_sars_filed_total{psp_code=~\"$PSP\"}[5m])",
             "legendFormat": "SARs Filed",
             "refId": "B"
           },
           {
-            "expr": "rate(compliance_sars_approved_total[5m])",
+            "expr": "rate(compliance_sars_approved_total{psp_code=~\"$PSP\"}[5m])",
             "legendFormat": "SARs Approved",
             "refId": "C"
           },
           {
-            "expr": "rate(compliance_sars_rejected_total[5m])",
+            "expr": "rate(compliance_sars_rejected_total{psp_code=~\"$PSP\"}[5m])",
             "legendFormat": "SARs Rejected",
             "refId": "D"
           }
@@ -147,17 +177,17 @@
         "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
         "targets": [
           {
-            "expr": "histogram_quantile(0.50, sum(rate(compliance_case_resolution_time_bucket[5m])) by (le))",
+            "expr": "histogram_quantile(0.50, sum(rate(compliance_case_resolution_time_bucket{psp_code=~\"$PSP\"}[5m])) by (le, psp_code))",
             "legendFormat": "P50",
             "refId": "A"
           },
           {
-            "expr": "histogram_quantile(0.95, sum(rate(compliance_case_resolution_time_bucket[5m])) by (le))",
+            "expr": "histogram_quantile(0.95, sum(rate(compliance_case_resolution_time_bucket{psp_code=~\"$PSP\"}[5m])) by (le, psp_code))",
             "legendFormat": "P95",
             "refId": "B"
           },
           {
-            "expr": "histogram_quantile(0.99, sum(rate(compliance_case_resolution_time_bucket[5m])) by (le))",
+            "expr": "histogram_quantile(0.99, sum(rate(compliance_case_resolution_time_bucket{psp_code=~\"$PSP\"}[5m])) by (le, psp_code))",
             "legendFormat": "P99",
             "refId": "C"
           }
@@ -174,7 +204,7 @@
         "gridPos": {"h": 4, "w": 6, "x": 0, "y": 24},
         "targets": [
           {
-            "expr": "sum(rate(compliance_cases_escalated_total[5m])) / sum(rate(compliance_cases_created_total[5m])) * 100",
+            "expr": "sum(rate(compliance_cases_escalated_total{psp_code=~\"$PSP\"}[5m])) / sum(rate(compliance_cases_created_total{psp_code=~\"$PSP\"}[5m])) * 100",
             "refId": "A"
           }
         ],
@@ -200,12 +230,12 @@
         "gridPos": {"h": 8, "w": 12, "x": 6, "y": 24},
         "targets": [
           {
-            "expr": "histogram_quantile(0.50, sum(rate(compliance_sar_filing_time_bucket[5m])) by (le))",
+            "expr": "histogram_quantile(0.50, sum(rate(compliance_sar_filing_time_bucket{psp_code=~\"$PSP\"}[5m])) by (le, psp_code))",
             "legendFormat": "P50",
             "refId": "A"
           },
           {
-            "expr": "histogram_quantile(0.95, sum(rate(compliance_sar_filing_time_bucket[5m])) by (le))",
+            "expr": "histogram_quantile(0.95, sum(rate(compliance_sar_filing_time_bucket{psp_code=~\"$PSP\"}[5m])) by (le, psp_code))",
             "legendFormat": "P95",
             "refId": "B"
           }

@@ -16,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import com.posgateway.aml.service.security.PspIsolationService;
 
 import java.util.List;
 
@@ -43,6 +44,9 @@ public class MerchantController {
 
     @Autowired
     private PspRepository pspRepository;
+
+    @Autowired
+    private PspIsolationService pspIsolationService;
 
     /**
      * Onboard new merchant
@@ -114,12 +118,26 @@ public class MerchantController {
     /**
      * Get all merchants
      * GET /api/v1/merchants
+     * 
+     * Security: PSP users can only see merchants from their PSP.
+     * Platform Administrators can see all merchants.
      */
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'SCREENING_ANALYST', 'PSP_ADMIN', 'PSP_ANALYST', 'VIEWER')")
     public ResponseEntity<List<MerchantOnboardingResponse>> getAllMerchants() {
         log.info("Get all merchants request");
         try {
-            List<Merchant> merchants = merchantRepository.findAll();
+            // Enforce PSP isolation
+            Long userPspId = pspIsolationService.getCurrentUserPspId();
+            
+            List<Merchant> merchants;
+            if (userPspId != null) {
+                // PSP user - only their PSP's merchants
+                merchants = merchantRepository.findByPspPspId(userPspId);
+            } else {
+                // Platform Admin - all merchants
+                merchants = merchantRepository.findAll();
+            }
             List<MerchantOnboardingResponse> responses = merchants.stream()
                     .filter(m -> m.getMerchantId() != null) // Filter out null IDs
                     .map(m -> {
@@ -160,12 +178,18 @@ public class MerchantController {
      * GET /api/v1/merchants/{id}
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'SCREENING_ANALYST', 'PSP_ADMIN', 'PSP_USER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'SCREENING_ANALYST', 'PSP_ADMIN', 'PSP_ANALYST', 'PSP_USER')")
     public ResponseEntity<MerchantOnboardingResponse> getMerchant(@PathVariable Long id,
             org.springframework.security.core.Authentication authentication) {
         log.info("Get merchant request for ID: {} by user: {}", id, authentication.getName());
         try {
-            // Ideally: Check if user has access to this merchant's PSP
+            // Get merchant and validate PSP access
+            Merchant merchant = merchantRepository.findById(id)
+                    .orElseThrow(() -> new IllegalArgumentException("Merchant not found"));
+            
+            // Enforce PSP isolation
+            pspIsolationService.validateMerchantAccess(merchant);
+            
             MerchantOnboardingResponse response = onboardingService.getMerchantById(id);
             // Validation logic should be in service or here:
             // if (currentUser.psp != null &&

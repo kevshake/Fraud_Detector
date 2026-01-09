@@ -25,12 +25,15 @@ public class FeatureExtractionService {
 
     private final TransactionRepository transactionRepository;
     private final ObjectMapper objectMapper;
+    private final com.posgateway.aml.service.graph.Neo4jGdsService neo4jGdsService;
 
     @Autowired
-    public FeatureExtractionService(TransactionRepository transactionRepository, 
-                                   ObjectMapper objectMapper) {
+    public FeatureExtractionService(TransactionRepository transactionRepository,
+            ObjectMapper objectMapper,
+            @Autowired(required = false) com.posgateway.aml.service.graph.Neo4jGdsService neo4jGdsService) {
         this.transactionRepository = transactionRepository;
         this.objectMapper = objectMapper;
+        this.neo4jGdsService = neo4jGdsService;
     }
 
     /**
@@ -56,8 +59,49 @@ public class FeatureExtractionService {
         // AML-specific features
         extractAmlFeatures(transaction, features);
 
+        // Graph features from Neo4j GDS (PageRank, Community, Betweenness)
+        extractGraphFeatures(transaction, features);
+
         logger.debug("Extracted {} features for transaction {}", features.size(), transaction.getTxnId());
         return features;
+    }
+
+    /**
+     * Extract graph-based features from Neo4j GDS.
+     * These are computed by Neo4j algorithms and cached in Aerospike.
+     */
+    private void extractGraphFeatures(TransactionEntity transaction, Map<String, Object> features) {
+        if (neo4jGdsService == null) {
+            // Neo4j not enabled - set default values
+            features.put("pageRank", 0.0);
+            features.put("communityId", 0L);
+            features.put("betweenness", 0.0);
+            features.put("connectionCount", 0L);
+            features.put("triangle_count", 0L);
+            features.put("clustering_coefficient", 0.0);
+            return;
+        }
+
+        String merchantId = transaction.getMerchantId();
+        if (merchantId == null) {
+            return;
+        }
+
+        try {
+            Map<String, Object> graphMetrics = neo4jGdsService.getGraphMetrics(merchantId);
+            if (graphMetrics != null) {
+                features.put("pageRank", graphMetrics.getOrDefault("pageRank", 0.0));
+                features.put("communityId", graphMetrics.getOrDefault("communityId", 0L));
+                features.put("betweenness", graphMetrics.getOrDefault("betweenness", 0.0));
+                features.put("connectionCount", graphMetrics.getOrDefault("connectionCount", 0L));
+                features.put("triangle_count", graphMetrics.getOrDefault("triangleCount", 0L));
+                features.put("clustering_coefficient", graphMetrics.getOrDefault("localClusteringCoefficient", 0.0));
+                logger.debug("Added graph features for merchant {}: pageRank={}, clustering={}", merchantId,
+                        graphMetrics.get("pageRank"), graphMetrics.get("localClusteringCoefficient"));
+            }
+        } catch (Exception e) {
+            logger.warn("Error extracting graph features for merchant {}: {}", merchantId, e.getMessage());
+        }
     }
 
     private void extractTransactionFeatures(TransactionEntity transaction, Map<String, Object> features) {
@@ -102,31 +146,33 @@ public class FeatureExtractionService {
         String merchantId = transaction.getMerchantId();
         if (merchantId != null) {
             Long merchantTxnCount1h = transactionRepository.countByMerchantInTimeWindow(
-                merchantId, oneHourAgo, now);
+                    merchantId, oneHourAgo, now);
             Long merchantAmountSum24h = transactionRepository.sumAmountByMerchantInTimeWindow(
-                merchantId, twentyFourHoursAgo, now);
+                    merchantId, twentyFourHoursAgo, now);
 
             features.put("merchant_txn_count_1h", merchantTxnCount1h);
-            features.put("merchant_txn_amount_sum_24h", merchantAmountSum24h != null ? merchantAmountSum24h / 100.0 : 0.0);
+            features.put("merchant_txn_amount_sum_24h",
+                    merchantAmountSum24h != null ? merchantAmountSum24h / 100.0 : 0.0);
         }
 
         // PAN velocity features - cache panHash for performance
         String panHash = transaction.getPanHash();
         if (panHash != null) {
             Long panTxnCount1h = transactionRepository.countByPanInTimeWindow(
-                panHash, oneHourAgo, now);
+                    panHash, oneHourAgo, now);
             Long panAmountSum7d = transactionRepository.sumAmountByPanInTimeWindow(
-                panHash, sevenDaysAgo, now);
+                    panHash, sevenDaysAgo, now);
             Long distinctTerminals30d = transactionRepository.countDistinctTerminalsByPan(
-                panHash, thirtyDaysAgo, now);
+                    panHash, thirtyDaysAgo, now);
             Double avgAmount30d = transactionRepository.avgAmountByPanInTimeWindow(
-                panHash, thirtyDaysAgo, now);
+                    panHash, thirtyDaysAgo, now);
             LocalDateTime lastTxnTime = transactionRepository.findLastTransactionTimeByPan(
-                panHash);
+                    panHash);
 
             features.put("pan_txn_count_1h", panTxnCount1h != null ? panTxnCount1h : 0L);
             features.put("pan_txn_amount_sum_7d", panAmountSum7d != null ? panAmountSum7d / 100.0 : 0.0);
-            features.put("distinct_terminals_last_30d_for_pan", distinctTerminals30d != null ? distinctTerminals30d : 0L);
+            features.put("distinct_terminals_last_30d_for_pan",
+                    distinctTerminals30d != null ? distinctTerminals30d : 0L);
             features.put("avg_amount_by_pan_30d", avgAmount30d != null ? avgAmount30d / 100.0 : 0.0);
 
             // Time since last transaction
@@ -138,7 +184,8 @@ public class FeatureExtractionService {
             }
 
             // Z-score of amount vs PAN history - optimize division operations
-            // Note: amountCents already cached in extractTransactionFeatures, but this is a different method
+            // Note: amountCents already cached in extractTransactionFeatures, but this is a
+            // different method
             // Cache again here for this method's scope
             Long amountCents = transaction.getAmountCents();
             if (avgAmount30d != null && avgAmount30d > 0 && amountCents != null) {
@@ -166,8 +213,8 @@ public class FeatureExtractionService {
 
             // Extract EMV-specific features
             features.put("is_chip_present", emvTags.containsKey("9F7A") || emvTags.containsKey("95"));
-            features.put("is_contactless", emvTags.containsKey("9F6E") || 
-                        (emvTags.containsKey("82") && emvTags.get("82").toString().contains("contactless")));
+            features.put("is_contactless", emvTags.containsKey("9F6E") ||
+                    (emvTags.containsKey("82") && emvTags.get("82").toString().contains("contactless")));
 
             // CVM method from CVMR (Tag 9F34)
             if (emvTags.containsKey("9F34")) {
@@ -204,12 +251,12 @@ public class FeatureExtractionService {
         if (panHash != null) {
             // Cumulative debits/credits (simplified - would need transaction type)
             Long panAmountSum30d = transactionRepository.sumAmountByPanInTimeWindow(
-                panHash, thirtyDaysAgo, now);
+                    panHash, thirtyDaysAgo, now);
             features.put("cumulative_debits_30d", panAmountSum30d != null ? panAmountSum30d / 100.0 : 0.0);
 
             // High value transaction count
             Long highValueCount = transactionRepository.countByPanInTimeWindow(
-                panHash, sevenDaysAgo, now);
+                    panHash, sevenDaysAgo, now);
             features.put("num_high_value_txn_7d", highValueCount != null ? highValueCount : 0L);
         }
     }
@@ -231,4 +278,3 @@ public class FeatureExtractionService {
         return 0;
     }
 }
-

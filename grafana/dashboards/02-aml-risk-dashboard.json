@@ -6,6 +6,36 @@
     "schemaVersion": 27,
     "version": 1,
     "refresh": "10s",
+    "templating": {
+      "list": [
+        {
+          "current": {
+            "selected": false,
+            "text": "All PSPs",
+            "value": "$__all"
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "definition": "label_values(psp_code)",
+          "hide": 0,
+          "includeAll": true,
+          "multi": true,
+          "name": "PSP",
+          "options": [],
+          "query": {
+            "query": "label_values(psp_code)",
+            "refId": "StandardVariableQuery"
+          },
+          "refresh": 1,
+          "regex": "",
+          "skipUrlSync": false,
+          "sort": 1,
+          "type": "query"
+        }
+      ]
+    },
     "panels": [
       {
         "id": 1,
@@ -14,7 +44,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
         "targets": [
           {
-            "expr": "rate(aml_risk_assessments_total[5m])",
+            "expr": "sum(rate(aml_risk_assessments_total{psp_code=~\"$PSP\"}[5m]))",
             "legendFormat": "Total Assessments",
             "refId": "A"
           }
@@ -31,17 +61,17 @@
         "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
         "targets": [
           {
-            "expr": "sum(rate(aml_risk_high_total[5m]))",
+            "expr": "sum(rate(aml_risk_high_total{psp_code=~\"$PSP\"}[5m]))",
             "legendFormat": "High Risk",
             "refId": "A"
           },
           {
-            "expr": "sum(rate(aml_risk_medium_total[5m]))",
+            "expr": "sum(rate(aml_risk_medium_total{psp_code=~\"$PSP\"}[5m]))",
             "legendFormat": "Medium Risk",
             "refId": "B"
           },
           {
-            "expr": "sum(rate(aml_risk_low_total[5m]))",
+            "expr": "sum(rate(aml_risk_low_total{psp_code=~\"$PSP\"}[5m]))",
             "legendFormat": "Low Risk",
             "refId": "C"
           }
@@ -54,17 +84,17 @@
         "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
         "targets": [
           {
-            "expr": "histogram_quantile(0.50, sum(rate(aml_assessment_time_bucket[5m])) by (le))",
+            "expr": "histogram_quantile(0.50, sum(rate(aml_assessment_time_bucket{psp_code=~\"$PSP\"}[5m])) by (le, psp_code))",
             "legendFormat": "P50",
             "refId": "A"
           },
           {
-            "expr": "histogram_quantile(0.95, sum(rate(aml_assessment_time_bucket[5m])) by (le))",
+            "expr": "histogram_quantile(0.95, sum(rate(aml_assessment_time_bucket{psp_code=~\"$PSP\"}[5m])) by (le, psp_code))",
             "legendFormat": "P95",
             "refId": "B"
           },
           {
-            "expr": "histogram_quantile(0.99, sum(rate(aml_assessment_time_bucket[5m])) by (le))",
+            "expr": "histogram_quantile(0.99, sum(rate(aml_assessment_time_bucket{psp_code=~\"$PSP\"}[5m])) by (le, psp_code))",
             "legendFormat": "P99",
             "refId": "C"
           }
@@ -81,7 +111,7 @@
         "gridPos": {"h": 4, "w": 6, "x": 12, "y": 8},
         "targets": [
           {
-            "expr": "aml_active_cases",
+            "expr": "sum(aml_active_cases{psp_code=~\"$PSP\"})",
             "refId": "A"
           }
         ],
@@ -106,22 +136,22 @@
         "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
         "targets": [
           {
-            "expr": "sum(rate(aml_velocity_checks_total[5m]))",
+            "expr": "sum(rate(aml_velocity_checks_total{psp_code=~\"$PSP\"}[5m]))",
             "legendFormat": "Velocity Checks",
             "refId": "A"
           },
           {
-            "expr": "sum(rate(aml_geographic_risk_total[5m]))",
+            "expr": "sum(rate(aml_geographic_risk_total{psp_code=~\"$PSP\"}[5m]))",
             "legendFormat": "Geographic Risk",
             "refId": "B"
           },
           {
-            "expr": "sum(rate(aml_pattern_risk_total[5m]))",
+            "expr": "sum(rate(aml_pattern_risk_total{psp_code=~\"$PSP\"}[5m]))",
             "legendFormat": "Pattern Risk",
             "refId": "C"
           },
           {
-            "expr": "sum(rate(aml_amount_risk_total[5m]))",
+            "expr": "sum(rate(aml_amount_risk_total{psp_code=~\"$PSP\"}[5m]))",
             "legendFormat": "Amount Risk",
             "refId": "D"
           }
@@ -138,17 +168,17 @@
         "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
         "targets": [
           {
-            "expr": "sum(rate(aml_risk_high_total[5m]))",
+            "expr": "sum(rate(aml_risk_high_total{psp_code=~\"$PSP\"}[5m]))",
             "legendFormat": "High Risk",
             "refId": "A"
           },
           {
-            "expr": "sum(rate(aml_risk_medium_total[5m]))",
+            "expr": "sum(rate(aml_risk_medium_total{psp_code=~\"$PSP\"}[5m]))",
             "legendFormat": "Medium Risk",
             "refId": "B"
           },
           {
-            "expr": "sum(rate(aml_risk_low_total[5m]))",
+            "expr": "sum(rate(aml_risk_low_total{psp_code=~\"$PSP\"}[5m]))",
             "legendFormat": "Low Risk",
             "refId": "C"
           }
@@ -165,7 +195,7 @@
         "gridPos": {"h": 4, "w": 6, "x": 0, "y": 24},
         "targets": [
           {
-            "expr": "sum(rate(aml_risk_assessments_total[5m])) / sum(rate(aml_transactions_total[5m])) * 100",
+            "expr": "sum(rate(aml_risk_assessments_total{psp_code=~\"$PSP\"}[5m])) / sum(rate(aml_transactions_total{psp_code=~\"$PSP\"}[5m])) * 100",
             "refId": "A"
           }
         ],

@@ -4,6 +4,7 @@ import com.posgateway.aml.entity.User;
 import com.posgateway.aml.model.CasePriority;
 import com.posgateway.aml.model.CaseStatus;
 import jakarta.persistence.*;
+import jakarta.persistence.Index;
 import org.hibernate.envers.Audited;
 
 import java.time.LocalDateTime;
@@ -17,7 +18,12 @@ import java.util.Set;
  * @Audited: Hibernate Envers automatically tracks all changes
  */
 @Entity
-@Table(name = "compliance_cases")
+@Table(name = "compliance_cases", indexes = {
+        @Index(name = "idx_case_merchant", columnList = "merchant_id"),
+        @Index(name = "idx_case_psp", columnList = "psp_id"),
+        @Index(name = "idx_case_status", columnList = "status"),
+        @Index(name = "idx_case_created", columnList = "createdAt")
+})
 @Audited
 public class ComplianceCase {
 
@@ -29,7 +35,8 @@ public class ComplianceCase {
     private String caseReference; // e.g., CASE-2023-0001
 
     @Column(name = "merchant_id")
-    private Long merchantId; // optional merchant association for filtering (matches Merchant.merchantId type)
+    private Long merchantId; // optional merchant association for filtering (matches Merchant.merchantId
+                             // type)
 
     @Column(name = "psp_id")
     private Long pspId; // Added for multi-tenancy filtering
@@ -101,10 +108,27 @@ public class ComplianceCase {
 
     private LocalDateTime resolvedAt;
 
+    // NEW: Alerts triggering this case
+    @OneToMany(mappedBy = "complianceCase", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<CaseAlert> alerts;
+
+    // NEW: Decisions made on this case
+    @OneToMany(mappedBy = "complianceCase", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<CaseDecision> decisions;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
+
+    // NEW: Retention & Archival
+    @Column(nullable = false)
+    private Boolean archived = false;
+
+    private LocalDateTime archivedAt;
+
+    @Column(name = "archive_reference")
+    private String archiveReference; // Pointer to cold storage (e.g. S3 path/ARN)
 
     public ComplianceCase() {
     }
@@ -302,6 +326,14 @@ public class ComplianceCase {
         this.notes = notes;
     }
 
+    public List<CaseAlert> getAlerts() {
+        return alerts;
+    }
+
+    public void setAlerts(List<CaseAlert> alerts) {
+        this.alerts = alerts;
+    }
+
     public String getResolution() {
         return resolution;
     }
@@ -348,6 +380,30 @@ public class ComplianceCase {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public Boolean getArchived() {
+        return archived;
+    }
+
+    public void setArchived(Boolean archived) {
+        this.archived = archived;
+    }
+
+    public LocalDateTime getArchivedAt() {
+        return archivedAt;
+    }
+
+    public void setArchivedAt(LocalDateTime archivedAt) {
+        this.archivedAt = archivedAt;
+    }
+
+    public String getArchiveReference() {
+        return archiveReference;
+    }
+
+    public void setArchiveReference(String archiveReference) {
+        this.archiveReference = archiveReference;
     }
 
     @PrePersist

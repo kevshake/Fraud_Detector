@@ -19,7 +19,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import com.posgateway.aml.service.security.PspIsolationService;
 
 import com.posgateway.aml.mapper.FraudDetectionMapper;
 import com.posgateway.aml.repository.TransactionRepository;
@@ -50,6 +52,7 @@ public class TransactionController {
     private final RequestBufferingService requestBufferingService;
     private final RequestRateLimiter rateLimiter;
     private final ConnectionCleanupService cleanupService;
+    private final PspIsolationService pspIsolationService;
 
     private final AtomicInteger currentConcurrentRequests = new AtomicInteger(0);
 
@@ -72,7 +75,8 @@ public class TransactionController {
             RequestRateLimiter rateLimiter,
             ConnectionCleanupService cleanupService,
             TransactionRepository transactionRepository,
-            FraudDetectionMapper fraudMapper) {
+            FraudDetectionMapper fraudMapper,
+            PspIsolationService pspIsolationService) {
         this.ingestionService = ingestionService;
         this.batchIngestionService = batchIngestionService;
         this.fraudOrchestrator = fraudOrchestrator;
@@ -83,6 +87,7 @@ public class TransactionController {
         this.cleanupService = cleanupService;
         this.transactionRepository = transactionRepository;
         this.fraudMapper = fraudMapper;
+        this.pspIsolationService = pspIsolationService;
     }
 
     /**
@@ -301,23 +306,30 @@ public class TransactionController {
     /**
      * Get all transactions
      * GET /transactions
+     * 
+     * Security: PSP users can only see their own PSP's transactions.
+     * Platform Administrators can see all transactions or filter by PSP.
      */
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'ANALYST', 'PSP_ADMIN', 'PSP_ANALYST', 'VIEWER')")
     public ResponseEntity<List<TransactionEntity>> getAllTransactions(
             @RequestParam(required = false, defaultValue = "100") int limit,
             @RequestParam(required = false) Long pspId) {
         logger.info("Get all transactions request (limit: {}, pspId: {})", limit, pspId);
         try {
+            // Enforce PSP isolation - sanitize PSP ID parameter
+            Long sanitizedPspId = pspIsolationService.sanitizePspId(pspId);
+            
             List<TransactionEntity> transactions;
             
-            if (pspId != null) {
-                // Filter by PSP ID - get more than limit to ensure we have enough after filtering nulls
-                transactions = transactionRepository.findByPspIdOrderByTxnTsDesc(pspId).stream()
+            if (sanitizedPspId != null) {
+                // Filter by PSP ID - PSP users automatically get their PSP, Platform Admins can specify
+                transactions = transactionRepository.findByPspIdOrderByTxnTsDesc(sanitizedPspId).stream()
                         .filter(t -> t.getTxnTs() != null) // Filter out null timestamps
                         .limit(limit)
                         .collect(Collectors.toList());
             } else {
-                // Get all transactions, sorted by timestamp descending
+                // Platform Admin view - all transactions
                 // Use findAllByOrderByTxnTsDesc if available, otherwise sort manually
                 try {
                     transactions = transactionRepository.findAllByOrderByTxnTsDesc().stream()

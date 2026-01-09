@@ -26,7 +26,7 @@ public class CaseNote {
     private ComplianceCase complianceCase;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "author_id", nullable = false)
+    @JoinColumn(name = "author_id", nullable = true)
     @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
     private User author;
 

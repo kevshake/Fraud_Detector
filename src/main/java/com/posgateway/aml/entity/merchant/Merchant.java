@@ -128,10 +128,12 @@ public class Merchant {
     private String riskLevel = "UNKNOWN"; // LOW, MEDIUM, HIGH, CRITICAL
 
     // Relationships
+    @com.fasterxml.jackson.annotation.JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "psp_id", nullable = false) // Merchant MUST belong to a PSP
     private com.posgateway.aml.entity.psp.Psp psp;
 
+    @com.fasterxml.jackson.annotation.JsonIgnore
     @OneToMany(mappedBy = "merchant", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<BeneficialOwner> beneficialOwners = new ArrayList<>();
 

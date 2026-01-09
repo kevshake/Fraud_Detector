@@ -6,6 +6,36 @@
     "schemaVersion": 27,
     "version": 1,
     "refresh": "10s",
+    "templating": {
+      "list": [
+        {
+          "current": {
+            "selected": false,
+            "text": "All PSPs",
+            "value": "$__all"
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "definition": "label_values(psp_code)",
+          "hide": 0,
+          "includeAll": true,
+          "multi": true,
+          "name": "PSP",
+          "options": [],
+          "query": {
+            "query": "label_values(psp_code)",
+            "refId": "StandardVariableQuery"
+          },
+          "refresh": 1,
+          "regex": "",
+          "skipUrlSync": false,
+          "sort": 1,
+          "type": "query"
+        }
+      ]
+    },
     "panels": [
       {
         "id": 1,
@@ -14,17 +44,17 @@
         "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
         "targets": [
           {
-            "expr": "rate(screening_total[5m])",
+            "expr": "rate(screening_total{psp_code=~\"$PSP\"}[5m])",
             "legendFormat": "Total Screenings",
             "refId": "A"
           },
           {
-            "expr": "rate(screening_matches_total[5m])",
+            "expr": "rate(screening_matches_total{psp_code=~\"$PSP\"}[5m])",
             "legendFormat": "Matches",
             "refId": "B"
           },
           {
-            "expr": "rate(screening_no_matches_total[5m])",
+            "expr": "rate(screening_no_matches_total{psp_code=~\"$PSP\"}[5m])",
             "legendFormat": "No Matches",
             "refId": "C"
           }
@@ -41,7 +71,7 @@
         "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
         "targets": [
           {
-            "expr": "sum(rate(screening_matches_total[5m])) / sum(rate(screening_total[5m])) * 100",
+            "expr": "sum(rate(screening_matches_total{psp_code=~\"$PSP\"}[5m])) / sum(rate(screening_total{psp_code=~\"$PSP\"}[5m])) * 100",
             "refId": "A"
           }
         ],
@@ -67,7 +97,7 @@
         "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
         "targets": [
           {
-            "expr": "screening_queue_size",
+            "expr": "sum(screening_queue_size{psp_code=~\"$PSP\"})",
             "refId": "A"
           }
         ],
@@ -92,7 +122,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
         "targets": [
           {
-            "expr": "sum(rate(screening_by_type_total[5m])) by (type)",
+            "expr": "sum(rate(screening_by_type_total{psp_code=~\"$PSP\"}[5m])) by (type, psp_code)",
             "legendFormat": "{{type}}",
             "refId": "A"
           }
@@ -109,17 +139,17 @@
         "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
         "targets": [
           {
-            "expr": "histogram_quantile(0.50, sum(rate(screening_time_bucket[5m])) by (le))",
+            "expr": "histogram_quantile(0.50, sum(rate(screening_time_bucket{psp_code=~\"$PSP\"}[5m])) by (le, psp_code))",
             "legendFormat": "P50",
             "refId": "A"
           },
           {
-            "expr": "histogram_quantile(0.95, sum(rate(screening_time_bucket[5m])) by (le))",
+            "expr": "histogram_quantile(0.95, sum(rate(screening_time_bucket{psp_code=~\"$PSP\"}[5m])) by (le, psp_code))",
             "legendFormat": "P95",
             "refId": "B"
           },
           {
-            "expr": "histogram_quantile(0.99, sum(rate(screening_time_bucket[5m])) by (le))",
+            "expr": "histogram_quantile(0.99, sum(rate(screening_time_bucket{psp_code=~\"$PSP\"}[5m])) by (le, psp_code))",
             "legendFormat": "P99",
             "refId": "C"
           }
@@ -136,12 +166,12 @@
         "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
         "targets": [
           {
-            "expr": "sum(rate(screening_matches_total[5m]))",
+            "expr": "sum(rate(screening_matches_total{psp_code=~\"$PSP\"}[5m]))",
             "legendFormat": "Matches",
             "refId": "A"
           },
           {
-            "expr": "sum(rate(screening_no_matches_total[5m]))",
+            "expr": "sum(rate(screening_no_matches_total{psp_code=~\"$PSP\"}[5m]))",
             "legendFormat": "No Matches",
             "refId": "B"
           }
@@ -154,7 +184,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
         "targets": [
           {
-            "expr": "rate(screening_total[1m])",
+            "expr": "rate(screening_total{psp_code=~\"$PSP\"}[1m])",
             "legendFormat": "Screenings/sec",
             "refId": "A"
           }

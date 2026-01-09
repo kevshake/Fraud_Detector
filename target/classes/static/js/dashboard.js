@@ -381,9 +381,11 @@ document.addEventListener('DOMContentLoaded', function () {
     function getStatusClass(status) {
         if (!status) return 'pending';
         const s = status.toString().toUpperCase();
-        if (s === 'INVESTIGATING' || s === 'IN_PROGRESS') return 'investigating';
-        if (s === 'RESOLVED' || s === 'COMPLETED') return 'resolved';
+        if (s === 'INVESTIGATING' || s === 'IN_PROGRESS' || s === 'UNDER_REVIEW') return 'investigating';
+        if (s === 'RESOLVED' || s === 'COMPLETED' || s === 'CLOSED_APPROVED') return 'resolved';
         if (s === 'NEW' || s === 'OPEN') return 'pending';
+        if (s === 'CLOSED_REJECTED') return 'escalated';
+        if (s === 'SAR_FILED') return 'escalated';
         return 'escalated';
     }
 
@@ -1649,9 +1651,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 return res.json();
             })
-            .then(cases => {
+            .then(data => {
+                // Handle Pagination Response (Page<ComplianceCase>) or List response
+                const cases = data.content ? data.content : data;
+                
                 // Update the badge count with actual count of cases
-                updateCasesCount();
+                updateCasesCount(data.totalElements || (cases ? cases.length : 0));
 
                 const tbody = document.querySelector('#cases-table tbody');
                 if (!tbody) return;

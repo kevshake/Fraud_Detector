@@ -10,4 +10,11 @@ datasources:
     jsonData:
       timeInterval: "10s"
       httpMethod: "POST"
+      queryTimeout: "60s"
+      httpHeaderName1: "X-Scope-OrgID"
+      exemplarTraceIdDestinations:
+        - name: trace_id
+          datasourceUid: jaeger
+          urlDisplayLabel: "View Trace"
+    secureJsonData: {}
 

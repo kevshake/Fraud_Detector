@@ -77,6 +77,7 @@ public class SecurityConfig {
                                                 .hasAnyRole("COMPLIANCE_OFFICER", "ADMIN", "PSP_ADMIN", "PSP_USER")
                                                 .requestMatchers("/api/v1/psps/**")
                                                 .hasAnyRole("ADMIN", "PSP_ADMIN", "PSP_USER", "APP_CONTROLLER")
+                                                .requestMatchers("/api/v1/grafana/**").authenticated() // Grafana user context for role-based access
                                                 .requestMatchers("/api/v1/merchants/**").authenticated() // Detailed
                                                                                                          // control via
                                                                                                          // @PreAuthorize

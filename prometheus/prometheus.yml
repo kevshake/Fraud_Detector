@@ -1,9 +1,10 @@
 global:
-  scrape_interval: 10s
-  evaluation_interval: 10s
+  scrape_interval: 15s
+  evaluation_interval: 15s
   external_labels:
     cluster: 'aml-fraud-detector'
     environment: 'production'
+    monitor: 'aml-fraud-detector-monitoring'
 
 # Alertmanager configuration
 alerting:
@@ -22,17 +23,21 @@ scrape_configs:
   - job_name: 'prometheus'
     static_configs:
       - targets: ['localhost:9090']
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    metrics_path: /metrics
 
   # AML Fraud Detector Application
   - job_name: 'aml-fraud-detector'
     metrics_path: '/actuator/prometheus'
-    scrape_interval: 10s
-    scrape_timeout: 5s
+    scrape_interval: 15s
+    scrape_timeout: 10s
     static_configs:
       - targets: ['host.docker.internal:8080']
         labels:
           application: 'aml-fraud-detector'
           environment: 'production'
+          service: 'aml-service'
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target
@@ -40,4 +45,12 @@ scrape_configs:
         target_label: instance
       - target_label: __address__
         replacement: host.docker.internal:8080
+    metric_relabel_configs:
+      # Keep only relevant metrics to reduce storage
+      - source_labels: [__name__]
+        regex: '(aml_|fraud_|compliance_|screening_|model_|api_|cache_|jvm_|http_server_|hikaricp_|process_|system_|database_|circuitbreaker_|thread_pool_)'
+        action: keep
+      # Add common labels
+      - target_label: service
+        replacement: 'aml-fraud-detector'
 

@@ -16,6 +16,17 @@ import java.util.List;
 public interface ComplianceCaseRepository extends JpaRepository<ComplianceCase, Long> {
 
     /**
+     * Find cases by status (Paginated)
+     */
+    org.springframework.data.domain.Page<ComplianceCase> findByStatus(CaseStatus status,
+            org.springframework.data.domain.Pageable pageable);
+
+    /**
+     * Find all cases (Paginated)
+     */
+    org.springframework.data.domain.Page<ComplianceCase> findAll(org.springframework.data.domain.Pageable pageable);
+
+    /**
      * Find cases by status
      */
     List<ComplianceCase> findByStatus(CaseStatus status);
@@ -101,4 +112,21 @@ public interface ComplianceCaseRepository extends JpaRepository<ComplianceCase, 
 
     // Find cases by PSP and status not equal
     List<ComplianceCase> findByPspIdAndStatusNot(Long pspId, CaseStatus status);
+
+    /**
+     * Find cases by PSP and Status (Paginated)
+     */
+    org.springframework.data.domain.Page<ComplianceCase> findByPspIdAndStatus(Long pspId, CaseStatus status,
+            org.springframework.data.domain.Pageable pageable);
+
+    /**
+     * Find all cases for PSP (Paginated)
+     */
+    org.springframework.data.domain.Page<ComplianceCase> findByPspId(Long pspId,
+            org.springframework.data.domain.Pageable pageable);
+
+    /**
+     * Count all cases for PSP
+     */
+    long countByPspId(Long pspId);
 }

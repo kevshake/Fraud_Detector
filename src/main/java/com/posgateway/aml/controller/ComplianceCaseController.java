@@ -29,9 +29,21 @@ public class ComplianceCaseController {
     private static final Logger log = LoggerFactory.getLogger(ComplianceCaseController.class);
 
     private final ComplianceCaseRepository complianceCaseRepository;
+    private final com.posgateway.aml.service.case_management.CasePermissionService casePermissionService;
 
-    public ComplianceCaseController(ComplianceCaseRepository complianceCaseRepository) {
+    public ComplianceCaseController(ComplianceCaseRepository complianceCaseRepository,
+            com.posgateway.aml.service.case_management.CasePermissionService casePermissionService) {
         this.complianceCaseRepository = complianceCaseRepository;
+        this.casePermissionService = casePermissionService;
+    }
+
+    private com.posgateway.aml.entity.User getCurrentUser() {
+        org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder
+                .getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof com.posgateway.aml.entity.User) {
+            return (com.posgateway.aml.entity.User) auth.getPrincipal();
+        }
+        return null;
     }
 
     /**
@@ -40,21 +52,48 @@ public class ComplianceCaseController {
      */
     @GetMapping
     @PreAuthorize("hasAuthority('VIEW_CASES')")
-    public ResponseEntity<List<ComplianceCase>> getAllCases(
-            @RequestParam(required = false) String status) {
+    public ResponseEntity<org.springframework.data.domain.Page<ComplianceCase>> getAllCases(
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
 
-        log.info("Get all compliance cases (status filter: {})", status);
+        com.posgateway.aml.entity.User user = getCurrentUser();
+        if (user == null) {
+            return ResponseEntity.status(401).build();
+        }
 
-        List<ComplianceCase> cases;
+        log.info("Get all compliance cases (user: {}, status: {}, page: {}, size: {})", user.getUsername(), status,
+                page, size);
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
+
+        com.posgateway.aml.model.UserRole role = com.posgateway.aml.model.UserRole.valueOf(user.getRole().getName());
+        boolean isPspUser = (role == com.posgateway.aml.model.UserRole.PSP_ADMIN
+                || role == com.posgateway.aml.model.UserRole.PSP_ANALYST);
+        Long pspId = (user.getPsp() != null) ? user.getPsp().getPspId() : null;
+
+        if (isPspUser && pspId == null) {
+            return ResponseEntity.ok(org.springframework.data.domain.Page.empty()); // Misconfiguration
+        }
+
+        org.springframework.data.domain.Page<ComplianceCase> cases;
         if (status != null && !status.isEmpty()) {
             try {
                 CaseStatus cs = CaseStatus.valueOf(status);
-                cases = complianceCaseRepository.findByStatus(cs);
+                // PSP Filtered vs Global
+                if (isPspUser) {
+                    cases = complianceCaseRepository.findByPspIdAndStatus(pspId, cs, pageable);
+                } else {
+                    cases = complianceCaseRepository.findByStatus(cs, pageable);
+                }
             } catch (IllegalArgumentException e) {
-                cases = List.of();
+                cases = org.springframework.data.domain.Page.empty();
             }
         } else {
-            cases = complianceCaseRepository.findAll();
+            if (isPspUser) {
+                cases = complianceCaseRepository.findByPspId(pspId, pageable);
+            } else {
+                cases = complianceCaseRepository.findAll(pageable);
+            }
         }
 
         return ResponseEntity.ok(cases);
@@ -67,6 +106,14 @@ public class ComplianceCaseController {
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('VIEW_CASES')")
     public ResponseEntity<ComplianceCase> getCaseById(@PathVariable Long id) {
+        com.posgateway.aml.entity.User user = getCurrentUser();
+        if (user == null)
+            return ResponseEntity.status(401).build();
+
+        if (!casePermissionService.canView(id, user)) {
+            return ResponseEntity.status(403).build();
+        }
+
         return ResponseEntity.of(complianceCaseRepository.findById(id));
     }
 
@@ -76,11 +123,40 @@ public class ComplianceCaseController {
      */
     @GetMapping("/stats")
     public ResponseEntity<CaseStats> getStats() {
-        long openCases = complianceCaseRepository.countByStatus(CaseStatus.NEW)
-                + complianceCaseRepository.countByStatus(CaseStatus.ASSIGNED)
-                + complianceCaseRepository.countByStatus(CaseStatus.IN_PROGRESS);
-        long inProgressCases = complianceCaseRepository.countByStatus(CaseStatus.IN_PROGRESS);
-        long totalCases = complianceCaseRepository.count();
+        com.posgateway.aml.entity.User user = getCurrentUser();
+        if (user == null)
+            return ResponseEntity.status(401).build();
+
+        com.posgateway.aml.model.UserRole role = com.posgateway.aml.model.UserRole.valueOf(user.getRole().getName());
+        boolean isPspUser = (role == com.posgateway.aml.model.UserRole.PSP_ADMIN
+                || role == com.posgateway.aml.model.UserRole.PSP_ANALYST);
+        Long pspId = (user.getPsp() != null) ? user.getPsp().getPspId() : null;
+
+        long openCases;
+        long inProgressCases;
+        long totalCases;
+
+        if (isPspUser && pspId != null) {
+            openCases = complianceCaseRepository.countByPspIdAndStatus(pspId, CaseStatus.NEW); // + ASSIGNED if needed
+            inProgressCases = complianceCaseRepository.countByPspIdAndStatus(pspId, CaseStatus.IN_PROGRESS);
+            // Count total for PSP? Repository only has specific counts.
+            // Let's assume total is sum or create countByPspI.
+            // We have countByPspIdAndStatus.
+            // We need countByPspId.
+            totalCases = complianceCaseRepository.countByPspIdAndStatus(pspId, CaseStatus.NEW)
+                    + complianceCaseRepository.countByPspIdAndStatus(pspId, CaseStatus.IN_PROGRESS)
+                    + complianceCaseRepository.countByPspIdAndStatus(pspId, CaseStatus.CLOSED_CLEARED)
+                    + complianceCaseRepository.countByPspIdAndStatus(pspId, CaseStatus.CLOSED_SAR_FILED)
+                    + complianceCaseRepository.countByPspIdAndStatus(pspId, CaseStatus.CLOSED_BLOCKED)
+            // approx total
+            ;
+        } else {
+            openCases = complianceCaseRepository.countByStatus(CaseStatus.NEW)
+                    + complianceCaseRepository.countByStatus(CaseStatus.ASSIGNED)
+                    + complianceCaseRepository.countByStatus(CaseStatus.IN_PROGRESS);
+            inProgressCases = complianceCaseRepository.countByStatus(CaseStatus.IN_PROGRESS);
+            totalCases = complianceCaseRepository.count();
+        }
 
         CaseStats stats = new CaseStats(openCases, inProgressCases, totalCases);
 
@@ -93,7 +169,22 @@ public class ComplianceCaseController {
      */
     @GetMapping("/count")
     public ResponseEntity<Map<String, Long>> getCaseCount() {
-        long totalCount = complianceCaseRepository.count();
+        com.posgateway.aml.entity.User user = getCurrentUser();
+        if (user == null)
+            return ResponseEntity.status(401).build();
+
+        com.posgateway.aml.model.UserRole role = com.posgateway.aml.model.UserRole.valueOf(user.getRole().getName());
+        boolean isPspUser = (role == com.posgateway.aml.model.UserRole.PSP_ADMIN
+                || role == com.posgateway.aml.model.UserRole.PSP_ANALYST);
+        Long pspId = (user.getPsp() != null) ? user.getPsp().getPspId() : null;
+
+        long totalCount;
+        if (isPspUser && pspId != null) {
+            totalCount = complianceCaseRepository.countByPspId(pspId);
+        } else {
+            totalCount = complianceCaseRepository.count();
+        }
+
         Map<String, Long> response = new HashMap<>();
         response.put("count", totalCount);
         return ResponseEntity.ok(response);

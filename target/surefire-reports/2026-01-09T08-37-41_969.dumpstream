@@ -1,5 +1,0 @@
-# Created at 2026-01-09T08:37:42.184
-Boot Manifest-JAR contains absolute paths in classpath 'D:\PROJECTS\POS_GATEWAY\APP\AML_FRAU_DETECTOR\target\test-classes'
-Hint: <argLine>-Djdk.net.URLClassPath.disableClassPathURLCheck=true</argLine>
-'other' has different root
-

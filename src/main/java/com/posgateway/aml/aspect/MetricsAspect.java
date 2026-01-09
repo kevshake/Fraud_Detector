@@ -28,7 +28,7 @@ public class MetricsAspect {
             Object result = joinPoint.proceed();
             long duration = System.currentTimeMillis() - startTime;
             metricsService.recordTransactionProcessingTime(duration);
-            metricsService.incrementTransactionProcessed(null, "processed");
+            metricsService.incrementTransactionProcessed(null, "processed", null, null);
             return result;
         } catch (Throwable e) {
             long duration = System.currentTimeMillis() - startTime;
@@ -43,11 +43,11 @@ public class MetricsAspect {
         try {
             Object result = joinPoint.proceed();
             long duration = System.currentTimeMillis() - startTime;
-            metricsService.recordAmlAssessmentTime(duration);
+            metricsService.recordAmlAssessmentTime(duration, null, null);
             return result;
         } catch (Throwable e) {
             long duration = System.currentTimeMillis() - startTime;
-            metricsService.recordAmlAssessmentTime(duration);
+            metricsService.recordAmlAssessmentTime(duration, null, null);
             throw e;
         }
     }
@@ -58,11 +58,11 @@ public class MetricsAspect {
         try {
             Object result = joinPoint.proceed();
             long duration = System.currentTimeMillis() - startTime;
-            metricsService.recordFraudAssessmentTime(duration);
+            metricsService.recordFraudAssessmentTime(duration, null, null);
             return result;
         } catch (Throwable e) {
             long duration = System.currentTimeMillis() - startTime;
-            metricsService.recordFraudAssessmentTime(duration);
+            metricsService.recordFraudAssessmentTime(duration, null, null);
             throw e;
         }
     }
@@ -73,15 +73,14 @@ public class MetricsAspect {
         try {
             Object result = joinPoint.proceed();
             long duration = System.currentTimeMillis() - startTime;
-            metricsService.recordModelScoringTime(duration);
-            metricsService.incrementModelScoring(true);
+            metricsService.recordModelScoringTime(duration, null, null);
+            metricsService.incrementModelScoring(true, null, null);
             return result;
         } catch (Throwable e) {
             long duration = System.currentTimeMillis() - startTime;
-            metricsService.recordModelScoringTime(duration);
-            metricsService.incrementModelScoring(false);
+            metricsService.recordModelScoringTime(duration, null, null);
+            metricsService.incrementModelScoring(false, null, null);
             throw e;
         }
     }
 }
-
