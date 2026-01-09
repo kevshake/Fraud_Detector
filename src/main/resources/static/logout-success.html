@@ -25,7 +25,11 @@
         body {
             margin: 0;
             height: 100vh;
-            background: linear-gradient(135deg, var(--bg-gradient-start), var(--bg-gradient-end));
+            background:
+                radial-gradient(at 0% 0%, rgba(169, 50, 38, 0.1) 0, transparent 40%),
+                radial-gradient(at 100% 0%, rgba(241, 196, 15, 0.05) 0, transparent 40%),
+                linear-gradient(135deg, var(--bg-gradient-start), var(--bg-gradient-end));
+            background-attachment: fixed;
             font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
             display: flex;
             align-items: center;
@@ -44,6 +48,7 @@
                 opacity: 0;
                 transform: translateY(30px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -68,6 +73,7 @@
             from {
                 transform: scale(0);
             }
+
             to {
                 transform: scale(1);
             }
@@ -86,7 +92,7 @@
             border-radius: 16px;
             width: 100%;
             max-width: 450px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 20px 48px -12px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.1);
             margin: 0 auto;
         }
 
@@ -185,16 +191,21 @@
         }
 
         @keyframes float {
-            0%, 100% {
+
+            0%,
+            100% {
                 transform: translateY(0) translateX(0);
                 opacity: 0;
             }
+
             10% {
                 opacity: 1;
             }
+
             90% {
                 opacity: 1;
             }
+
             100% {
                 transform: translateY(-100vh) translateX(100px);
                 opacity: 0;
@@ -211,11 +222,11 @@
         <div class="logout-icon">
             <i class="fas fa-check-circle"></i>
         </div>
-        
+
         <div class="logout-card">
             <h1>Successfully Logged Out</h1>
             <p>You have been securely logged out of the AML Fraud Detector system.</p>
-            
+
             <div class="logout-info">
                 <div class="logout-info-item">
                     <i class="fas fa-shield-alt"></i>
@@ -231,7 +242,7 @@
                 </div>
             </div>
 
-            <a href="/login.html" class="btn-login">
+            <a href="login.html" class="btn-login">
                 <i class="fas fa-sign-in-alt"></i>
                 Return to Login
             </a>
@@ -247,7 +258,7 @@
         function createParticles() {
             const particlesContainer = document.getElementById('particles');
             const particleCount = 20;
-            
+
             for (let i = 0; i < particleCount; i++) {
                 const particle = document.createElement('div');
                 particle.className = 'particle';
@@ -268,7 +279,7 @@
             }
             if (countdown <= 0) {
                 clearInterval(countdownInterval);
-                window.location.href = '/login.html';
+                window.location.href = 'login.html';
             }
         }, 1000);
 
@@ -279,10 +290,14 @@
         document.querySelector('.btn-login').addEventListener('click', (e) => {
             e.preventDefault();
             clearInterval(countdownInterval);
-            window.location.href = '/login.html';
+            window.location.href = 'login.html';
         });
     </script>
+    
+    <!-- Footer -->
+    <div style="position: fixed; bottom: 8px; right: 8px; font-size: 0.5rem; color: rgba(255, 255, 255, 0.3); opacity: 0.4; font-weight: 300;">
+        Powered by Hokeka
+    </div>
 </body>
 
 </html>
-

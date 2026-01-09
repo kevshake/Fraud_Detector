@@ -13,6 +13,7 @@ public class AuditService {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AuditService.class);
 
     private final AuditTrailRepository auditTrailRepository;
+    @SuppressWarnings("unused")
     private final ObjectMapper objectMapper;
 
     public AuditService(AuditTrailRepository auditTrailRepository, ObjectMapper objectMapper) {
@@ -27,7 +28,9 @@ public class AuditService {
 
         java.util.Map<String, Object> evidenceMap;
         if (payload instanceof java.util.Map) {
-            evidenceMap = (java.util.Map<String, Object>) payload;
+            @SuppressWarnings("unchecked")
+            java.util.Map<String, Object> castPayload = (java.util.Map<String, Object>) payload;
+            evidenceMap = castPayload;
         } else {
             // Wrap payload if not a map
             evidenceMap = java.util.Collections.singletonMap("data", payload);

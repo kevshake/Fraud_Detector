@@ -116,3 +116,4 @@ CREATE TABLE IF NOT EXISTS audit_logs_enhanced (
     checksum VARCHAR(255)
 );
 
+

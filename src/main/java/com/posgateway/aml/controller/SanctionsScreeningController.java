@@ -158,6 +158,8 @@ public class SanctionsScreeningController {
         return ResponseEntity.ok("Sanctions screening service is healthy");
     }
 
+    // DTOs for JSON deserialization - constructors and setters are used by Jackson
+    @SuppressWarnings("unused")
     private static class ScreeningRequest {
         private String name;
         private String entityType; // PERSON, ORGANIZATION, VESSEL
@@ -182,6 +184,7 @@ public class SanctionsScreeningController {
         }
     }
 
+    @SuppressWarnings("unused")
     private static class PersonScreeningRequest {
         private String fullName;
         private LocalDate dateOfBirth;
@@ -206,6 +209,7 @@ public class SanctionsScreeningController {
         }
     }
 
+    @SuppressWarnings("unused")
     private static class OrganizationScreeningRequest {
         private String legalName;
         private String tradingName;

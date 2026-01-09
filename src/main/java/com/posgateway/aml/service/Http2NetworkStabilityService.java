@@ -25,6 +25,7 @@ public class Http2NetworkStabilityService {
 
     private static final Logger logger = LoggerFactory.getLogger(Http2NetworkStabilityService.class);
 
+    @SuppressWarnings("unused")
     private final Http2DetectionService detectionService;
 
     @Value("${http2.network.stability.enabled:true}")

@@ -19,6 +19,7 @@ import java.util.concurrent.TimeUnit;
  * This service keeps running totals updated in real-time for instant AML risk assessment
  */
 @Service
+@SuppressWarnings("null") // String.format never returns null, Redis operations are safe
 public class TransactionStatisticsService {
 
     private static final Logger logger = LoggerFactory.getLogger(TransactionStatisticsService.class);

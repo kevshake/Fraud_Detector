@@ -4,7 +4,7 @@
 -- ================================================
 -- PSP (Payment Service Provider) Registry
 -- ================================================
-CREATE TABLE psps (
+CREATE TABLE IF NOT EXISTS psps (
     psp_id BIGSERIAL PRIMARY KEY,
     psp_code VARCHAR(50) UNIQUE NOT NULL,
     
@@ -39,16 +39,16 @@ CREATE TABLE psps (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_psps_code ON psps(psp_code);
-CREATE INDEX idx_psps_status ON psps(status);
-CREATE INDEX idx_psps_country ON psps(country);
+CREATE INDEX IF NOT EXISTS idx_psps_code ON psps(psp_code);
+CREATE INDEX IF NOT EXISTS idx_psps_status ON psps(status);
+CREATE INDEX IF NOT EXISTS idx_psps_country ON psps(country);
 
 COMMENT ON TABLE psps IS 'Payment Service Provider registry for multi-tenant system';
 
 -- ================================================
 -- PSP Users (Email-based authentication)
 -- ================================================
-CREATE TABLE psp_users (
+CREATE TABLE IF NOT EXISTS psp_users (
     user_id BIGSERIAL PRIMARY KEY,
     psp_id BIGINT NOT NULL REFERENCES psps(psp_id) ON DELETE CASCADE,
     
@@ -79,16 +79,16 @@ CREATE TABLE psp_users (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_psp_users_psp ON psp_users(psp_id);
-CREATE INDEX idx_psp_users_email ON psp_users(email);
-CREATE INDEX idx_psp_users_status ON psp_users(status);
+CREATE INDEX IF NOT EXISTS idx_psp_users_psp ON psp_users(psp_id);
+CREATE INDEX IF NOT EXISTS idx_psp_users_email ON psp_users(email);
+CREATE INDEX IF NOT EXISTS idx_psp_users_status ON psp_users(status);
 
 COMMENT ON TABLE psp_users IS 'PSP user accounts tied to specific PSPs via email';
 
 -- ================================================
 -- API Usage Logs (Request Tracking)
 -- ================================================
-CREATE TABLE api_usage_logs (
+CREATE TABLE IF NOT EXISTS api_usage_logs (
     log_id BIGSERIAL PRIMARY KEY,
     psp_id BIGINT NOT NULL REFERENCES psps(psp_id),
     user_id BIGINT REFERENCES psp_users(user_id),
@@ -122,17 +122,17 @@ CREATE TABLE api_usage_logs (
     error_message TEXT
 );
 
-CREATE INDEX idx_api_usage_psp ON api_usage_logs(psp_id, request_timestamp DESC);
-CREATE INDEX idx_api_usage_service ON api_usage_logs(service_type, billable);
-CREATE INDEX idx_api_usage_timestamp ON api_usage_logs(request_timestamp DESC);
-CREATE INDEX idx_api_usage_request_id ON api_usage_logs(request_id);
+CREATE INDEX IF NOT EXISTS idx_api_usage_psp ON api_usage_logs(psp_id, request_timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_api_usage_service ON api_usage_logs(service_type, billable);
+CREATE INDEX IF NOT EXISTS idx_api_usage_timestamp ON api_usage_logs(request_timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_api_usage_request_id ON api_usage_logs(request_id);
 
 COMMENT ON TABLE api_usage_logs IS 'Tracks all API requests for billing and analytics';
 
 -- ================================================
 -- Billing Rates (Pricing Configuration)
 -- ================================================
-CREATE TABLE billing_rates (
+CREATE TABLE IF NOT EXISTS billing_rates (
     rate_id BIGSERIAL PRIMARY KEY,
     psp_id BIGINT REFERENCES psps(psp_id),
     
@@ -165,16 +165,16 @@ CREATE TABLE billing_rates (
     CONSTRAINT check_pricing_model CHECK (pricing_model IN ('PER_REQUEST', 'TIERED', 'SUBSCRIPTION', 'HYBRID'))
 );
 
-CREATE INDEX idx_billing_rates_psp ON billing_rates(psp_id, service_type);
-CREATE INDEX idx_billing_rates_active ON billing_rates(is_active, effective_from, effective_to);
-CREATE INDEX idx_billing_rates_service ON billing_rates(service_type);
+CREATE INDEX IF NOT EXISTS idx_billing_rates_psp ON billing_rates(psp_id, service_type);
+CREATE INDEX IF NOT EXISTS idx_billing_rates_active ON billing_rates(is_active, effective_from, effective_to);
+CREATE INDEX IF NOT EXISTS idx_billing_rates_service ON billing_rates(service_type);
 
 COMMENT ON TABLE billing_rates IS 'Configurable pricing rates per service type and PSP';
 
 -- ================================================
 -- Invoices (Monthly Bills)
 -- ================================================
-CREATE TABLE invoices (
+CREATE TABLE IF NOT EXISTS invoices (
     invoice_id BIGSERIAL PRIMARY KEY,
     psp_id BIGINT NOT NULL REFERENCES psps(psp_id),
     
@@ -214,17 +214,17 @@ CREATE TABLE invoices (
     CONSTRAINT check_invoice_status CHECK (status IN ('DRAFT', 'SENT', 'PAID', 'OVERDUE', 'CANCELLED', 'PARTIALLY_PAID'))
 );
 
-CREATE INDEX idx_invoices_psp ON invoices(psp_id, billing_period_end DESC);
-CREATE INDEX idx_invoices_status ON invoices(status, due_date);
-CREATE INDEX idx_invoices_number ON invoices(invoice_number);
-CREATE INDEX idx_invoices_period ON invoices(billing_period_start, billing_period_end);
+CREATE INDEX IF NOT EXISTS idx_invoices_psp ON invoices(psp_id, billing_period_end DESC);
+CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status, due_date);
+CREATE INDEX IF NOT EXISTS idx_invoices_number ON invoices(invoice_number);
+CREATE INDEX IF NOT EXISTS idx_invoices_period ON invoices(billing_period_start, billing_period_end);
 
 COMMENT ON TABLE invoices IS 'Generated invoices for PSP billing';
 
 -- ================================================
 -- Invoice Line Items (Invoice Details)
 -- ================================================
-CREATE TABLE invoice_line_items (
+CREATE TABLE IF NOT EXISTS invoice_line_items (
     line_item_id BIGSERIAL PRIMARY KEY,
     invoice_id BIGINT NOT NULL REFERENCES invoices(invoice_id) ON DELETE CASCADE,
     
@@ -247,8 +247,8 @@ CREATE TABLE invoice_line_items (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_line_items_invoice ON invoice_line_items(invoice_id, line_number);
-CREATE INDEX idx_line_items_service ON invoice_line_items(service_type);
+CREATE INDEX IF NOT EXISTS idx_line_items_invoice ON invoice_line_items(invoice_id, line_number);
+CREATE INDEX IF NOT EXISTS idx_line_items_service ON invoice_line_items(service_type);
 
 COMMENT ON TABLE invoice_line_items IS 'Detailed breakdown of invoice charges';
 
@@ -328,3 +328,4 @@ WHERE i.status IN ('SENT', 'OVERDUE', 'PARTIALLY_PAID')
 ORDER BY i.due_date ASC;
 
 COMMENT ON VIEW v_outstanding_invoices IS 'All unpaid invoices past due date';
+

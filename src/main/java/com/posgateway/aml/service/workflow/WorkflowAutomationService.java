@@ -82,6 +82,7 @@ public class WorkflowAutomationService {
         }
     }
 
+    @SuppressWarnings("unused")
     private String determineAssignee(ComplianceCase c) {
         // Mock logic: Assign based on priority
         // Adapted to new Enum

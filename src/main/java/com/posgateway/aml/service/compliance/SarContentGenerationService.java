@@ -23,9 +23,11 @@ import java.util.stream.Collectors;
 @Service
 public class SarContentGenerationService {
 
+    @SuppressWarnings("unused")
     private static final Logger logger = LoggerFactory.getLogger(SarContentGenerationService.class);
 
     private final CaseTransactionRepository caseTransactionRepository;
+    @SuppressWarnings("unused")
     private final SuspiciousActivityReportRepository sarRepository;
 
     @Autowired

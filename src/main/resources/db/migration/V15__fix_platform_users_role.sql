@@ -2,3 +2,4 @@
 -- This column is a vestige of previous schema (string role) and conflicts with the new 'role_id' foreign key.
 
 ALTER TABLE platform_users DROP COLUMN IF EXISTS role;
+

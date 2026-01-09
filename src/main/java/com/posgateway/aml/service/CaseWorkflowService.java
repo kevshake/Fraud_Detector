@@ -21,6 +21,7 @@ import java.time.LocalDateTime;
  * Manages the lifecycle and transitions of compliance cases
  */
 @Service
+@SuppressWarnings("null") // Repository methods return Optional, saved entities are non-null
 public class CaseWorkflowService {
 
     private static final Logger logger = LoggerFactory.getLogger(CaseWorkflowService.class);

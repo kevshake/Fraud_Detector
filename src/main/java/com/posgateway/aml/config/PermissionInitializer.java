@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @Order(10)
+@SuppressWarnings("null") // User builder and repository save operations are safe
 public class PermissionInitializer implements CommandLineRunner {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(PermissionInitializer.class);
 
@@ -71,6 +72,7 @@ public class PermissionInitializer implements CommandLineRunner {
             java.util.Optional<com.posgateway.aml.entity.Role> adminRole = roleRepository
                     .findByNameAndPspIsNull("ADMIN");
             if (adminRole.isPresent()) {
+                @SuppressWarnings("null")
                 com.posgateway.aml.entity.User admin = com.posgateway.aml.entity.User.builder()
                         .username("admin")
                         .passwordHash(passwordEncoder.encode("password"))
@@ -93,6 +95,7 @@ public class PermissionInitializer implements CommandLineRunner {
             java.util.Optional<com.posgateway.aml.entity.Role> compRole = roleRepository
                     .findByNameAndPspIsNull("COMPLIANCE_OFFICER");
             if (compRole.isPresent()) {
+                @SuppressWarnings("null")
                 com.posgateway.aml.entity.User comp = com.posgateway.aml.entity.User.builder()
                         .username("compliance")
                         .passwordHash(passwordEncoder.encode("password"))

@@ -22,6 +22,7 @@ import java.util.Map;
 @Service
 public class ComplianceDashboardService {
 
+    @SuppressWarnings("unused")
     private static final Logger logger = LoggerFactory.getLogger(ComplianceDashboardService.class);
 
     private final ComplianceCaseRepository caseRepository;

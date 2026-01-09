@@ -172,7 +172,6 @@ public class Http2FailoverService {
      */
     private synchronized void attemptAutomaticHttp2Retry() {
         long currentTime = System.currentTimeMillis();
-        long timeSinceFailover = currentTime - lastFailoverTime.get();
         long timeSinceLastRetry = currentTime - lastRetryTime.get();
 
         // Check minimum retry interval

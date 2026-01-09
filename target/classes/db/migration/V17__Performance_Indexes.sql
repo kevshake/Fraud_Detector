@@ -1,5 +1,16 @@
 -- =====================================================================
 -- V2__Performance_Indexes.sql
+-- Role Permissions Table (Missing from initial migrations)
+CREATE TABLE IF NOT EXISTS role_permissions (
+    id SERIAL PRIMARY KEY,
+    user_role VARCHAR(50) NOT NULL,
+    permission VARCHAR(100) NOT NULL,
+    granted_by VARCHAR(100),
+    granted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    notes TEXT,
+    CONSTRAINT uk_role_permission UNIQUE (user_role, permission)
+);
+
 -- Database Performance Optimization Indexes
 -- Created: 2025-12-15
 -- =====================================================================
@@ -92,21 +103,19 @@ WHERE status IN ('APPROVED', 'PENDING_REVIEW');
 -- (These are already defined in entity, adding missing ones)
 -- =====================================================================
 
--- Index for disposition analysis
-CREATE INDEX IF NOT EXISTS idx_alert_disposition 
-ON alerts(disposition, disposed_at DESC);
-
--- Index for investigator workload
+-- Index for investigator workload (investigator column exists in V1)
 CREATE INDEX IF NOT EXISTS idx_alert_investigator 
 ON alerts(investigator, status, created_at DESC);
 
--- Index for merchant alerts
-CREATE INDEX IF NOT EXISTS idx_alert_merchant 
-ON alerts(merchant_id, status, created_at DESC);
-
--- Index for severity-based queries
-CREATE INDEX IF NOT EXISTS idx_alert_severity_status 
-ON alerts(severity, status, created_at DESC);
+-- Note: disposition, disposed_at, severity, and merchant_id columns do not exist in alerts table
+-- These indexes are commented out to prevent migration errors
+-- If these columns are added in future migrations, uncomment these indexes:
+-- CREATE INDEX IF NOT EXISTS idx_alert_disposition 
+-- ON alerts(disposition, disposed_at DESC);
+-- CREATE INDEX IF NOT EXISTS idx_alert_merchant 
+-- ON alerts(merchant_id, status, created_at DESC);
+-- CREATE INDEX IF NOT EXISTS idx_alert_severity_status 
+-- ON alerts(severity, status, created_at DESC);
 
 -- =====================================================================
 -- TRANSACTIONS PERFORMANCE INDEXES
@@ -150,9 +159,11 @@ ON transaction_features(action_taken, score DESC);
 CREATE INDEX IF NOT EXISTS idx_merchant_status 
 ON merchants(status, created_at DESC);
 
--- Index for merchant risk level
-CREATE INDEX IF NOT EXISTS idx_merchant_risk 
-ON merchants(risk_level, status);
+-- Note: risk_level column does not exist in merchants table
+-- Risk level is stored in merchant_risk_scores table, not merchants table
+-- This index is commented out to prevent migration errors
+-- CREATE INDEX IF NOT EXISTS idx_merchant_risk 
+-- ON merchants(risk_level, status);
 
 -- =====================================================================
 -- BENEFICIAL OWNERS PERFORMANCE INDEXES
@@ -164,7 +175,7 @@ ON beneficial_owners(merchant_id);
 
 -- Index for PEP status tracking
 CREATE INDEX IF NOT EXISTS idx_owner_pep 
-ON beneficial_owners(is_pep, sanctions_status);
+ON beneficial_owners(is_pep, is_sanctioned);
 
 -- =====================================================================
 -- SCREENING RESULTS PERFORMANCE INDEXES
@@ -224,3 +235,5 @@ ANALYZE role_permissions;
 -- - Consider REINDEX if performance degrades over time
 --
 -- =====================================================================
+
+;

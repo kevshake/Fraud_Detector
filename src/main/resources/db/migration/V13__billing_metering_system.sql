@@ -138,3 +138,4 @@ INSERT INTO cost_metrics (metric_date, fixed_costs_monthly, variable_cost_per_ch
 VALUES 
     (CURRENT_DATE, 10000.00, 0.05, 0.02, 0.01, 0.65, 'Initial cost metrics baseline')
 ON CONFLICT (metric_date) DO NOTHING;
+

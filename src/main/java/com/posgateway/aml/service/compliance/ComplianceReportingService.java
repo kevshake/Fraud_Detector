@@ -171,6 +171,7 @@ public class ComplianceReportingService {
                 UUID.randomUUID().toString());
     }
 
+    @SuppressWarnings("unused")
     private String toJson(Map<String, Object> map) {
         if (map == null)
             return null;
@@ -182,7 +183,7 @@ public class ComplianceReportingService {
         }
     }
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings("unused")
     private Map<String, Object> fromJson(String json) {
         if (json == null)
             return null;

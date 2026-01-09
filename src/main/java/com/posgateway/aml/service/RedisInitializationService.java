@@ -19,6 +19,7 @@ import java.util.concurrent.TimeUnit;
  */
 @Service
 @ConditionalOnProperty(name = "redis.enabled", havingValue = "true", matchIfMissing = false)
+@SuppressWarnings("null") // String concatenations with keyPrefix are safe, Redis operations accept non-null strings
 public class RedisInitializationService {
 
     private static final Logger logger = LoggerFactory.getLogger(RedisInitializationService.class);

@@ -127,9 +127,6 @@ public class Http2DetectionService {
             connection.connect();
             int responseCode = connection.getResponseCode();
             
-            // Check if server supports HTTP/2 by examining headers or connection properties
-            String protocol = connection.getURL().getProtocol();
-            
             connection.disconnect();
             
             // If we can connect and get a response, assume HTTP/2 is possible

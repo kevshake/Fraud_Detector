@@ -21,6 +21,7 @@ public class BehavioralProfilingService {
 
 
     private static final int HISTORY_DAYS = 90;
+    @SuppressWarnings("unused")
     private static final double EXTREME_OUTLIER_SIGMA = 3.0; // 3 Standard Deviations
 
     /**

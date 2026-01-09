@@ -11,6 +11,7 @@ import org.springframework.web.reactive.function.client.WebClient;
  * Can handle 50K+ concurrent requests with reactive streams
  */
 @Configuration
+@SuppressWarnings("null") // @Value injected strings and WebClient builder are safe
 public class ReactiveWebFluxConfig {
 
     @Value("${ultra.throughput.enable.reactive:false}")

@@ -53,6 +53,7 @@ public class AerospikeConnectionService {
     private int tendInterval;
 
     private AerospikeClient aerospikeClient;
+    @SuppressWarnings("unused")
     private volatile boolean isConnected = false;
 
     /**

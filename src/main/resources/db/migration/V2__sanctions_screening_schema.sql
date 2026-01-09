@@ -8,7 +8,7 @@
 -- SANCTIONS METADATA (PostgreSQL tracks download versions)
 -- ===================================================================================
 
-CREATE TABLE sanctions_lists (
+CREATE TABLE IF NOT EXISTS sanctions_lists (
     list_id SERIAL PRIMARY KEY,
     list_name VARCHAR(100) NOT NULL,  -- e.g., 'OFAC_SDN', 'UN_SC', 'EU_FSF', 'OPENSANCTIONS_ALL'
     list_source VARCHAR(100) NOT NULL,  -- e.g., 'OpenSanctions', 'OFAC', 'UN'
@@ -19,8 +19,8 @@ CREATE TABLE sanctions_lists (
     CONSTRAINT uk_sanctions_lists_version UNIQUE (list_name, version)
 );
 
-CREATE INDEX idx_sanctions_lists_name ON sanctions_lists(list_name);
-CREATE INDEX idx_sanctions_lists_downloaded ON sanctions_lists(downloaded_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sanctions_lists_name ON sanctions_lists(list_name);
+CREATE INDEX IF NOT EXISTS idx_sanctions_lists_downloaded ON sanctions_lists(downloaded_at DESC);
 
 COMMENT ON TABLE sanctions_lists IS 'Tracks sanctions list download versions and metadata';
 COMMENT ON COLUMN sanctions_lists.version IS 'Version ID from data source to prevent duplicate downloads';
@@ -29,7 +29,7 @@ COMMENT ON COLUMN sanctions_lists.version IS 'Version ID from data source to pre
 -- MERCHANT DATA
 -- ===================================================================================
 
-CREATE TABLE merchants (
+CREATE TABLE IF NOT EXISTS merchants (
     merchant_id BIGSERIAL PRIMARY KEY,
     
     -- Basic Information
@@ -69,11 +69,11 @@ CREATE TABLE merchants (
     CONSTRAINT uk_merchants_registration UNIQUE (country, registration_number)
 );
 
-CREATE INDEX idx_merchants_status ON merchants(status);
-CREATE INDEX idx_merchants_country ON merchants(country);
-CREATE INDEX idx_merchants_mcc ON merchants(mcc);
-CREATE INDEX idx_merchants_created ON merchants(created_at DESC);
-CREATE INDEX idx_merchants_last_screened ON merchants(last_screened_at);
+CREATE INDEX IF NOT EXISTS idx_merchants_status ON merchants(status);
+CREATE INDEX IF NOT EXISTS idx_merchants_country ON merchants(country);
+CREATE INDEX IF NOT EXISTS idx_merchants_mcc ON merchants(mcc);
+CREATE INDEX IF NOT EXISTS idx_merchants_created ON merchants(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_merchants_last_screened ON merchants(last_screened_at);
 
 COMMENT ON TABLE merchants IS 'Merchant registration and business information';
 COMMENT ON COLUMN merchants.expected_monthly_volume IS 'Expected monthly transaction volume in cents';
@@ -82,7 +82,7 @@ COMMENT ON COLUMN merchants.expected_monthly_volume IS 'Expected monthly transac
 -- BENEFICIAL OWNERS (UBOs)
 -- ===================================================================================
 
-CREATE TABLE beneficial_owners (
+CREATE TABLE IF NOT EXISTS beneficial_owners (
     owner_id BIGSERIAL PRIMARY KEY,
     merchant_id BIGINT NOT NULL REFERENCES merchants(merchant_id) ON DELETE CASCADE,
     
@@ -111,10 +111,10 @@ CREATE TABLE beneficial_owners (
     CONSTRAINT chk_ownership_percentage CHECK (ownership_percentage BETWEEN 0 AND 100)
 );
 
-CREATE INDEX idx_beneficial_owners_merchant ON beneficial_owners(merchant_id);
-CREATE INDEX idx_beneficial_owners_nationality ON beneficial_owners(nationality);
-CREATE INDEX idx_beneficial_owners_pep ON beneficial_owners(is_pep) WHERE is_pep = TRUE;
-CREATE INDEX idx_beneficial_owners_sanctioned ON beneficial_owners(is_sanctioned) WHERE is_sanctioned = TRUE;
+CREATE INDEX IF NOT EXISTS idx_beneficial_owners_merchant ON beneficial_owners(merchant_id);
+CREATE INDEX IF NOT EXISTS idx_beneficial_owners_nationality ON beneficial_owners(nationality);
+CREATE INDEX IF NOT EXISTS idx_beneficial_owners_pep ON beneficial_owners(is_pep) WHERE is_pep = TRUE;
+CREATE INDEX IF NOT EXISTS idx_beneficial_owners_sanctioned ON beneficial_owners(is_sanctioned) WHERE is_sanctioned = TRUE;
 
 COMMENT ON TABLE beneficial_owners IS 'Ultimate beneficial owners (UBOs) with encrypted PII';
 COMMENT ON COLUMN beneficial_owners.ownership_percentage IS 'Percentage of business owned (25%+ typically required)';
@@ -123,7 +123,7 @@ COMMENT ON COLUMN beneficial_owners.ownership_percentage IS 'Percentage of busin
 -- SCREENING RESULTS
 -- ===================================================================================
 
-CREATE TABLE merchant_screening_results (
+CREATE TABLE IF NOT EXISTS merchant_screening_results (
     screening_id BIGSERIAL PRIMARY KEY,
     merchant_id BIGINT NOT NULL REFERENCES merchants(merchant_id) ON DELETE CASCADE,
     
@@ -143,15 +143,15 @@ CREATE TABLE merchant_screening_results (
     notes TEXT
 );
 
-CREATE INDEX idx_merchant_screening_merchant ON merchant_screening_results(merchant_id);
-CREATE INDEX idx_merchant_screening_status ON merchant_screening_results(screening_status);
-CREATE INDEX idx_merchant_screening_type ON merchant_screening_results(screening_type);
-CREATE INDEX idx_merchant_screening_date ON merchant_screening_results(screened_at DESC);
-CREATE INDEX idx_merchant_screening_details ON merchant_screening_results USING gin(match_details);
+CREATE INDEX IF NOT EXISTS idx_merchant_screening_merchant ON merchant_screening_results(merchant_id);
+CREATE INDEX IF NOT EXISTS idx_merchant_screening_status ON merchant_screening_results(screening_status);
+CREATE INDEX IF NOT EXISTS idx_merchant_screening_type ON merchant_screening_results(screening_type);
+CREATE INDEX IF NOT EXISTS idx_merchant_screening_date ON merchant_screening_results(screened_at DESC);
+CREATE INDEX IF NOT EXISTS idx_merchant_screening_details ON merchant_screening_results USING gin(match_details);
 
 COMMENT ON TABLE merchant_screening_results IS 'Merchant sanctions screening results history';
 
-CREATE TABLE owner_screening_results (
+CREATE TABLE IF NOT EXISTS owner_screening_results (
     screening_id BIGSERIAL PRIMARY KEY,
     owner_id BIGINT NOT NULL REFERENCES beneficial_owners(owner_id) ON DELETE CASCADE,
     merchant_id BIGINT NOT NULL REFERENCES merchants(merchant_id) ON DELETE CASCADE,
@@ -172,10 +172,10 @@ CREATE TABLE owner_screening_results (
     notes TEXT
 );
 
-CREATE INDEX idx_owner_screening_owner ON owner_screening_results(owner_id);
-CREATE INDEX idx_owner_screening_merchant ON owner_screening_results(merchant_id);
-CREATE INDEX idx_owner_screening_status ON owner_screening_results(screening_status);
-CREATE INDEX idx_owner_screening_date ON owner_screening_results(screened_at DESC);
+CREATE INDEX IF NOT EXISTS idx_owner_screening_owner ON owner_screening_results(owner_id);
+CREATE INDEX IF NOT EXISTS idx_owner_screening_merchant ON owner_screening_results(merchant_id);
+CREATE INDEX IF NOT EXISTS idx_owner_screening_status ON owner_screening_results(screening_status);
+CREATE INDEX IF NOT EXISTS idx_owner_screening_date ON owner_screening_results(screened_at DESC);
 
 COMMENT ON TABLE owner_screening_results IS 'Beneficial owner screening results history';
 
@@ -183,7 +183,7 @@ COMMENT ON TABLE owner_screening_results IS 'Beneficial owner screening results 
 -- EXTERNAL AML PROVIDER RESPONSES (Sumsub, etc.)
 -- ===================================================================================
 
-CREATE TABLE external_aml_responses (
+CREATE TABLE IF NOT EXISTS external_aml_responses (
     response_id BIGSERIAL PRIMARY KEY,
     merchant_id BIGINT REFERENCES merchants(merchant_id) ON DELETE CASCADE,
     owner_id BIGINT REFERENCES beneficial_owners(owner_id) ON DELETE CASCADE,
@@ -219,11 +219,11 @@ CREATE TABLE external_aml_responses (
     )
 );
 
-CREATE INDEX idx_external_aml_merchant ON external_aml_responses(merchant_id);
-CREATE INDEX idx_external_aml_owner ON external_aml_responses(owner_id);
-CREATE INDEX idx_external_aml_provider ON external_aml_responses(provider_name);
-CREATE INDEX idx_external_aml_created ON external_aml_responses(created_at DESC);
-CREATE INDEX idx_external_aml_response ON external_aml_responses USING gin(response_payload);
+CREATE INDEX IF NOT EXISTS idx_external_aml_merchant ON external_aml_responses(merchant_id);
+CREATE INDEX IF NOT EXISTS idx_external_aml_owner ON external_aml_responses(owner_id);
+CREATE INDEX IF NOT EXISTS idx_external_aml_provider ON external_aml_responses(provider_name);
+CREATE INDEX IF NOT EXISTS idx_external_aml_created ON external_aml_responses(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_external_aml_response ON external_aml_responses USING gin(response_payload);
 
 COMMENT ON TABLE external_aml_responses IS 'Raw responses from external AML providers (Sumsub, etc.) for audit and reference';
 COMMENT ON COLUMN external_aml_responses.response_payload IS 'Full JSON response from provider - stored for audit trail';
@@ -232,7 +232,7 @@ COMMENT ON COLUMN external_aml_responses.response_payload IS 'Full JSON response
 -- RISK SCORING
 -- ===================================================================================
 
-CREATE TABLE merchant_risk_scores (
+CREATE TABLE IF NOT EXISTS merchant_risk_scores (
     score_id BIGSERIAL PRIMARY KEY,
     merchant_id BIGINT NOT NULL REFERENCES merchants(merchant_id) ON DELETE CASCADE,
     
@@ -259,10 +259,10 @@ CREATE TABLE merchant_risk_scores (
     notes TEXT
 );
 
-CREATE INDEX idx_merchant_risk_merchant ON merchant_risk_scores(merchant_id);
-CREATE INDEX idx_merchant_risk_level ON merchant_risk_scores(risk_level);
-CREATE INDEX idx_merchant_risk_action ON merchant_risk_scores(recommended_action);
-CREATE INDEX idx_merchant_risk_calculated ON merchant_risk_scores(calculated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_merchant_risk_merchant ON merchant_risk_scores(merchant_id);
+CREATE INDEX IF NOT EXISTS idx_merchant_risk_level ON merchant_risk_scores(risk_level);
+CREATE INDEX IF NOT EXISTS idx_merchant_risk_action ON merchant_risk_scores(recommended_action);
+CREATE INDEX IF NOT EXISTS idx_merchant_risk_calculated ON merchant_risk_scores(calculated_at DESC);
 
 COMMENT ON TABLE merchant_risk_scores IS 'Calculated risk scores for merchants';
 COMMENT ON COLUMN merchant_risk_scores.rules_version IS 'Version of risk rules used for calculation';
@@ -271,7 +271,7 @@ COMMENT ON COLUMN merchant_risk_scores.rules_version IS 'Version of risk rules u
 -- COMPLIANCE CASE MANAGEMENT
 -- ===================================================================================
 
-CREATE TABLE compliance_cases (
+CREATE TABLE IF NOT EXISTS compliance_cases (
     case_id BIGSERIAL PRIMARY KEY,
     merchant_id BIGINT NOT NULL REFERENCES merchants(merchant_id) ON DELETE CASCADE,
     
@@ -297,12 +297,12 @@ CREATE TABLE compliance_cases (
     resolved_by VARCHAR(100)
 );
 
-CREATE INDEX idx_compliance_cases_merchant ON compliance_cases(merchant_id);
-CREATE INDEX idx_compliance_cases_status ON compliance_cases(case_status);
-CREATE INDEX idx_compliance_cases_priority ON compliance_cases(priority);
-CREATE INDEX idx_compliance_cases_assigned ON compliance_cases(assigned_to);
-CREATE INDEX idx_compliance_cases_created ON compliance_cases(created_at DESC);
-CREATE INDEX idx_compliance_cases_due ON compliance_cases(due_date) WHERE case_status IN ('OPEN', 'IN_PROGRESS');
+CREATE INDEX IF NOT EXISTS idx_compliance_cases_merchant ON compliance_cases(merchant_id);
+CREATE INDEX IF NOT EXISTS idx_compliance_cases_status ON compliance_cases(case_status);
+CREATE INDEX IF NOT EXISTS idx_compliance_cases_priority ON compliance_cases(priority);
+CREATE INDEX IF NOT EXISTS idx_compliance_cases_assigned ON compliance_cases(assigned_to);
+CREATE INDEX IF NOT EXISTS idx_compliance_cases_created ON compliance_cases(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_compliance_cases_due ON compliance_cases(due_date) WHERE case_status IN ('OPEN', 'IN_PROGRESS');
 
 COMMENT ON TABLE compliance_cases IS 'Compliance review cases for manual decision making';
 
@@ -310,7 +310,7 @@ COMMENT ON TABLE compliance_cases IS 'Compliance review cases for manual decisio
 -- MONITORING ALERTS
 -- ===================================================================================
 
-CREATE TABLE monitoring_alerts (
+CREATE TABLE IF NOT EXISTS monitoring_alerts (
     alert_id BIGSERIAL PRIMARY KEY,
     merchant_id BIGINT NOT NULL REFERENCES merchants(merchant_id) ON DELETE CASCADE,
     
@@ -333,11 +333,11 @@ CREATE TABLE monitoring_alerts (
     resolved_at TIMESTAMP
 );
 
-CREATE INDEX idx_monitoring_alerts_merchant ON monitoring_alerts(merchant_id);
-CREATE INDEX idx_monitoring_alerts_type ON monitoring_alerts(alert_type);
-CREATE INDEX idx_monitoring_alerts_severity ON monitoring_alerts(alert_severity);
-CREATE INDEX idx_monitoring_alerts_acknowledged ON monitoring_alerts(acknowledged);
-CREATE INDEX idx_monitoring_alerts_created ON monitoring_alerts(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_monitoring_alerts_merchant ON monitoring_alerts(merchant_id);
+CREATE INDEX IF NOT EXISTS idx_monitoring_alerts_type ON monitoring_alerts(alert_type);
+CREATE INDEX IF NOT EXISTS idx_monitoring_alerts_severity ON monitoring_alerts(alert_severity);
+CREATE INDEX IF NOT EXISTS idx_monitoring_alerts_acknowledged ON monitoring_alerts(acknowledged);
+CREATE INDEX IF NOT EXISTS idx_monitoring_alerts_created ON monitoring_alerts(created_at DESC);
 
 COMMENT ON TABLE monitoring_alerts IS 'Alerts from periodic rescreening and monitoring';
 
@@ -345,7 +345,7 @@ COMMENT ON TABLE monitoring_alerts IS 'Alerts from periodic rescreening and moni
 -- AUDIT TRAIL (IMMUTABLE)
 -- ===================================================================================
 
-CREATE TABLE audit_trail (
+CREATE TABLE IF NOT EXISTS audit_trail (
     audit_id BIGSERIAL PRIMARY KEY,
     
     -- Entity
@@ -372,10 +372,10 @@ CREATE TABLE audit_trail (
 );
 
 -- No UPDATE or DELETE - this table is append-only
-CREATE INDEX idx_audit_trail_merchant ON audit_trail(merchant_id);
-CREATE INDEX idx_audit_trail_action ON audit_trail(action);
-CREATE INDEX idx_audit_trail_performed_at ON audit_trail(performed_at DESC);
-CREATE INDEX idx_audit_trail_performed_by ON audit_trail(performed_by);
+CREATE INDEX IF NOT EXISTS idx_audit_trail_merchant ON audit_trail(merchant_id);
+CREATE INDEX IF NOT EXISTS idx_audit_trail_action ON audit_trail(action);
+CREATE INDEX IF NOT EXISTS idx_audit_trail_performed_at ON audit_trail(performed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_trail_performed_by ON audit_trail(performed_by);
 
 COMMENT ON TABLE audit_trail IS 'Immutable audit log of all compliance actions and decisions';
 COMMENT ON COLUMN audit_trail.evidence IS 'Complete evidence for audit - never modified after insert';
@@ -384,7 +384,7 @@ COMMENT ON COLUMN audit_trail.evidence IS 'Complete evidence for audit - never m
 -- RISK RULES VERSIONING
 -- ===================================================================================
 
-CREATE TABLE risk_rules_versions (
+CREATE TABLE IF NOT EXISTS risk_rules_versions (
     version_id SERIAL PRIMARY KEY,
     version VARCHAR(50) NOT NULL UNIQUE,  -- e.g., "v3.2"
     
@@ -404,8 +404,8 @@ CREATE TABLE risk_rules_versions (
     CONSTRAINT uk_risk_rules_version UNIQUE (version)
 );
 
-CREATE INDEX idx_risk_rules_active ON risk_rules_versions(is_active) WHERE is_active = TRUE;
-CREATE INDEX idx_risk_rules_activated ON risk_rules_versions(activated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_risk_rules_active ON risk_rules_versions(is_active) WHERE is_active = TRUE;
+CREATE INDEX IF NOT EXISTS idx_risk_rules_activated ON risk_rules_versions(activated_at DESC);
 
 COMMENT ON TABLE risk_rules_versions IS 'Version control for risk scoring rules';
 COMMENT ON COLUMN risk_rules_versions.is_active IS 'Only one version should be active at a time';
@@ -506,3 +506,5 @@ COMMENT ON VIEW v_high_risk_merchants IS 'Merchants with high or critical risk s
 -- ===================================================================================
 -- END OF MIGRATION
 -- ===================================================================================
+
+;

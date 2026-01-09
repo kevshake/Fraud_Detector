@@ -7,6 +7,7 @@ import com.posgateway.aml.dto.request.MerchantUpdateRequest;
 import com.posgateway.aml.dto.response.MerchantOnboardingResponse;
 import com.posgateway.aml.entity.merchant.Merchant;
 import com.posgateway.aml.repository.MerchantRepository;
+import com.posgateway.aml.repository.PspRepository;
 import com.posgateway.aml.service.merchant.MerchantOnboardingService;
 import com.posgateway.aml.service.merchant.MerchantUpdateService;
 import jakarta.validation.Valid;
@@ -40,6 +41,9 @@ public class MerchantController {
     @Autowired
     private MerchantRepository merchantRepository;
 
+    @Autowired
+    private PspRepository pspRepository;
+
     /**
      * Onboard new merchant
      * POST /api/v1/merchants/onboard
@@ -65,6 +69,44 @@ public class MerchantController {
 
         } catch (Exception e) {
             log.error("Error onboarding merchant: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /**
+     * Create simplified merchant (Quick Add)
+     * POST /api/v1/merchants
+     */
+    @PostMapping
+    public ResponseEntity<Merchant> createMerchant(@RequestBody java.util.Map<String, Object> data) {
+        log.info("Creating new merchant via quick add: {}", data.get("legalName"));
+        try {
+            // Find default PSP - using first available for now
+            com.posgateway.aml.entity.psp.Psp defaultPsp = pspRepository.findAll().stream().findFirst()
+                    .orElseThrow(() -> new RuntimeException("No PSP found in system"));
+
+            Merchant merchant = Merchant.builder()
+                    .legalName((String) data.get("legalName"))
+                    .tradingName((String) data.get("tradingName"))
+                    .contactEmail((String) data.get("contactEmail"))
+                    .mcc((String) data.get("mcc"))
+                    .businessType((String) data.get("businessType"))
+                    .country("KEN") // Default to Kenya for quick add
+                    .registrationNumber("TEMP-" + java.util.UUID.randomUUID().toString().substring(0, 8))
+                    .status("ACTIVE")
+                    .psp(defaultPsp)
+                    .kycStatus("APPROVED") // Auto-approve for quick add
+                    .contractStatus("ACTIVE")
+                    .dailyLimit(data.get("dailyLimit") != null
+                            ? new java.math.BigDecimal(data.get("dailyLimit").toString())
+                            : java.math.BigDecimal.valueOf(100000))
+                    .riskLevel(data.get("riskLevel") != null ? (String) data.get("riskLevel") : "LOW")
+                    .build();
+
+            Merchant saved = merchantRepository.save(merchant);
+            return ResponseEntity.status(HttpStatus.CREATED).body(saved);
+        } catch (Exception e) {
+            log.error("Error creating merchant: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
@@ -96,7 +138,8 @@ public class MerchantController {
                                     .status(m.getStatus() != null ? m.getStatus() : "PENDING_SCREENING")
                                     .country(m.getCountry())
                                     .kycStatus(m.getKycStatus() != null ? m.getKycStatus() : "PENDING")
-                                    .contractStatus(m.getContractStatus() != null ? m.getContractStatus() : "NO_CONTRACT")
+                                    .contractStatus(
+                                            m.getContractStatus() != null ? m.getContractStatus() : "NO_CONTRACT")
                                     .dailyLimit(m.getDailyLimit())
                                     .currentUsage(m.getCurrentUsage())
                                     .riskLevel(m.getRiskLevel() != null ? m.getRiskLevel() : "UNKNOWN")

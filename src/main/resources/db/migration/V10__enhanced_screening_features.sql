@@ -15,8 +15,8 @@ CREATE TABLE IF NOT EXISTS screening_whitelist (
     CONSTRAINT uk_whitelist_entity UNIQUE (entity_id, entity_type)
 );
 
-CREATE INDEX idx_whitelist_entity ON screening_whitelist(entity_id, entity_type);
-CREATE INDEX idx_whitelist_active ON screening_whitelist(active);
+CREATE INDEX IF NOT EXISTS idx_whitelist_entity ON screening_whitelist(entity_id, entity_type);
+CREATE INDEX IF NOT EXISTS idx_whitelist_active ON screening_whitelist(active);
 
 -- Screening Override Table
 CREATE TABLE IF NOT EXISTS screening_overrides (
@@ -34,9 +34,9 @@ CREATE TABLE IF NOT EXISTS screening_overrides (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_overrides_entity ON screening_overrides(entity_id, entity_type);
-CREATE INDEX idx_overrides_status ON screening_overrides(status);
-CREATE INDEX idx_overrides_created_by ON screening_overrides(created_by);
+CREATE INDEX IF NOT EXISTS idx_overrides_entity ON screening_overrides(entity_id, entity_type);
+CREATE INDEX IF NOT EXISTS idx_overrides_status ON screening_overrides(status);
+CREATE INDEX IF NOT EXISTS idx_overrides_created_by ON screening_overrides(created_by);
 
 -- Watchlist Update Tracking Table
 CREATE TABLE IF NOT EXISTS watchlist_updates (
@@ -52,9 +52,9 @@ CREATE TABLE IF NOT EXISTS watchlist_updates (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_watchlist_updates_list ON watchlist_updates(list_name, list_type);
-CREATE INDEX idx_watchlist_updates_date ON watchlist_updates(update_date DESC);
-CREATE INDEX idx_watchlist_updates_status ON watchlist_updates(status);
+CREATE INDEX IF NOT EXISTS idx_watchlist_updates_list ON watchlist_updates(list_name, list_type);
+CREATE INDEX IF NOT EXISTS idx_watchlist_updates_date ON watchlist_updates(update_date DESC);
+CREATE INDEX IF NOT EXISTS idx_watchlist_updates_status ON watchlist_updates(status);
 
 -- Custom Watchlist Table
 CREATE TABLE IF NOT EXISTS custom_watchlists (
@@ -68,8 +68,8 @@ CREATE TABLE IF NOT EXISTS custom_watchlists (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_custom_watchlists_name ON custom_watchlists(watchlist_name);
-CREATE INDEX idx_custom_watchlists_status ON custom_watchlists(status);
+CREATE INDEX IF NOT EXISTS idx_custom_watchlists_name ON custom_watchlists(watchlist_name);
+CREATE INDEX IF NOT EXISTS idx_custom_watchlists_status ON custom_watchlists(status);
 
 -- Custom Watchlist Entries Table
 CREATE TABLE IF NOT EXISTS custom_watchlist_entries (
@@ -84,9 +84,9 @@ CREATE TABLE IF NOT EXISTS custom_watchlist_entries (
     CONSTRAINT fk_custom_watchlist FOREIGN KEY (watchlist_id) REFERENCES custom_watchlists(id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_custom_entries_watchlist ON custom_watchlist_entries(watchlist_id);
-CREATE INDEX idx_custom_entries_name ON custom_watchlist_entries(entity_name);
-CREATE INDEX idx_custom_entries_type ON custom_watchlist_entries(entity_type);
+CREATE INDEX IF NOT EXISTS idx_custom_entries_watchlist ON custom_watchlist_entries(watchlist_id);
+CREATE INDEX IF NOT EXISTS idx_custom_entries_name ON custom_watchlist_entries(entity_name);
+CREATE INDEX IF NOT EXISTS idx_custom_entries_type ON custom_watchlist_entries(entity_type);
 
 -- False Positive Feedback Table
 CREATE TABLE IF NOT EXISTS false_positive_feedback (
@@ -99,8 +99,8 @@ CREATE TABLE IF NOT EXISTS false_positive_feedback (
     CONSTRAINT fk_feedback_alert FOREIGN KEY (alert_id) REFERENCES alerts(alert_id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_feedback_alert ON false_positive_feedback(alert_id);
-CREATE INDEX idx_feedback_rule ON false_positive_feedback(rule_name);
+CREATE INDEX IF NOT EXISTS idx_feedback_alert ON false_positive_feedback(alert_id);
+CREATE INDEX IF NOT EXISTS idx_feedback_rule ON false_positive_feedback(rule_name);
 
 -- Alert Tuning Recommendations Table
 CREATE TABLE IF NOT EXISTS alert_tuning_recommendations (
@@ -115,8 +115,8 @@ CREATE TABLE IF NOT EXISTS alert_tuning_recommendations (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_tuning_rule ON alert_tuning_recommendations(rule_name);
-CREATE INDEX idx_tuning_status ON alert_tuning_recommendations(status);
+CREATE INDEX IF NOT EXISTS idx_tuning_rule ON alert_tuning_recommendations(rule_name);
+CREATE INDEX IF NOT EXISTS idx_tuning_status ON alert_tuning_recommendations(status);
 
 -- AML Policy Documents Table
 CREATE TABLE IF NOT EXISTS aml_policies (
@@ -137,9 +137,9 @@ CREATE TABLE IF NOT EXISTS aml_policies (
     CONSTRAINT uk_policy_version UNIQUE (policy_name, version)
 );
 
-CREATE INDEX idx_policy_name ON aml_policies(policy_name);
-CREATE INDEX idx_policy_version ON aml_policies(policy_name, version);
-CREATE INDEX idx_policy_active ON aml_policies(is_active);
+CREATE INDEX IF NOT EXISTS idx_policy_name ON aml_policies(policy_name);
+CREATE INDEX IF NOT EXISTS idx_policy_version ON aml_policies(policy_name, version);
+CREATE INDEX IF NOT EXISTS idx_policy_active ON aml_policies(is_active);
 
 -- Policy Acknowledgment Table
 CREATE TABLE IF NOT EXISTS policy_acknowledgments (
@@ -152,6 +152,8 @@ CREATE TABLE IF NOT EXISTS policy_acknowledgments (
     CONSTRAINT uk_ack_policy_user UNIQUE (policy_id, user_id)
 );
 
-CREATE INDEX idx_ack_policy_user ON policy_acknowledgments(policy_id, user_id);
-CREATE INDEX idx_ack_user ON policy_acknowledgments(user_id);
+CREATE INDEX IF NOT EXISTS idx_ack_policy_user ON policy_acknowledgments(policy_id, user_id);
+CREATE INDEX IF NOT EXISTS idx_ack_user ON policy_acknowledgments(user_id);
+
+
 

@@ -17,6 +17,7 @@ public class WebhookService {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(WebhookService.class);
 
     private final WebhookSubscriptionRepository subscriptionRepository;
+    @SuppressWarnings("unused")
     private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate;
     private final RestTemplate vgsProxiedRestTemplate;
@@ -42,7 +43,6 @@ public class WebhookService {
 
         for (WebhookSubscription sub : subscriptions) {
             try {
-                String jsonPayload = objectMapper.writeValueAsString(payload);
                 // In real app: Add HMAC signature header using sub.getSecretKey()
 
                 RestTemplate client = vgsProxyEnabled ? vgsProxiedRestTemplate : restTemplate;

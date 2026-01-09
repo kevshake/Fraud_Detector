@@ -25,12 +25,15 @@ import java.util.stream.Collectors;
 @Service
 public class CaseNetworkService {
 
+    @SuppressWarnings("unused")
     private static final Logger logger = LoggerFactory.getLogger(CaseNetworkService.class);
 
     private final ComplianceCaseRepository caseRepository;
     private final CaseTransactionRepository caseTransactionRepository;
+    @SuppressWarnings("unused")
     private final TransactionRepository transactionRepository;
     private final SuspiciousActivityReportRepository sarRepository;
+    @SuppressWarnings("unused")
     private final UserRepository userRepository;
 
     @Autowired

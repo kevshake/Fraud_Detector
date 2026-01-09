@@ -41,8 +41,9 @@ END $$;
 -- Ensure psp_id column exists
 ALTER TABLE compliance_cases ADD COLUMN IF NOT EXISTS psp_id BIGINT;
 
--- Create index on merchant_id if not exists (no FK, just for filtering)
+-- CREATE INDEX IF NOT EXISTS on merchant_id if not exists (no FK, just for filtering)
 CREATE INDEX IF NOT EXISTS idx_compliance_cases_merchant_id ON compliance_cases(merchant_id);
 
--- Create index on psp_id if not exists
+-- CREATE INDEX IF NOT EXISTS on psp_id if not exists
 CREATE INDEX IF NOT EXISTS idx_compliance_cases_psp_id ON compliance_cases(psp_id);
+

@@ -27,7 +27,11 @@
         body {
             margin: 0;
             height: 100vh;
-            background: linear-gradient(135deg, var(--bg-gradient-start), var(--bg-gradient-end));
+            background:
+                radial-gradient(at 0% 0%, rgba(169, 50, 38, 0.1) 0, transparent 40%),
+                radial-gradient(at 100% 0%, rgba(241, 196, 15, 0.1) 0, transparent 40%),
+                linear-gradient(135deg, var(--bg-gradient-start), var(--bg-gradient-end));
+            background-attachment: fixed;
             font-family: 'Segoe UI', sans-serif;
             display: flex;
             align-items: center;
@@ -43,7 +47,7 @@
             border-radius: 16px;
             width: 100%;
             max-width: 400px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 20px 48px -12px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.1);
         }
 
         .login-header {
@@ -222,6 +226,11 @@
             }
         });
     </script>
+    
+    <!-- Footer -->
+    <div style="position: fixed; bottom: 8px; right: 8px; font-size: 0.5rem; color: rgba(255, 255, 255, 0.3); opacity: 0.4; font-weight: 300;">
+        Powered by Hokeka
+    </div>
 </body>
 
 </html>

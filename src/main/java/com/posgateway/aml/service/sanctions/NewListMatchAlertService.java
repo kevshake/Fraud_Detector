@@ -25,6 +25,7 @@ public class NewListMatchAlertService {
 
     private static final Logger logger = LoggerFactory.getLogger(NewListMatchAlertService.class);
 
+    @SuppressWarnings("unused")
     private final MerchantRepository merchantRepository;
     private final MerchantScreeningResultRepository screeningResultRepository;
     private final AlertRepository alertRepository;

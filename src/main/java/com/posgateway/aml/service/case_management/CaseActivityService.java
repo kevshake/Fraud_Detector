@@ -26,6 +26,7 @@ import java.util.List;
 @Service
 public class CaseActivityService {
 
+    @SuppressWarnings("unused")
     private static final Logger logger = LoggerFactory.getLogger(CaseActivityService.class);
 
     private final CaseActivityRepository activityRepository;

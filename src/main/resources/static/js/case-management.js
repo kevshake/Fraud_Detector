@@ -1117,6 +1117,10 @@ window.filterCases = function() {
 };
 
 // Refresh Cases
+window.openCaseFilters = function() {
+    alert('Case filters functionality - Coming soon!\n\nThis will open a filter panel to search and filter cases by status, priority, assigned user, date range, and other criteria.');
+};
+
 window.refreshCases = function() {
     fetchCases();
 };

@@ -26,6 +26,7 @@ public class ContentMonitoringService {
         this.caseService = caseService;
     }
 
+    @SuppressWarnings("unused")
     private final RestTemplate restTemplate = new RestTemplate();
 
     @Value("${g2.monitoring.enabled:true}")

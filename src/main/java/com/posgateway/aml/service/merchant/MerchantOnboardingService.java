@@ -89,6 +89,7 @@ public class MerchantOnboardingService {
         Map<String, Object> screeningResults = screeningOrchestrator.screenMerchantWithOwners(merchant);
 
         ScreeningResult merchantScreeningResult = (ScreeningResult) screeningResults.get("merchantScreeningResult");
+        @SuppressWarnings("unchecked")
         List<Map<String, Object>> ownerResults = (List<Map<String, Object>>) screeningResults
                 .get("beneficialOwnerResults");
 

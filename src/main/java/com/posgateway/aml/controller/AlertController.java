@@ -22,6 +22,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/alerts")
 @PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'INVESTIGATOR', 'ANALYST')")
+@SuppressWarnings("null") // PathVariable Long parameters and repository Optional returns are safe
 public class AlertController {
 
     private final AlertRepository alertRepository;
@@ -61,6 +62,7 @@ public class AlertController {
      * GET /api/v1/alerts/{id}
      */
     @GetMapping("/{id}")
+    @SuppressWarnings("null")
     public ResponseEntity<Alert> getAlertById(@PathVariable Long id) {
         return alertRepository.findById(id)
                 .map(ResponseEntity::ok)
@@ -85,6 +87,7 @@ public class AlertController {
      */
     @PutMapping("/{id}/resolve")
     @PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'INVESTIGATOR')")
+    @SuppressWarnings("null")
     public ResponseEntity<Alert> resolveAlert(@PathVariable Long id) {
         return alertRepository.findById(id)
                 .map(alert -> {
@@ -101,6 +104,7 @@ public class AlertController {
      */
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER')")
+    @SuppressWarnings("null")
     public ResponseEntity<Void> deleteAlert(@PathVariable Long id) {
         if (alertRepository.existsById(id)) {
             alertRepository.deleteById(id);

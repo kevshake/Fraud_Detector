@@ -20,6 +20,7 @@ import java.time.Duration;
  */
 @Configuration
 @ConditionalOnProperty(name = "redis.enabled", havingValue = "true", matchIfMissing = false)
+@SuppressWarnings("null") // @Value injected strings and Duration.ofMillis are safe
 public class RedisConfig {
 
     @Value("${spring.data.redis.host:localhost}")

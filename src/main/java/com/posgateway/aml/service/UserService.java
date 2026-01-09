@@ -13,6 +13,7 @@ import java.util.List;
 
 // @RequiredArgsConstructor removed
 @Service
+@SuppressWarnings("null") // Repository methods return Optional, saved entities are non-null
 public class UserService {
 
     private final UserRepository userRepository;

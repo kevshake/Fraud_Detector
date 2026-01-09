@@ -13,6 +13,7 @@ import java.util.Set;
 
 // @RequiredArgsConstructor removed
 @Service
+@SuppressWarnings("null") // Repository methods return Optional, saved entities are non-null
 public class RoleService {
 
     private final RoleRepository roleRepository;

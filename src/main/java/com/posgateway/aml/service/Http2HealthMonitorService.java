@@ -107,7 +107,6 @@ public class Http2HealthMonitorService {
     private void updateHealthStatus() {
         long requests = totalHttp2Requests.get();
         long errors = totalHttp2Errors.get();
-        long drops = totalHttp2Drops.get();
         int consecutiveDropsCount = consecutiveDrops.get();
         
         // Check error rate

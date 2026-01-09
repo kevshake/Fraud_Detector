@@ -43,6 +43,7 @@ public class AmlScreeningOrchestrator {
     private final MerchantScreeningResultRepository screeningResultRepository;
     private final ExternalAmlResponseRepository externalResponseRepository;
     private final AuditTrailRepository auditTrailRepository;
+    @SuppressWarnings("unused")
     private final UserRepository userRepository; // Added UserRepository field
     private final ObjectMapper objectMapper;
 
@@ -120,13 +121,11 @@ public class AmlScreeningOrchestrator {
         log.info("Orchestrating screening for UBO: {}", owner.getFullName());
 
         ScreeningResult result;
-        String screeningProvider;
 
         if (merchant.isNew() && sumsubService.isEnabled()) {
             log.info("Using Tier 1 (Sumsub) for new merchant's UBO '{}'", owner.getFullName());
             try {
                 result = sumsubService.screenBeneficialOwnerWithSumsub(owner);
-                screeningProvider = "SUMSUB";
 
                 // Save external response
                 saveExternalResponseForOwner(owner, result, sumsubService.getCostPerCheck());
@@ -134,12 +133,10 @@ public class AmlScreeningOrchestrator {
             } catch (Exception e) {
                 log.error("Sumsub UBO screening failed, falling back to Aerospike: {}", e.getMessage());
                 result = aerospikeService.screenBeneficialOwner(owner.getFullName(), owner.getDateOfBirth());
-                screeningProvider = "AEROSPIKE_FALLBACK";
             }
         } else {
             log.info("Using Tier 2 (Aerospike) for existing merchant's UBO '{}'", owner.getFullName());
             result = aerospikeService.screenBeneficialOwner(owner.getFullName(), owner.getDateOfBirth());
-            screeningProvider = "AEROSPIKE";
         }
 
         // Update owner flags based on results
@@ -229,6 +226,7 @@ public class AmlScreeningOrchestrator {
     /**
      * Save external AML provider response (Sumsub)
      */
+    @SuppressWarnings("unchecked")
     private void saveExternalResponse(Merchant merchant, ScreeningResult result, double cost) {
         try {
             ExternalAmlResponse response = ExternalAmlResponse.builder()
@@ -264,6 +262,7 @@ public class AmlScreeningOrchestrator {
     /**
      * Save external response for beneficial owner
      */
+    @SuppressWarnings("unchecked")
     private void saveExternalResponseForOwner(BeneficialOwner owner, ScreeningResult result, double cost) {
         try {
             ExternalAmlResponse response = ExternalAmlResponse.builder()

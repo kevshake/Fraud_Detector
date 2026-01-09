@@ -24,7 +24,10 @@
     <aside class="sidebar">
         <div class="sidebar-header">
             <i class="fas fa-shield-halved logo-icon"></i>
-            <span class="logo-text">AML Detector</span>
+            <div style="flex: 1;">
+                <span class="logo-text">AML Detector</span>
+                <div class="powered-by">Powered by Hokeka</div>
+            </div>
         </div>
 
         <nav class="sidebar-nav">
@@ -338,7 +341,7 @@
                         <canvas id="transactionChart"></canvas>
                     </div>
                 </div>
-                
+
                 <div class="chart-card">
                     <div class="card-header">
                         <h3>Case <strong>Aging Heatmap</strong></h3>
@@ -350,7 +353,7 @@
                         <canvas id="caseAgingHeatmapChart"></canvas>
                     </div>
                 </div>
-                
+
                 <div class="chart-card">
                     <div class="card-header">
                         <h3>Alert <strong>Disposition Rates</strong></h3>
@@ -362,12 +365,13 @@
                         <canvas id="alertDispositionChart"></canvas>
                     </div>
                 </div>
-                
+
                 <div class="chart-card wide">
                     <div class="card-header">
                         <h3>Geographic <strong>Risk Heatmap</strong></h3>
                         <div class="card-actions">
-                            <select id="geographicRiskPeriod" style="margin-right: 10px; padding: 5px; background: var(--card-bg-color); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 4px;">
+                            <select id="geographicRiskPeriod"
+                                style="margin-right: 10px; padding: 5px; background: var(--card-bg-color); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 4px;">
                                 <option value="30">Last 30 Days</option>
                                 <option value="90" selected>Last 90 Days</option>
                                 <option value="180">Last 180 Days</option>
@@ -519,9 +523,12 @@
             <div class="page-header">
                 <h1>Work Queues <span class="subtitle">Specialized Inspection Buckets</span></h1>
                 <div class="header-actions">
-                    <button class="btn-secondary" onclick="loadCaseQueuesView()"><i class="fas fa-sync"></i> Refresh</button>
-                    <button class="btn-secondary" onclick="exportCaseQueuesCsv()"><i class="fas fa-file-csv"></i> Export CSV</button>
-                    <button class="btn-primary" onclick="openCreateQueueModal()"><i class="fas fa-plus"></i> Create Queue</button>
+                    <button class="btn-secondary" onclick="loadCaseQueuesView()"><i class="fas fa-sync"></i>
+                        Refresh</button>
+                    <button class="btn-secondary" onclick="exportCaseQueuesCsv()"><i class="fas fa-file-csv"></i> Export
+                        CSV</button>
+                    <button class="btn-primary" onclick="openCreateQueueModal()"><i class="fas fa-plus"></i> Create
+                        Queue</button>
                 </div>
             </div>
             <div class="stats-grid" id="case-queues-stats">
@@ -597,7 +604,7 @@
                     </button>
                 </div>
             </div>
-            
+
             <div class="timeline-wrapper">
                 <div class="timeline-case-info" id="timeline-case-info" style="display: none;">
                     <div class="case-info-card">
@@ -610,7 +617,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="timeline-container" id="timeline-container">
                     <div class="timeline-empty-state">
                         <i class="fas fa-clock"></i>
@@ -628,21 +635,26 @@
                     <select id="network-case-selector" class="form-control" style="width: 250px; margin-right: 10px;">
                         <option value="">Select a case...</option>
                     </select>
-                    <input type="number" id="network-depth" value="2" min="1" max="5" style="width: 80px; margin-right: 10px;">
+                    <input type="number" id="network-depth" value="2" min="1" max="5"
+                        style="width: 80px; margin-right: 10px;">
                     <label>Depth</label>
                     <button class="btn-primary" onclick="loadNetworkGraph()"><i class="fas fa-sync"></i>
                         Refresh</button>
                     <button class="btn-secondary" onclick="resetNetworkView()"><i class="fas fa-expand"></i>
                         Reset View</button>
-                    <input type="text" id="network-search" placeholder="Search node..." style="width: 200px; margin-left: 10px;">
-                    <button class="btn-secondary btn-sm" onclick="findNetworkNode()"><i class="fas fa-search"></i> Find</button>
-                    <button class="btn-secondary btn-sm" id="network-physics-toggle-btn" onclick="toggleNetworkPhysics()">
+                    <input type="text" id="network-search" placeholder="Search node..."
+                        style="width: 200px; margin-left: 10px;">
+                    <button class="btn-secondary btn-sm" onclick="findNetworkNode()"><i class="fas fa-search"></i>
+                        Find</button>
+                    <button class="btn-secondary btn-sm" id="network-physics-toggle-btn"
+                        onclick="toggleNetworkPhysics()">
                         <i class="fas fa-atom"></i> Physics: On
                     </button>
-                    <button class="btn-secondary btn-sm" onclick="exportNetworkGraphPng()"><i class="fas fa-image"></i> PNG</button>
+                    <button class="btn-secondary btn-sm" onclick="exportNetworkGraphPng()"><i class="fas fa-image"></i>
+                        PNG</button>
                 </div>
             </div>
-            
+
             <div class="network-graph-wrapper">
                 <div class="network-legend" id="network-legend">
                     <h3>Legend</h3>
@@ -667,7 +679,7 @@
                         <span>User</span>
                     </div>
                 </div>
-                
+
                 <div class="network-graph-container" id="network-graph-container">
                     <div class="network-loading" id="network-loading">
                         <i class="fas fa-spinner fa-spin"></i>
@@ -675,7 +687,7 @@
                     </div>
                     <div id="network-canvas"></div>
                 </div>
-                
+
                 <div class="network-info-panel" id="network-info-panel" style="display: none;">
                     <h3>Node Details</h3>
                     <div id="network-node-details"></div>
@@ -753,7 +765,8 @@
             <div class="page-header">
                 <h1>SAR Reports <span class="subtitle">Suspicious Activity Reporting</span></h1>
                 <div class="header-actions">
-                    <button class="btn-secondary" onclick="fetchSarReports()"><i class="fas fa-sync"></i> Refresh</button>
+                    <button class="btn-secondary" onclick="fetchSarReports()"><i class="fas fa-sync"></i>
+                        Refresh</button>
                 </div>
             </div>
             <div class="table-card">
@@ -918,15 +931,19 @@
             <div class="page-header">
                 <h1>Audit Logs <span class="subtitle">System Event History</span></h1>
                 <div class="header-actions">
-                    <button class="btn-secondary" onclick="resetAuditLogFilters()"><i class="fas fa-eraser"></i> Reset</button>
-                    <button class="btn-secondary" onclick="exportAuditLogsCsv()"><i class="fas fa-file-csv"></i> Export CSV</button>
+                    <button class="btn-secondary" onclick="resetAuditLogFilters()"><i class="fas fa-eraser"></i>
+                        Reset</button>
+                    <button class="btn-secondary" onclick="exportAuditLogsCsv()"><i class="fas fa-file-csv"></i> Export
+                        CSV</button>
                     <button class="btn-primary" onclick="fetchAuditLogs()"><i class="fas fa-search"></i> Search</button>
                 </div>
             </div>
             <div class="monitoring-filters audit-filters">
                 <input id="auditFilterUsername" class="filter-select" type="text" placeholder="Username">
-                <input id="auditFilterAction" class="filter-select" type="text" placeholder="Action Type (e.g., UPDATE)">
-                <input id="auditFilterEntityType" class="filter-select" type="text" placeholder="Entity Type (e.g., CASE)">
+                <input id="auditFilterAction" class="filter-select" type="text"
+                    placeholder="Action Type (e.g., UPDATE)">
+                <input id="auditFilterEntityType" class="filter-select" type="text"
+                    placeholder="Entity Type (e.g., CASE)">
                 <input id="auditFilterEntityId" class="filter-select" type="text" placeholder="Entity ID">
                 <select id="auditFilterSuccess" class="filter-select">
                     <option value="">All Results</option>
@@ -1453,8 +1470,10 @@
                 </div>
                 <div class="form-group">
                     <label>Password</label>
-                    <input type="password" name="password" id="editPassword" placeholder="Leave blank to keep current password" disabled>
-                    <small style="color: #999; font-size: 0.85em;">Password changes are not supported in edit mode. Use the user management reset password feature.</small>
+                    <input type="password" name="password" id="editPassword"
+                        placeholder="Leave blank to keep current password" disabled>
+                    <small style="color: #999; font-size: 0.85em;">Password changes are not supported in edit mode. Use
+                        the user management reset password feature.</small>
                 </div>
                 <div class="form-group">
                     <label>Role</label>
@@ -1774,11 +1793,13 @@
                 <input type="hidden" id="editLimitId" name="id">
                 <div class="form-group">
                     <label>Limit Name <span style="color: #e74c3c;">*</span></label>
-                    <input type="text" id="editLimitName" name="name" required placeholder="e.g. Daily Transaction Limit">
+                    <input type="text" id="editLimitName" name="name" required
+                        placeholder="e.g. Daily Transaction Limit">
                 </div>
                 <div class="form-group">
                     <label>Description</label>
-                    <textarea id="editLimitDescription" name="description" placeholder="Applies to all merchants"></textarea>
+                    <textarea id="editLimitDescription" name="description"
+                        placeholder="Applies to all merchants"></textarea>
                 </div>
                 <div class="form-group">
                     <label>Limit Type <span style="color: #e74c3c;">*</span></label>
@@ -1790,8 +1811,10 @@
                 </div>
                 <div class="form-group">
                     <label>Limit Value <span style="color: #e74c3c;">*</span></label>
-                    <input type="number" id="editLimitValue" name="limitValue" required min="0" step="0.01" placeholder="e.g. 100000">
-                    <small style="color: #94a3b8; font-size: 0.85em;">Enter amount in cents for VOLUME type, or count for COUNT type</small>
+                    <input type="number" id="editLimitValue" name="limitValue" required min="0" step="0.01"
+                        placeholder="e.g. 100000">
+                    <small style="color: #94a3b8; font-size: 0.85em;">Enter amount in cents for VOLUME type, or count
+                        for COUNT type</small>
                 </div>
                 <div class="form-group">
                     <label>Period <span style="color: #e74c3c;">*</span></label>
@@ -1814,7 +1837,8 @@
                 </div>
                 <div style="display: flex; gap: 10px;">
                     <button type="submit" class="btn-primary">Save Changes</button>
-                    <button type="button" class="btn-secondary" onclick="closeEditTransactionLimitModal()">Cancel</button>
+                    <button type="button" class="btn-secondary"
+                        onclick="closeEditTransactionLimitModal()">Cancel</button>
                 </div>
             </form>
         </div>
@@ -1827,6 +1851,32 @@
         <i class="fas fa-cog"></i>
     </div>
 
+    <!-- User Skills Modal -->
+    <div id="userSkillsModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header">
+                <h2 id="skillsModalTitle">User Skills</h2>
+                <button class="close-btn" onclick="closeUserSkillsModal()">&times;</button>
+            </div>
+            <input type="hidden" id="skillsUserId" value="">
+
+            <div class="skills-section">
+                <h3><i class="fas fa-certificate"></i> Current Skills</h3>
+                <div id="userSkillsList">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <div class="skills-section"
+                style="margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 20px;">
+                <h3><i class="fas fa-plus-circle"></i> Add New Skill</h3>
+                <form id="addUserSkillForm">
+                    <!-- Populated by JS -->
+                </form>
+            </div>
+        </div>
+    </div>
+
     <script src="js/api-interceptor.js"></script>
     <script src="js/session-manager.js"></script>
     <script src="js/dashboard.js"></script>
@@ -1836,6 +1886,12 @@
     <script src="js/regulatory-reports.js"></script>
     <script src="js/limits-aml-management.js"></script>
     <script src="js/transaction-monitoring.js"></script>
+    <script src="js/skills-management.js"></script>
+    
+    <!-- Footer -->
+    <footer style="position: fixed; bottom: 0; right: 0; padding: 6px 12px; font-size: 0.5rem; color: var(--text-muted, #888); opacity: 0.35; z-index: 100; pointer-events: none; font-weight: 300;">
+        Powered by Hokeka
+    </footer>
 </body>
 
 </html>

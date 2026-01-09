@@ -205,13 +205,22 @@ This document contains prioritized TODO items based on the comprehensive project
 **Estimated Effort:** 2-3 days  
 **Files:** User entity, CaseAssignmentService
 
-- [ ] **7.1 Add skill tracking to User**
-  - Create `user_skills` table
-  - Add skills management UI
+- [x] **7.1 Add skill tracking to User** ✅ COMPLETE
+  - ✅ Created `skill_types`, `user_skills`, `case_required_skills` tables (V16__user_skills_schema.sql)
+  - ✅ Created `SkillType`, `UserSkill`, `CaseRequiredSkill` entities
+  - ✅ Created `SkillTypeRepository`, `UserSkillRepository`, `CaseRequiredSkillRepository`
+  - ✅ Created `UserSkillService` for CRUD operations
+  - ✅ Created `UserSkillController` with full REST API
+  - ✅ Added skills management UI modal and `skills-management.js`
+  - **Status:** Fully implemented with skill types, proficiency levels (1-5), certification tracking
 
-- [ ] **7.2 Implement skill-based routing**
-  - Match case type to required skills
-  - Weight skill match in assignment algorithm
+- [x] **7.2 Implement skill-based routing** ✅ COMPLETE
+  - ✅ Enhanced `CaseAssignmentService` with `assignCaseBySkill()` method
+  - ✅ Algorithm: Matches case queue skill requirements to user skills
+  - ✅ Scoring: `skill_match_score * skill_weight + workload_score * (1 - skill_weight)`
+  - ✅ Added `getAssignmentRecommendations()` for UI integration
+  - ✅ Configurable via `case.assignment.skill-weight` property
+  - **Status:** Fully implemented with weighted skill matching and workload balancing
 
 ---
 
@@ -300,14 +309,15 @@ Use this section to track progress:
 **Progress:**
 - High Priority: 11/11 complete (100%) ✅ **COMPLETE**
 - Medium Priority: 6/6 complete (100%) ✅ **COMPLETE**
-- Low Priority: 5/9 complete (56%) - Core items complete, optional enhancements remaining
+- Low Priority: 7/9 complete (78%) - Expert-based case assignment now complete
 
 **Summary:**
-- ✅ **Completed:** 24 items fully implemented
+- ✅ **Completed:** 26 items fully implemented (including skill-based routing)
 - ⚠️ **Partial:** 0 items
-- ❌ **Pending:** 4 items (all optional enhancements: skill-based routing, load testing)
+- ❌ **Pending:** 2 items (optional: load testing, performance benchmarks)
 
 **🎉 HIGH AND MEDIUM PRIORITY ITEMS: 100% COMPLETE! 🎉**
+**🎉 SKILL-BASED CASE ASSIGNMENT: NOW COMPLETE! 🎉**
 
 **Additional Enhancements Completed:**
 - ✅ Enhanced error handling with detailed error responses (see `ERROR_HANDLING_ENHANCEMENT.md`)

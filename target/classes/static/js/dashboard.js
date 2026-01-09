@@ -1,4 +1,15 @@
+// #region agent log - Global error handler
+window.addEventListener('error', function (e) {
+    fetch('http://127.0.0.1:7243/ingest/328b5c76-f5f4-4b08-a869-a5ae08fcc3e6', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'dashboard.js:1', message: 'Global JavaScript error', data: { message: e.message, filename: e.filename, lineno: e.lineno, error: e.error ? e.error.toString() : null }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'H' }) }).catch(() => { });
+});
+// #endregion
+
 document.addEventListener('DOMContentLoaded', function () {
+    // #region agent log - Check function availability after DOM load
+    setTimeout(function () {
+        fetch('http://127.0.0.1:7243/ingest/328b5c76-f5f4-4b08-a869-a5ae08fcc3e6', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'dashboard.js:2', message: 'Function availability check', data: { editCase: typeof window.editCase, deleteCase: typeof window.deleteCase, editMerchant: typeof window.editMerchant, deleteMerchant: typeof window.deleteMerchant, getFetchOptions: typeof getFetchOptions }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'I' }) }).catch(() => { });
+    }, 1000);
+    // #endregion
     // --- Currency Formatting (global, shared across pages) ---
     (function initCurrencyFormatter() {
         if (window.currencyFormatter) return;
@@ -131,7 +142,7 @@ document.addEventListener('DOMContentLoaded', function () {
         'transactions-view', 'screening-view', 'profile-view',
         'messages-view', 'settings-view', 'reports-view', 'audit-view',
         'risk-analytics-view', 'compliance-calendar-view', 'regulatory-reports-view',
-        'limits-aml-view', 'transaction-monitoring-live-view', 'transaction-monitoring-analytics-view', 
+        'limits-aml-view', 'transaction-monitoring-live-view', 'transaction-monitoring-analytics-view',
         'transaction-monitoring-sars-view', 'transaction-monitoring-reports-view'
     ];
 
@@ -141,53 +152,53 @@ document.addEventListener('DOMContentLoaded', function () {
             if (el) el.style.display = 'none';
         });
 
-            const targetEl = document.getElementById(viewId);
-            if (targetEl) {
-                targetEl.style.display = 'block';
-                // Specific load logic for each view
-                if (viewId === 'dashboard-view') {
-                    fetchLiveAlerts();
-                    fetchRecentActivity();
-                    fetchSanctionsStatus();
+        const targetEl = document.getElementById(viewId);
+        if (targetEl) {
+            targetEl.style.display = 'block';
+            // Specific load logic for each view
+            if (viewId === 'dashboard-view') {
+                fetchLiveAlerts();
+                fetchRecentActivity();
+                fetchSanctionsStatus();
+            }
+            if (viewId === 'user-management-view') fetchUsers();
+            if (viewId === 'role-management-view') fetchRoles();
+            if (viewId === 'cases-view') fetchCases();
+            if (viewId === 'merchants-view') fetchMerchants();
+            if (viewId === 'sar-view') fetchSarReports();
+            if (viewId === 'audit-view') fetchAuditLogs();
+            if (viewId === 'reports-view') fetchReports();
+            if (viewId === 'alerts-view') fetchAlerts();
+            if (viewId === 'screening-view') initScreeningView();
+            if (viewId === 'profile-view') fetchUserProfile();
+            if (viewId === 'messages-view') fetchMessages();
+            if (viewId === 'settings-view') fetchSettings();
+            if (viewId === 'risk-analytics-view') loadRiskAnalytics();
+            if (viewId === 'compliance-calendar-view') loadComplianceCalendar();
+            if (viewId === 'case-network-view') {
+                initializeNetworkGraphView();
+            }
+            if (viewId === 'case-timeline-view') {
+                if (typeof initializeTimelineView === 'function') {
+                    initializeTimelineView();
                 }
-                if (viewId === 'user-management-view') fetchUsers();
-                if (viewId === 'role-management-view') fetchRoles();
-                if (viewId === 'cases-view') fetchCases();
-                if (viewId === 'merchants-view') fetchMerchants();
-                if (viewId === 'sar-view') fetchSarReports();
-                if (viewId === 'audit-view') fetchAuditLogs();
-                if (viewId === 'reports-view') fetchReports();
-                if (viewId === 'alerts-view') fetchAlerts();
-                if (viewId === 'screening-view') initScreeningView();
-                if (viewId === 'profile-view') fetchUserProfile();
-                if (viewId === 'messages-view') fetchMessages();
-                if (viewId === 'settings-view') fetchSettings();
-                if (viewId === 'risk-analytics-view') loadRiskAnalytics();
-                if (viewId === 'compliance-calendar-view') loadComplianceCalendar();
-                if (viewId === 'case-network-view') {
-                    initializeNetworkGraphView();
-                }
-                if (viewId === 'case-timeline-view') {
-                    if (typeof initializeTimelineView === 'function') {
-                        initializeTimelineView();
-                    }
-                    if (typeof loadTimelineCases === 'function') {
-                        loadTimelineCases();
-                    }
-                }
-                if (viewId === 'case-queues-view') {
-                    if (typeof loadCaseQueuesView === 'function') {
-                        loadCaseQueuesView();
-                    }
-                }
-                if (viewId === 'limits-aml-view') initLimitsAmlManagement();
-                if (viewId === 'transaction-monitoring-live-view' || 
-                    viewId === 'transaction-monitoring-analytics-view' || 
-                    viewId === 'transaction-monitoring-sars-view' || 
-                    viewId === 'transaction-monitoring-reports-view') {
-                    initTransactionMonitoring();
+                if (typeof loadTimelineCases === 'function') {
+                    loadTimelineCases();
                 }
             }
+            if (viewId === 'case-queues-view') {
+                if (typeof loadCaseQueuesView === 'function') {
+                    loadCaseQueuesView();
+                }
+            }
+            if (viewId === 'limits-aml-view') initLimitsAmlManagement();
+            if (viewId === 'transaction-monitoring-live-view' ||
+                viewId === 'transaction-monitoring-analytics-view' ||
+                viewId === 'transaction-monitoring-sars-view' ||
+                viewId === 'transaction-monitoring-reports-view') {
+                initTransactionMonitoring();
+            }
+        }
     }
 
     // Attach listeners to all nav items and subitems
@@ -221,7 +232,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     const navSection = item.closest('.nav-section');
                     const submenu = navSection?.querySelector('.nav-submenu');
                     const expandIcon = navSection?.querySelector('.expand-icon');
-                    
+
                     if (submenu && !submenu.classList.contains('show')) {
                         // Close other open submenus (accordion behavior)
                         document.querySelectorAll('.nav-submenu.show').forEach(openMenu => {
@@ -231,7 +242,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                 if (otherIcon) otherIcon.style.transform = 'rotate(0deg)';
                             }
                         });
-                        
+
                         // Expand this submenu
                         submenu.classList.add('show');
                         if (expandIcon) {
@@ -263,7 +274,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (e.target.closest('.nav-subitem')) {
                     return;
                 }
-                
+
                 // Only toggle if clicking on the parent nav-item with expand icon
                 const navSection = navItem.closest('.nav-section');
                 const submenu = navSection?.querySelector('.nav-submenu');
@@ -473,7 +484,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const txCtx = document.getElementById('transactionChart');
         if (txCtx && typeof Chart !== 'undefined') {
             if (transactionChart) transactionChart.destroy();
-            
+
             // Initialize chart with empty data first
             transactionChart = new Chart(txCtx, {
                 type: 'line',
@@ -526,12 +537,12 @@ document.addEventListener('DOMContentLoaded', function () {
                     // Fallback to empty chart or show error message
                 });
         }
-        
+
         // Case Aging Heatmap Chart
         const agingCtx = document.getElementById('caseAgingHeatmapChart');
         if (agingCtx && typeof Chart !== 'undefined') {
             if (caseAgingHeatmapChart) caseAgingHeatmapChart.destroy();
-            
+
             fetch('dashboard/case-aging', getFetchOptions())
                 .then(res => res.json())
                 .then(data => {
@@ -608,12 +619,12 @@ document.addEventListener('DOMContentLoaded', function () {
                     });
                 });
         }
-        
+
         // Alert Disposition Rates Chart
         const dispositionCtx = document.getElementById('alertDispositionChart');
         if (dispositionCtx && typeof Chart !== 'undefined') {
             if (alertDispositionChart) alertDispositionChart.destroy();
-            
+
             fetch('alerts/disposition-stats', getFetchOptions())
                 .then(res => res.json())
                 .then(data => {
@@ -956,6 +967,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         return null;
     }
+    window.getCsrfToken = getCsrfToken;
 
     function getFetchOptions(method = 'GET', body = null) {
         const options = {
@@ -980,6 +992,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         return options;
     }
+    window.getFetchOptions = getFetchOptions;
 
     // Best-effort: bootstrap default currency from current user's PSP (falls back to USD)
     (function initDefaultCurrencyFromUserProfile() {
@@ -1036,6 +1049,7 @@ document.addEventListener('DOMContentLoaded', function () {
             showErrorNotification(errorMessage, null, null, null, context);
         }
     }
+    window.handleApiError = handleApiError;
 
     // Show success notification
     function showSuccessNotification(message) {
@@ -1170,7 +1184,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // Enhanced fetch error handler that extracts error details from response
-    window.handleFetchError = async function(response, context) {
+    window.handleFetchError = async function (response, context) {
         let errorData = null;
         try {
             const contentType = response.headers.get('content-type');
@@ -1232,7 +1246,7 @@ document.addEventListener('DOMContentLoaded', function () {
             alert('Error: User ID is missing.');
             return;
         }
-        
+
         fetch(`users/${userId}`, getFetchOptions())
             .then(res => {
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -1245,7 +1259,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     alert('Error: Could not determine user ID.');
                     return;
                 }
-                
+
                 document.getElementById('editUserId').value = actualUserId;
                 document.getElementById('editUsername').value = user.username || '';
                 document.getElementById('editEmail').value = user.email || '';
@@ -1282,11 +1296,11 @@ document.addEventListener('DOMContentLoaded', function () {
             alert('Error: User ID is missing.');
             return;
         }
-        
+
         if (!confirm(`Are you sure you want to delete user ID ${userId}?\n\nThis action cannot be undone and will permanently remove the user from the system.`)) {
             return;
         }
-        
+
         fetch(`users/${userId}`, getFetchOptions('DELETE'))
             .then(res => {
                 if (res.ok) {
@@ -1312,17 +1326,17 @@ document.addEventListener('DOMContentLoaded', function () {
             alert('Error: User ID is missing.');
             return;
         }
-        
+
         const action = currentStatus ? 'disable' : 'enable';
         const actionText = currentStatus ? 'disable' : 'enable';
-        const warningText = currentStatus ? 
-            'Disabling this user will prevent them from logging in and accessing the system.' : 
+        const warningText = currentStatus ?
+            'Disabling this user will prevent them from logging in and accessing the system.' :
             'Enabling this user will allow them to log in and access the system.';
-        
+
         if (!confirm(`Are you sure you want to ${actionText} user ID ${userId}?\n\n${warningText}`)) {
             return;
         }
-        
+
         fetch(`users/${userId}/${action}`, getFetchOptions('POST'))
             .then(res => {
                 if (res.ok) {
@@ -1389,16 +1403,16 @@ document.addEventListener('DOMContentLoaded', function () {
                 alert('Error: User ID is missing. Please try again.');
                 return;
             }
-            
+
             // Build data object matching UpdateUserRequest DTO
             const data = {
                 firstName: document.getElementById('editFirstName').value || null,
                 lastName: document.getElementById('editLastName').value || null,
                 email: document.getElementById('editEmail').value || null,
-                roleId: document.getElementById('editUserRoleSelect').value ? 
-                        parseInt(document.getElementById('editUserRoleSelect').value) : null
+                roleId: document.getElementById('editUserRoleSelect').value ?
+                    parseInt(document.getElementById('editUserRoleSelect').value) : null
             };
-            
+
             // Remove null values
             Object.keys(data).forEach(key => {
                 if (data[key] === null || data[key] === '') {
@@ -1623,13 +1637,13 @@ document.addEventListener('DOMContentLoaded', function () {
             const filterEl = document.getElementById('caseStatusFilter');
             statusFilter = filterEl ? filterEl.value : '';
         }
-        
+
         // Build URL with filter parameter
         let url = 'compliance/cases';
         if (statusFilter && statusFilter !== '') {
             url += '?status=' + encodeURIComponent(statusFilter);
         }
-        
+
         fetch(url, getFetchOptions())
             .then(res => {
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -1638,7 +1652,7 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(cases => {
                 // Update the badge count with actual count of cases
                 updateCasesCount();
-                
+
                 const tbody = document.querySelector('#cases-table tbody');
                 if (!tbody) return;
                 tbody.innerHTML = '';
@@ -1654,7 +1668,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     const assignedTo = c.assignedTo ? (c.assignedTo.username || c.assignedTo.firstName || 'Assigned') : 'Unassigned';
                     const slaDeadline = c.slaDeadline ? new Date(c.slaDeadline).toLocaleDateString() : 'N/A';
                     const daysOpen = c.daysOpen || (c.createdAt ? Math.floor((new Date() - new Date(c.createdAt)) / (1000 * 60 * 60 * 24)) : 0);
-                    
+
                     tr.innerHTML = `
                         <td><span class="case-id">${c.caseReference || ('CASE-' + c.id)}</span></td>
                         <td>${merchantName}</td>
@@ -1665,13 +1679,13 @@ document.addEventListener('DOMContentLoaded', function () {
                         <td>${daysOpen} days</td>
                         <td>
                             <div class="action-btns">
-                                <button class="action-btn" title="View details" onclick="viewCaseDetail(${c.id})" data-case-id="${c.id}">
+                                <button class="action-btn" title="View details" onclick="(function(id){fetch('http://127.0.0.1:7243/ingest/328b5c76-f5f4-4b08-a869-a5ae08fcc3e6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:1668',message:'viewCaseDetail button clicked',data:{caseId:id,funcExists:typeof viewCaseDetail},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{}); viewCaseDetail(id)})(${c.id})" data-case-id="${c.id}">
                                     <i class="fas fa-eye"></i>
                                 </button>
-                                <button class="action-btn" title="Edit Case" onclick="editCase(${c.id})" data-case-id="${c.id}">
+                                <button class="action-btn" title="Edit Case" onclick="(function(id){fetch('http://127.0.0.1:7243/ingest/328b5c76-f5f4-4b08-a869-a5ae08fcc3e6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:1671',message:'editCase button clicked',data:{caseId:id,funcExists:typeof editCase},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{}); editCase(id)})(${c.id})" data-case-id="${c.id}">
                                     <i class="fas fa-edit"></i>
                                 </button>
-                                <button class="action-btn danger" title="Delete Case" onclick="deleteCase(${c.id})" data-case-id="${c.id}">
+                                <button class="action-btn danger" title="Delete Case" onclick="(function(id){fetch('http://127.0.0.1:7243/ingest/328b5c76-f5f4-4b08-a869-a5ae08fcc3e6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:1674',message:'deleteCase button clicked',data:{caseId:id,funcExists:typeof deleteCase},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{}); deleteCase(id)})(${c.id})" data-case-id="${c.id}">
                                     <i class="fas fa-trash"></i>
                                 </button>
                             </div>
@@ -1687,7 +1701,7 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 
     // Filter cases in real-time
-    window.filterCases = function() {
+    window.filterCases = function () {
         const statusFilter = document.getElementById('caseStatusFilter');
         if (statusFilter) {
             const selectedStatus = statusFilter.value;
@@ -1699,7 +1713,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Use viewCaseDetail from case-management.js if available, otherwise implement it
     if (typeof window.viewCaseDetail === 'undefined') {
-        window.viewCaseDetail = function(caseId) {
+        window.viewCaseDetail = function (caseId) {
             if (typeof showView === 'function') {
                 showView('case-detail-view');
             }
@@ -1720,63 +1734,106 @@ document.addEventListener('DOMContentLoaded', function () {
         };
     }
 
-    window.editCase = function(caseId) {
+    window.editCase = function (caseId) {
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/328b5c76-f5f4-4b08-a869-a5ae08fcc3e6', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'dashboard.js:1723', message: 'editCase called', data: { caseId: caseId, getFetchOptionsExists: typeof getFetchOptions }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'A' }) }).catch(() => { });
+        // #endregion
         // Load case data and open edit modal
-        fetch(`compliance/cases/${caseId}`, getFetchOptions())
-            .then(res => {
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                return res.json();
-            })
-            .then(caseData => {
-                // Open edit modal with case data
-                alert('Edit Case functionality - Case ID: ' + caseId + '\n\nThis will open an edit modal with case data.');
-                // TODO: Implement edit modal
-            })
-            .catch(err => {
-                console.error('Error loading case for edit:', err);
-                alert('Error loading case: ' + err.message);
-            });
+        try {
+            const fetchOpts = getFetchOptions();
+            // #region agent log
+            fetch('http://127.0.0.1:7243/ingest/328b5c76-f5f4-4b08-a869-a5ae08fcc3e6', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'dashboard.js:1727', message: 'getFetchOptions result', data: { fetchOpts: fetchOpts ? JSON.stringify(fetchOpts) : null }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'B' }) }).catch(() => { });
+            // #endregion
+            fetch(`compliance/cases/${caseId}`, fetchOpts)
+                .then(res => {
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    return res.json();
+                })
+                .then(caseData => {
+                    // #region agent log
+                    fetch('http://127.0.0.1:7243/ingest/328b5c76-f5f4-4b08-a869-a5ae08fcc3e6', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'dashboard.js:1730', message: 'editCase fetch success', data: { caseId: caseId, hasCaseData: !!caseData }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'C' }) }).catch(() => { });
+                    // #endregion
+                    // Open edit modal with case data
+                    alert('Edit Case functionality - Case ID: ' + caseId + '\n\nThis will open an edit modal with case data.');
+                    // TODO: Implement edit modal
+                })
+                .catch(err => {
+                    // #region agent log
+                    fetch('http://127.0.0.1:7243/ingest/328b5c76-f5f4-4b08-a869-a5ae08fcc3e6', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'dashboard.js:1736', message: 'editCase fetch error', data: { caseId: caseId, error: err.message, stack: err.stack }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'D' }) }).catch(() => { });
+                    // #endregion
+                    console.error('Error loading case for edit:', err);
+                    alert('Error loading case: ' + err.message);
+                });
+        } catch (err) {
+            // #region agent log
+            fetch('http://127.0.0.1:7243/ingest/328b5c76-f5f4-4b08-a869-a5ae08fcc3e6', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'dashboard.js:1740', message: 'editCase exception', data: { caseId: caseId, error: err.message, stack: err.stack }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'E' }) }).catch(() => { });
+            // #endregion
+            alert('Error: ' + err.message);
+        }
     };
 
-    window.deleteCase = function(caseId) {
+    window.deleteCase = function (caseId) {
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/328b5c76-f5f4-4b08-a869-a5ae08fcc3e6', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'dashboard.js:1741', message: 'deleteCase called', data: { caseId: caseId, getFetchOptionsExists: typeof getFetchOptions }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'A' }) }).catch(() => { });
+        // #endregion
         if (!caseId) {
             alert('Error: Case ID is missing.');
             return;
         }
-        
+
         if (!confirm(`Are you sure you want to delete case ${caseId}?\n\nThis action cannot be undone and will permanently remove the case and all associated data from the system.`)) {
+            // #region agent log
+            fetch('http://127.0.0.1:7243/ingest/328b5c76-f5f4-4b08-a869-a5ae08fcc3e6', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'dashboard.js:1747', message: 'deleteCase cancelled', data: { caseId: caseId }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'F' }) }).catch(() => { });
+            // #endregion
             return;
         }
-        
-        fetch(`compliance/cases/${caseId}`, getFetchOptions('DELETE'))
-            .then(res => {
-                if (res.ok) {
-                    // Show success message
-                    const tbody = document.querySelector('#cases-table tbody');
-                    if (tbody) {
-                        const row = tbody.querySelector(`tr button[data-case-id="${caseId}"]`)?.closest('tr');
-                        if (row) {
-                            row.style.opacity = '0.5';
-                            row.style.transition = 'opacity 0.3s';
-                            setTimeout(() => {
+
+        try {
+            const fetchOpts = getFetchOptions('DELETE');
+            // #region agent log
+            fetch('http://127.0.0.1:7243/ingest/328b5c76-f5f4-4b08-a869-a5ae08fcc3e6', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'dashboard.js:1751', message: 'deleteCase fetch starting', data: { caseId: caseId, fetchOpts: fetchOpts ? JSON.stringify(fetchOpts) : null }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'B' }) }).catch(() => { });
+            // #endregion
+            fetch(`compliance/cases/${caseId}`, fetchOpts)
+                .then(res => {
+                    // #region agent log
+                    fetch('http://127.0.0.1:7243/ingest/328b5c76-f5f4-4b08-a869-a5ae08fcc3e6', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'dashboard.js:1752', message: 'deleteCase response received', data: { caseId: caseId, status: res.status, ok: res.ok }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'C' }) }).catch(() => { });
+                    // #endregion
+                    if (res.ok) {
+                        // Show success message
+                        const tbody = document.querySelector('#cases-table tbody');
+                        if (tbody) {
+                            const row = tbody.querySelector(`tr button[data-case-id="${caseId}"]`)?.closest('tr');
+                            if (row) {
+                                row.style.opacity = '0.5';
+                                row.style.transition = 'opacity 0.3s';
+                                setTimeout(() => {
+                                    fetchCases(); // Refresh the list
+                                }, 300);
+                            } else {
                                 fetchCases(); // Refresh the list
-                            }, 300);
-                        } else {
-                            fetchCases(); // Refresh the list
+                            }
                         }
+                    } else {
+                        return res.json().then(err => {
+                            throw new Error(err.message || 'Failed to delete case');
+                        }).catch(() => {
+                            throw new Error('Failed to delete case');
+                        });
                     }
-                } else {
-                    return res.json().then(err => {
-                        throw new Error(err.message || 'Failed to delete case');
-                    }).catch(() => {
-                        throw new Error('Failed to delete case');
-                    });
-                }
-            })
-            .catch(err => {
-                console.error('Error deleting case:', err);
-                alert('Error deleting case: ' + err.message);
-            });
+                })
+                .catch(err => {
+                    // #region agent log
+                    fetch('http://127.0.0.1:7243/ingest/328b5c76-f5f4-4b08-a869-a5ae08fcc3e6', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'dashboard.js:1773', message: 'deleteCase error', data: { caseId: caseId, error: err.message, stack: err.stack }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'D' }) }).catch(() => { });
+                    // #endregion
+                    console.error('Error deleting case:', err);
+                    alert('Error deleting case: ' + err.message);
+                });
+        } catch (err) {
+            // #region agent log
+            fetch('http://127.0.0.1:7243/ingest/328b5c76-f5f4-4b08-a869-a5ae08fcc3e6', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'dashboard.js:1778', message: 'deleteCase exception', data: { caseId: caseId, error: err.message, stack: err.stack }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'E' }) }).catch(() => { });
+            // #endregion
+            alert('Error: ' + err.message);
+        }
     };
 
     window.fetchMerchants = function () {
@@ -1827,11 +1884,11 @@ document.addEventListener('DOMContentLoaded', function () {
                         <td><span class="status-badge resolved">${m.status || 'ACTIVE'}</span></td>
                         <td>
                             <div class="action-btns">
-                                <button class="action-btn" title="View Details" onclick="viewMerchant(${m.merchantId})"><i class="fas fa-eye"></i></button>
-                                <button class="action-btn" title="Edit" onclick="editMerchant(${m.merchantId})"><i class="fas fa-edit"></i></button>
+                                <button class="action-btn" title="View Details" onclick="(function(id){fetch('http://127.0.0.1:7243/ingest/328b5c76-f5f4-4b08-a869-a5ae08fcc3e6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:1830',message:'viewMerchant button clicked',data:{merchantId:id,funcExists:typeof viewMerchant},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{}); viewMerchant(id)})(${m.merchantId})"><i class="fas fa-eye"></i></button>
+                                <button class="action-btn" title="Edit" onclick="(function(id){fetch('http://127.0.0.1:7243/ingest/328b5c76-f5f4-4b08-a869-a5ae08fcc3e6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:1831',message:'editMerchant button clicked',data:{merchantId:id,funcExists:typeof editMerchant},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{}); editMerchant(id)})(${m.merchantId})"><i class="fas fa-edit"></i></button>
                                 <button class="action-btn" title="Settings" onclick="merchantSettings(${m.merchantId})"><i class="fas fa-cog"></i></button>
                                 <button class="action-btn accent" title="Force Manual Settlement" onclick="forceSettlement(${m.merchantId})"><i class="fas fa-hand-holding-usd"></i></button>
-                                <button class="action-btn danger" title="Delete Merchant" onclick="deleteMerchant(${m.merchantId})"><i class="fas fa-trash"></i></button>
+                                <button class="action-btn danger" title="Delete Merchant" onclick="(function(id){fetch('http://127.0.0.1:7243/ingest/328b5c76-f5f4-4b08-a869-a5ae08fcc3e6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:1834',message:'deleteMerchant button clicked',data:{merchantId:id,funcExists:typeof deleteMerchant},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{}); deleteMerchant(id)})(${m.merchantId})"><i class="fas fa-trash"></i></button>
                             </div>
                         </td>
                     `;
@@ -1912,13 +1969,13 @@ document.addEventListener('DOMContentLoaded', function () {
             const filterEl = document.getElementById('sarStatusFilter');
             statusFilter = filterEl ? filterEl.value : '';
         }
-        
+
         // Build URL with filter parameter
         let url = 'compliance/sar';
         if (statusFilter && statusFilter !== '') {
             url += '?status=' + encodeURIComponent(statusFilter);
         }
-        
+
         fetch(url, getFetchOptions())
             .then(res => {
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -1927,7 +1984,7 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(sars => {
                 // Update the badge count with actual count of non-exported SARs
                 updateSarCount();
-                
+
                 const container = document.querySelector('#sar-view .table-card');
                 if (!container) return;
                 if (!sars || sars.length === 0) {
@@ -1942,7 +1999,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     const jurisdiction = sar.jurisdiction || 'N/A';
                     const createdAt = sar.createdAt ? new Date(sar.createdAt).toLocaleDateString() : 'N/A';
                     const sarId = sar.id;
-                    
+
                     html += `<tr>
                         <td><span class="case-id">${sarRef}</span></td>
                         <td><span class="status-badge ${getStatusClass(status)}">${status}</span></td>
@@ -1975,7 +2032,7 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 
     // Filter SAR reports in real-time
-    window.filterSarReports = function() {
+    window.filterSarReports = function () {
         const statusFilter = document.getElementById('sarStatusFilter');
         if (statusFilter) {
             const selectedStatus = statusFilter.value;
@@ -1986,7 +2043,7 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 
     // Filter SAR reports in real-time
-    window.filterSarReports = function() {
+    window.filterSarReports = function () {
         const statusFilter = document.getElementById('sarStatusFilter');
         if (statusFilter) {
             const selectedStatus = statusFilter.value;
@@ -1997,66 +2054,174 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 
     // SAR CRUD Operations
-    window.viewSar = function(sarId) {
-        fetch(`compliance/sar/${sarId}`, getFetchOptions())
-            .then(res => {
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                return res.json();
-            })
-            .then(sarData => {
-                alert('SAR Details:\n\nReference: ' + (sarData.sarReference || 'SAR-' + sarId) + 
-                      '\nStatus: ' + (sarData.status || 'N/A') + 
-                      '\nType: ' + (sarData.suspiciousActivityType || 'N/A') + 
-                      '\nJurisdiction: ' + (sarData.jurisdiction || 'N/A'));
-                // TODO: Open SAR detail modal/view
-            })
-            .catch(err => {
-                console.error('Error loading SAR:', err);
-                alert('Error loading SAR: ' + err.message);
-            });
-    };
-
-    window.editSar = function(sarId) {
-        fetch(`compliance/sar/${sarId}`, getFetchOptions())
-            .then(res => {
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                return res.json();
-            })
-            .then(sarData => {
-                alert('Edit SAR functionality - SAR ID: ' + sarId + '\n\nThis will open an edit modal.');
-                // TODO: Implement SAR edit modal
-            })
-            .catch(err => {
-                console.error('Error loading SAR for edit:', err);
-                alert('Error loading SAR: ' + err.message);
-            });
-    };
-
-    window.deleteSar = function(sarId) {
+    window.viewSar = function (sarId) {
         if (!sarId) {
+            console.error('viewSar called without sarId');
             alert('Error: SAR ID is missing.');
             return;
         }
-        
-        if (!confirm(`Are you sure you want to delete SAR ${sarId}?\n\nThis action cannot be undone and will permanently remove the SAR report and all associated data from the system.\n\nWARNING: Deleting SARs may violate regulatory compliance requirements.`)) {
-            return;
-        }
-        
-        fetch(`compliance/sar/${sarId}`, getFetchOptions('DELETE'))
-            .then(res => {
-                if (res.ok) {
-                    fetchSarReports(); // Refresh the list
+
+        fetch(`compliance/sar/${sarId}`, getFetchOptions())
+            .then(async res => {
+                if (!res.ok) {
+                    const contentType = res.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
+                        try {
+                            const errorData = await res.json();
+                            throw new Error(errorData.message || errorData.error || `HTTP ${res.status}`);
+                        } catch (parseError) {
+                            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                        }
+                    } else {
+                        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                    }
+                }
+                const contentType = res.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    return res.json();
                 } else {
-                    return res.json().then(err => {
-                        throw new Error(err.message || 'Failed to delete SAR');
-                    }).catch(() => {
-                        throw new Error('Failed to delete SAR');
+                    const text = await res.text();
+                    throw new Error(`Unexpected response format. Expected JSON but got: ${contentType || 'unknown'}`);
+                }
+            })
+            .then(sarData => {
+                // Display SAR details in a modal
+                const sarRef = sarData.sarReference || ('SAR-' + sarId);
+                const status = sarData.status || 'N/A';
+                const sarType = sarData.suspiciousActivityType || sarData.sarType || 'N/A';
+                const jurisdiction = sarData.jurisdiction || 'N/A';
+                const createdAt = sarData.createdAt ? new Date(sarData.createdAt).toLocaleString() : 'N/A';
+                const body = sarData.body || sarData.content || sarData.description || 'No content available.';
+
+                const escapeHtml = (text) => {
+                    const div = document.createElement('div');
+                    div.textContent = text;
+                    return div.innerHTML;
+                };
+
+                const modalHtml = `
+                    <div id="sar-modal" class="modal" style="display: block;">
+                        <div class="modal-content" style="max-width: 700px;">
+                            <span class="close" onclick="closeSarModal()">&times;</span>
+                            <h2>SAR Details</h2>
+                            <div style="margin-top: 20px;">
+                                <p><strong>SAR Reference:</strong> ${escapeHtml(sarRef)}</p>
+                                <p><strong>Status:</strong> <span class="status-badge ${getStatusClass(status)}">${escapeHtml(status)}</span></p>
+                                <p><strong>Type:</strong> ${escapeHtml(sarType)}</p>
+                                <p><strong>Jurisdiction:</strong> ${escapeHtml(jurisdiction)}</p>
+                                <p><strong>Created:</strong> ${escapeHtml(createdAt)}</p>
+                                ${body ? `<hr style="margin: 15px 0; border: none; border-top: 1px solid var(--glass-border, #e0e0e0);"><div style="padding: 15px; background: rgba(255, 255, 255, 0.05); border-radius: 8px; white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(body)}</div>` : ''}
+                            </div>
+                            <div style="margin-top: 20px; text-align: right;">
+                                <button class="btn-secondary" onclick="closeSarModal()">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                const existingModal = document.getElementById('sar-modal');
+                if (existingModal) {
+                    existingModal.remove();
+                }
+
+                document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+                const modal = document.getElementById('sar-modal');
+                if (modal) {
+                    modal.addEventListener('click', function (event) {
+                        if (event.target === modal) {
+                            closeSarModal();
+                        }
                     });
                 }
             })
             .catch(err => {
+                console.error('Error loading SAR:', err);
+                alert('Error loading SAR: ' + (err.message || 'Please try again.'));
+                handleApiError(err, 'viewSar');
+            });
+    };
+
+    window.closeSarModal = function () {
+        const modal = document.getElementById('sar-modal');
+        if (modal) {
+            modal.remove();
+        }
+    };
+
+    window.editSar = function (sarId) {
+        if (!sarId) {
+            console.error('editSar called without sarId');
+            alert('Error: SAR ID is missing.');
+            return;
+        }
+
+        fetch(`compliance/sar/${sarId}`, getFetchOptions())
+            .then(async res => {
+                if (!res.ok) {
+                    const contentType = res.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
+                        try {
+                            const errorData = await res.json();
+                            throw new Error(errorData.message || errorData.error || `HTTP ${res.status}`);
+                        } catch (parseError) {
+                            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                        }
+                    } else {
+                        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                    }
+                }
+                const contentType = res.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    return res.json();
+                } else {
+                    const text = await res.text();
+                    throw new Error(`Unexpected response format. Expected JSON but got: ${contentType || 'unknown'}`);
+                }
+            })
+            .then(sarData => {
+                alert('Edit SAR functionality - SAR ID: ' + sarId + '\n\nThis will open an edit modal.\n\nNote: SAR editing may be restricted based on regulatory requirements.');
+                // TODO: Implement SAR edit modal
+            })
+            .catch(err => {
+                console.error('Error loading SAR for edit:', err);
+                alert('Error loading SAR: ' + (err.message || 'Please try again.'));
+                handleApiError(err, 'editSar');
+            });
+    };
+
+    window.deleteSar = function (sarId) {
+        if (!sarId) {
+            alert('Error: SAR ID is missing.');
+            return;
+        }
+
+        if (!confirm(`Are you sure you want to delete SAR ${sarId}?\n\nThis action cannot be undone and will permanently remove the SAR report and all associated data from the system.\n\nWARNING: Deleting SARs may violate regulatory compliance requirements.`)) {
+            return;
+        }
+
+        fetch(`compliance/sar/${sarId}`, getFetchOptions('DELETE'))
+            .then(async res => {
+                if (res.ok) {
+                    fetchSarReports(); // Refresh the list
+                    return;
+                }
+                const contentType = res.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    try {
+                        const errorData = await res.json();
+                        throw new Error(errorData.message || errorData.error || 'Failed to delete SAR');
+                    } catch (parseError) {
+                        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                    }
+                } else {
+                    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                }
+            })
+            .catch(err => {
                 console.error('Error deleting SAR:', err);
-                alert('Error deleting SAR: ' + err.message);
+                alert('Error deleting SAR: ' + (err.message || 'Please try again.'));
+                handleApiError(err, 'deleteSar');
             });
     };
 
@@ -2099,7 +2264,7 @@ document.addEventListener('DOMContentLoaded', function () {
         return 'audit/logs?' + params.toString();
     }
 
-    window.resetAuditLogFilters = function() {
+    window.resetAuditLogFilters = function () {
         const ids = [
             'auditFilterUsername',
             'auditFilterAction',
@@ -2204,7 +2369,7 @@ document.addEventListener('DOMContentLoaded', function () {
             });
     };
 
-    window.exportAuditLogsCsv = function() {
+    window.exportAuditLogsCsv = function () {
         const logs = Array.isArray(window._lastAuditLogs) ? window._lastAuditLogs : [];
         if (!logs.length) {
             alert('No audit logs available to export. Run a search first.');
@@ -2259,14 +2424,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // --- Transactions Management ---
     let transactionRefreshInterval = null;
-    
+
     window.fetchTransactions = function () {
         const container = document.querySelector('#transactions-view .table-card');
         if (!container) return;
-        
+
         // Show loading state
         container.innerHTML = '<div class="loading-spinner"></div><p style="text-align:center;margin-top:10px;">Loading transactions...</p>';
-        
+
         fetch('transactions?limit=100', getFetchOptions())
             .then(res => {
                 if (!res.ok) {
@@ -2279,7 +2444,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     container.innerHTML = '<div class="empty-state"><i class="fas fa-inbox"></i><p>No recent transactions found.</p><p class="text-muted">Transactions will appear here as they are processed.</p></div>';
                     return;
                 }
-                
+
                 let html = `
                     <div class="transactions-header">
                         <div class="transactions-stats">
@@ -2312,13 +2477,13 @@ document.addEventListener('DOMContentLoaded', function () {
                             </thead>
                             <tbody id="transactions-tbody">
                 `;
-                
+
                 transactions.forEach(txn => {
                     const currency = txn.currency || (window.currencyFormatter ? window.currencyFormatter.getDefaultCurrency() : 'USD');
                     const amount = txn.amountCents ? (txn.amountCents / 100) : 0;
                     const timestamp = txn.txnTs ? new Date(txn.txnTs).toLocaleString() : 'N/A';
                     const timeAgo = txn.txnTs ? getTimeAgo(new Date(txn.txnTs)) : '';
-                    
+
                     html += `
                         <tr class="transaction-row" data-txn-id="${txn.txnId}">
                             <td><span class="txn-id">${txn.txnId || 'N/A'}</span></td>
@@ -2335,15 +2500,15 @@ document.addEventListener('DOMContentLoaded', function () {
                         </tr>
                     `;
                 });
-                
+
                 html += `
                             </tbody>
                         </table>
                     </div>
                 `;
-                
+
                 container.innerHTML = html;
-                
+
                 // Start auto-refresh if not already running
                 if (transactionRefreshInterval === null) {
                     startTransactionStream();
@@ -2364,7 +2529,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 handleApiError(err, 'fetchTransactions');
             });
     };
-    
+
     function startTransactionStream() {
         if (transactionRefreshInterval !== null) {
             clearInterval(transactionRefreshInterval);
@@ -2376,35 +2541,35 @@ document.addEventListener('DOMContentLoaded', function () {
                 refreshTransactions();
             }
         }, 5000); // Refresh every 5 seconds
-        
+
         const toggleBtn = document.getElementById('stream-toggle-btn');
         if (toggleBtn) {
             toggleBtn.innerHTML = '<i class="fas fa-pause"></i> Pause Stream';
             toggleBtn.onclick = toggleTransactionStream;
         }
     }
-    
+
     function stopTransactionStream() {
         if (transactionRefreshInterval !== null) {
             clearInterval(transactionRefreshInterval);
             transactionRefreshInterval = null;
         }
-        
+
         const toggleBtn = document.getElementById('stream-toggle-btn');
         if (toggleBtn) {
             toggleBtn.innerHTML = '<i class="fas fa-play"></i> Resume Stream';
             toggleBtn.onclick = toggleTransactionStream;
         }
     }
-    
-    window.toggleTransactionStream = function() {
+
+    window.toggleTransactionStream = function () {
         if (transactionRefreshInterval === null) {
             startTransactionStream();
         } else {
             stopTransactionStream();
         }
     };
-    
+
     function refreshTransactions() {
         fetch('transactions?limit=100', getFetchOptions())
             .then(res => {
@@ -2413,16 +2578,16 @@ document.addEventListener('DOMContentLoaded', function () {
             })
             .then(transactions => {
                 if (!transactions || transactions.length === 0) return;
-                
+
                 const tbody = document.getElementById('transactions-tbody');
                 if (!tbody) return;
-                
+
                 // Get existing transaction IDs
                 const existingIds = new Set(
                     Array.from(tbody.querySelectorAll('tr[data-txn-id]'))
                         .map(tr => tr.getAttribute('data-txn-id'))
                 );
-                
+
                 // Add new transactions at the top
                 transactions.forEach(txn => {
                     const txnId = String(txn.txnId);
@@ -2431,7 +2596,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         const amount = txn.amountCents ? (txn.amountCents / 100) : 0;
                         const timestamp = txn.txnTs ? new Date(txn.txnTs).toLocaleString() : 'N/A';
                         const timeAgo = txn.txnTs ? getTimeAgo(new Date(txn.txnTs)) : '';
-                        
+
                         const tr = document.createElement('tr');
                         tr.className = 'transaction-row new-transaction';
                         tr.setAttribute('data-txn-id', txnId);
@@ -2449,12 +2614,12 @@ document.addEventListener('DOMContentLoaded', function () {
                             <td><span class="status-badge resolved">Processed</span></td>
                         `;
                         tbody.insertBefore(tr, tbody.firstChild);
-                        
+
                         // Remove highlight after animation
                         setTimeout(() => {
                             tr.classList.remove('new-transaction');
                         }, 2000);
-                        
+
                         // Limit table to 100 rows
                         const rows = tbody.querySelectorAll('tr');
                         if (rows.length > 100) {
@@ -2462,7 +2627,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         }
                     }
                 });
-                
+
                 // Update last updated time
                 const stats = document.querySelector('.transactions-stats span:last-child');
                 if (stats) {
@@ -2473,7 +2638,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 console.error('Error refreshing transactions:', err);
             });
     }
-    
+
     // Note: view switching logic (including stopping transaction stream) is handled in showView wrapper above.
 
     // --- Reports Management ---
@@ -2543,7 +2708,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const filterEl = document.getElementById('alertStatusFilter');
             statusFilter = filterEl ? filterEl.value : '';
         }
-        
+
         // Build URL with filter parameter
         let url = 'alerts';
         const params = [];
@@ -2554,7 +2719,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (params.length > 0) {
             url += '?' + params.join('&');
         }
-        
+
         fetch(url, getFetchOptions())
             .then(res => {
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -2563,7 +2728,7 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(alerts => {
                 // Update the badge count with actual count
                 updateAlertsCount();
-                
+
                 const container = document.querySelector('#alerts-view .alerts-grid');
                 if (!container) return;
                 if (!alerts || alerts.length === 0) {
@@ -2581,7 +2746,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     const txnId = alert.txnId || 'N/A';
                     const score = alert.score || 'N/A';
                     const status = alert.status || 'open';
-                    
+
                     html += `
                         <tr>
                             <td>${alertId}</td>
@@ -2637,7 +2802,7 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 
     // Filter alerts in real-time
-    window.filterAlerts = function() {
+    window.filterAlerts = function () {
         const statusFilter = document.getElementById('alertStatusFilter');
         if (statusFilter) {
             const selectedStatus = statusFilter.value;
@@ -2648,80 +2813,169 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 
     // Alert CRUD Operations
-    window.viewAlert = function(alertId) {
+    window.viewAlert = function (alertId) {
+        if (!alertId) {
+            console.error('viewAlert called without alertId');
+            alert('Error: Alert ID is missing.');
+            return;
+        }
+
         fetch(`alerts/${alertId}`, getFetchOptions())
-            .then(res => {
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                return res.json();
+            .then(async res => {
+                if (!res.ok) {
+                    const contentType = res.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
+                        try {
+                            const errorData = await res.json();
+                            throw new Error(errorData.message || errorData.error || `HTTP ${res.status}`);
+                        } catch (parseError) {
+                            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                        }
+                    } else {
+                        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                    }
+                }
+                const contentType = res.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    return res.json();
+                } else {
+                    const text = await res.text();
+                    throw new Error(`Unexpected response format. Expected JSON but got: ${contentType || 'unknown'}`);
+                }
             })
             .then(alertData => {
-                alert('Alert Details:\n\nID: ' + alertId + 
-                      '\nReason: ' + (alertData.reason || 'N/A') + 
-                      '\nTransaction ID: ' + (alertData.txnId || 'N/A') + 
-                      '\nScore: ' + (alertData.score || 'N/A') + 
-                      '\nSeverity: ' + (alertData.severity || 'N/A') + 
-                      '\nStatus: ' + (alertData.status || 'N/A'));
-                // TODO: Open alert detail modal/view
+                // Display alert details in a modal
+                const reason = alertData.reason || alertData.description || 'N/A';
+                const txnId = alertData.txnId || alertData.transactionId || 'N/A';
+                const score = alertData.score || alertData.riskScore || 'N/A';
+                const severity = alertData.severity || alertData.priority || 'N/A';
+                const status = alertData.status || 'N/A';
+                const createdAt = alertData.createdAt ? new Date(alertData.createdAt).toLocaleString() : 'N/A';
+
+                const escapeHtml = (text) => {
+                    const div = document.createElement('div');
+                    div.textContent = text;
+                    return div.innerHTML;
+                };
+
+                const modalHtml = `
+                    <div id="alert-modal" class="modal" style="display: block;">
+                        <div class="modal-content" style="max-width: 700px;">
+                            <span class="close" onclick="closeAlertModal()">&times;</span>
+                            <h2>Alert Details</h2>
+                            <div style="margin-top: 20px;">
+                                <p><strong>Alert ID:</strong> ${escapeHtml(alertId)}</p>
+                                <p><strong>Status:</strong> <span class="status-badge ${getStatusClass(status)}">${escapeHtml(status)}</span></p>
+                                <p><strong>Severity:</strong> <span class="status-badge ${severity === 'HIGH' || severity === 'CRITICAL' ? 'high' : 'medium'}">${escapeHtml(severity)}</span></p>
+                                <p><strong>Score:</strong> ${escapeHtml(score)}</p>
+                                <p><strong>Transaction ID:</strong> ${escapeHtml(txnId)}</p>
+                                <p><strong>Reason:</strong> ${escapeHtml(reason)}</p>
+                                <p><strong>Created:</strong> ${escapeHtml(createdAt)}</p>
+                            </div>
+                            <div style="margin-top: 20px; text-align: right;">
+                                <button class="btn-secondary" onclick="closeAlertModal()">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                const existingModal = document.getElementById('alert-modal');
+                if (existingModal) {
+                    existingModal.remove();
+                }
+
+                document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+                const modal = document.getElementById('alert-modal');
+                if (modal) {
+                    modal.addEventListener('click', function (event) {
+                        if (event.target === modal) {
+                            closeAlertModal();
+                        }
+                    });
+                }
             })
             .catch(err => {
                 console.error('Error loading alert:', err);
-                alert('Error loading alert: ' + err.message);
+                alert('Error loading alert: ' + (err.message || 'Please try again.'));
+                handleApiError(err, 'viewAlert');
             });
     };
 
-    window.resolveAlert = function(alertId) {
+    window.closeAlertModal = function () {
+        const modal = document.getElementById('alert-modal');
+        if (modal) {
+            modal.remove();
+        }
+    };
+
+    window.resolveAlert = function (alertId) {
         if (!alertId) {
             alert('Error: Alert ID is missing.');
             return;
         }
-        
+
         if (!confirm(`Are you sure you want to mark alert ${alertId} as resolved?\n\nThis will change the alert status to resolved. You can still view it later, but it will no longer appear in active alerts.`)) {
             return;
         }
-        
+
         fetch(`alerts/${alertId}/resolve`, getFetchOptions('PUT'))
-            .then(res => {
+            .then(async res => {
                 if (res.ok) {
                     fetchAlerts(); // Refresh the list
+                    return;
+                }
+                const contentType = res.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    try {
+                        const errorData = await res.json();
+                        throw new Error(errorData.message || errorData.error || 'Failed to resolve alert');
+                    } catch (parseError) {
+                        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                    }
                 } else {
-                    return res.json().then(err => {
-                        throw new Error(err.message || 'Failed to resolve alert');
-                    }).catch(() => {
-                        throw new Error('Failed to resolve alert');
-                    });
+                    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
                 }
             })
             .catch(err => {
                 console.error('Error resolving alert:', err);
-                alert('Error resolving alert: ' + err.message);
+                alert('Error resolving alert: ' + (err.message || 'Please try again.'));
+                handleApiError(err, 'resolveAlert');
             });
     };
 
-    window.deleteAlert = function(alertId) {
+    window.deleteAlert = function (alertId) {
         if (!alertId) {
             alert('Error: Alert ID is missing.');
             return;
         }
-        
+
         if (!confirm(`Are you sure you want to delete alert ${alertId}?\n\nThis action cannot be undone and will permanently remove the alert from the system.`)) {
             return;
         }
-        
+
         fetch(`alerts/${alertId}`, getFetchOptions('DELETE'))
-            .then(res => {
+            .then(async res => {
                 if (res.ok) {
                     fetchAlerts(); // Refresh the list
+                    return;
+                }
+                const contentType = res.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    try {
+                        const errorData = await res.json();
+                        throw new Error(errorData.message || errorData.error || 'Failed to delete alert');
+                    } catch (parseError) {
+                        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                    }
                 } else {
-                    return res.json().then(err => {
-                        throw new Error(err.message || 'Failed to delete alert');
-                    }).catch(() => {
-                        throw new Error('Failed to delete alert');
-                    });
+                    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
                 }
             })
             .catch(err => {
                 console.error('Error deleting alert:', err);
-                alert('Error deleting alert: ' + err.message);
+                alert('Error deleting alert: ' + (err.message || 'Please try again.'));
+                handleApiError(err, 'deleteAlert');
             });
     };
 
@@ -2914,15 +3168,33 @@ document.addEventListener('DOMContentLoaded', function () {
         };
 
         fetch('sanctions/screen', getFetchOptions('POST', requestBody))
-            .then(res => {
+            .then(async res => {
                 if (!res.ok) {
-                    return res.json().then(errorData => {
-                        throw new Error(errorData.message || errorData.error || `HTTP ${res.status}`);
-                    }).catch(() => {
-                        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-                    });
+                    // Check if response is JSON before trying to parse
+                    const contentType = res.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
+                        try {
+                            const errorData = await res.json();
+                            throw new Error(errorData.message || errorData.error || `HTTP ${res.status}`);
+                        } catch (parseError) {
+                            // If JSON parsing fails, throw generic error
+                            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                        }
+                    } else {
+                        // Response is not JSON (likely HTML error page)
+                        const text = await res.text();
+                        throw new Error(`HTTP ${res.status}: ${res.statusText}. ${text.substring(0, 100)}`);
+                    }
                 }
-                return res.json();
+                // Check content type for successful responses too
+                const contentType = res.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    return res.json();
+                } else {
+                    // If not JSON, try to parse as text and show error
+                    const text = await res.text();
+                    throw new Error(`Unexpected response format. Expected JSON but got: ${contentType || 'unknown'}. Response: ${text.substring(0, 200)}`);
+                }
             })
             .then(result => {
                 const resultsDiv = document.getElementById('screening-results');
@@ -2931,14 +3203,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 let html = '<div class="screening-result">';
                 html += `<h4>Results for: ${result.screenedName || name}</h4>`;
-                
+
                 const hasMatches = result.match === true || (result.matches && result.matches.length > 0);
                 html += `<p><strong>Status:</strong> <span class="status-badge ${hasMatches ? 'high' : 'resolved'}">${hasMatches ? 'MATCH FOUND' : 'NO MATCH'}</span></p>`;
-                
+
                 if (result.status) {
                     html += `<p><strong>Screening Status:</strong> ${result.status}</p>`;
                 }
-                
+
                 if (result.matchCount !== undefined) {
                     html += `<p><strong>Match Count:</strong> ${result.matchCount}</p>`;
                 }
@@ -2963,7 +3235,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (result.confidence !== undefined) {
                     html += `<p><strong>Confidence:</strong> ${(result.confidence * 100).toFixed(2)}%</p>`;
                 }
-                
+
                 if (result.screeningProvider) {
                     html += `<p><strong>Screening Provider:</strong> ${result.screeningProvider}</p>`;
                 }
@@ -2977,7 +3249,19 @@ document.addEventListener('DOMContentLoaded', function () {
                 const resultsDiv = document.getElementById('screening-results');
                 const contentDiv = document.getElementById('screening-results-content');
                 if (resultsDiv && contentDiv) {
-                    contentDiv.innerHTML = `<p class="error">Error performing screening: ${err.message || 'Please try again.'}</p>`;
+                    // Extract a user-friendly error message
+                    let errorMsg = err.message || 'An unexpected error occurred';
+                    // If it's a network error or connection issue
+                    if (errorMsg.includes('Failed to fetch') || errorMsg.includes('NetworkError')) {
+                        errorMsg = 'Unable to connect to the server. Please check your connection and try again.';
+                    } else if (errorMsg.includes('Unexpected token')) {
+                        errorMsg = 'Server returned an invalid response. Please contact support if this persists.';
+                    } else if (errorMsg.includes('HTTP 404')) {
+                        errorMsg = 'Screening endpoint not found. Please contact support.';
+                    } else if (errorMsg.includes('HTTP 500')) {
+                        errorMsg = 'Server error occurred. Please try again later.';
+                    }
+                    contentDiv.innerHTML = `<p class="error">Error performing screening: ${errorMsg}</p>`;
                     resultsDiv.style.display = 'block';
                 } else {
                     alert('Error performing screening: ' + (err.message || 'Please try again.'));
@@ -3021,16 +3305,41 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 
     // --- Messages View ---
+    // Store messages data for viewMessage function
+    let messagesCache = [];
+
     window.fetchMessages = function (unreadOnly = false) {
         const url = unreadOnly ? '/api/v1/messages?unreadOnly=true' : '/api/v1/messages';
         fetch(url, getFetchOptions())
-            .then(res => {
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                return res.json();
+            .then(async res => {
+                if (!res.ok) {
+                    const contentType = res.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
+                        try {
+                            const errorData = await res.json();
+                            throw new Error(errorData.message || errorData.error || `HTTP ${res.status}`);
+                        } catch (parseError) {
+                            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                        }
+                    } else {
+                        const text = await res.text();
+                        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                    }
+                }
+                const contentType = res.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    return res.json();
+                } else {
+                    const text = await res.text();
+                    throw new Error(`Unexpected response format. Expected JSON but got: ${contentType || 'unknown'}`);
+                }
             })
             .then(messages => {
                 const container = document.getElementById('messages-content');
                 if (!container) return;
+
+                // Store messages in cache for viewMessage function
+                messagesCache = messages || [];
 
                 if (!messages || messages.length === 0) {
                     container.innerHTML = '<p>No messages found.</p>';
@@ -3041,12 +3350,13 @@ document.addEventListener('DOMContentLoaded', function () {
                 messages.forEach(msg => {
                     const timestamp = msg.timestamp ? new Date(msg.timestamp).toLocaleString() : 'N/A';
                     const readClass = msg.read ? 'read' : 'unread';
+                    const msgId = msg.id || msg.messageId || '';
                     html += `<tr class="${readClass}">
                         <td>${msg.from || 'System'}</td>
                         <td><strong>${msg.subject || 'No Subject'}</strong></td>
                         <td>${timestamp}</td>
                         <td><span class="status-badge ${msg.read ? 'resolved' : 'high'}">${msg.read ? 'Read' : 'Unread'}</span></td>
-                        <td><button class="action-btn" onclick="viewMessage(${msg.id})"><i class="fas fa-eye"></i></button></td>
+                        <td><button class="action-btn" onclick="(function(id){viewMessage(id)})(${msgId})" data-message-id="${msgId}"><i class="fas fa-eye"></i></button></td>
                     </tr>`;
                 });
                 html += '</tbody></table>';
@@ -3062,9 +3372,135 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 
     window.viewMessage = function (messageId) {
-        // In a real implementation, this would show message details
-        alert('Message details view - ID: ' + messageId);
+        if (!messageId) {
+            console.error('viewMessage called without messageId');
+            alert('Error: Message ID is missing.');
+            return;
+        }
+
+        // Find message in cache
+        const message = messagesCache.find(msg => (msg.id === messageId || msg.messageId === messageId));
+
+        if (!message) {
+            // Try to fetch message details from API
+            fetch(`messages/${messageId}`, getFetchOptions())
+                .then(async res => {
+                    if (!res.ok) {
+                        const contentType = res.headers.get('content-type');
+                        if (contentType && contentType.includes('application/json')) {
+                            try {
+                                const errorData = await res.json();
+                                throw new Error(errorData.message || errorData.error || `HTTP ${res.status}`);
+                            } catch (parseError) {
+                                throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                            }
+                        } else {
+                            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                        }
+                    }
+                    const contentType = res.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
+                        return res.json();
+                    } else {
+                        const text = await res.text();
+                        throw new Error(`Unexpected response format. Expected JSON but got: ${contentType || 'unknown'}`);
+                    }
+                })
+                .then(msg => {
+                    displayMessageDetails(msg);
+                    // Mark as read if unread
+                    if (!msg.read) {
+                        markMessageAsRead(messageId);
+                    }
+                })
+                .catch(err => {
+                    console.error('Error fetching message details:', err);
+                    alert('Error loading message details: ' + (err.message || 'Please try again.'));
+                    handleApiError(err, 'viewMessage');
+                });
+        } else {
+            displayMessageDetails(message);
+            // Mark as read if unread
+            if (!message.read) {
+                markMessageAsRead(messageId);
+            }
+        }
     };
+
+    function displayMessageDetails(message) {
+        const timestamp = message.timestamp ? new Date(message.timestamp).toLocaleString() : 'N/A';
+        const from = message.from || 'System';
+        const subject = message.subject || 'No Subject';
+        const body = message.body || message.content || 'No content available.';
+
+        // Escape HTML to prevent XSS
+        const escapeHtml = (text) => {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        };
+
+        // Create modal HTML
+        const modalHtml = `
+            <div id="message-modal" class="modal" style="display: block;">
+                <div class="modal-content" style="max-width: 600px;">
+                    <span class="close" onclick="closeMessageModal()">&times;</span>
+                    <h2>Message Details</h2>
+                    <div style="margin-top: 20px;">
+                        <p><strong>From:</strong> ${escapeHtml(from)}</p>
+                        <p><strong>Subject:</strong> ${escapeHtml(subject)}</p>
+                        <p><strong>Time:</strong> ${escapeHtml(timestamp)}</p>
+                        <p><strong>Status:</strong> <span class="status-badge ${message.read ? 'resolved' : 'high'}">${message.read ? 'Read' : 'Unread'}</span></p>
+                        <hr style="margin: 15px 0; border: none; border-top: 1px solid var(--glass-border, #e0e0e0);">
+                        <div style="padding: 15px; background: rgba(255, 255, 255, 0.05); border-radius: 8px; white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(body)}</div>
+                    </div>
+                    <div style="margin-top: 20px; text-align: right;">
+                        <button class="btn-secondary" onclick="closeMessageModal()">Close</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Remove existing modal if any
+        const existingModal = document.getElementById('message-modal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+
+        // Add modal to body
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        // Close modal when clicking outside
+        const modal = document.getElementById('message-modal');
+        if (modal) {
+            modal.addEventListener('click', function (event) {
+                if (event.target === modal) {
+                    closeMessageModal();
+                }
+            });
+        }
+    }
+
+    window.closeMessageModal = function () {
+        const modal = document.getElementById('message-modal');
+        if (modal) {
+            modal.remove();
+        }
+    };
+
+    function markMessageAsRead(messageId) {
+        fetch(`messages/${messageId}/read`, getFetchOptions('PUT'))
+            .then(res => {
+                if (res.ok) {
+                    // Refresh messages to update read status
+                    fetchMessages();
+                }
+            })
+            .catch(err => {
+                console.error('Error marking message as read:', err);
+                // Don't show error to user, just log it
+            });
+    }
 
     // --- Settings View ---
     window.fetchSettings = function () {
@@ -3199,35 +3635,48 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // --- Merchant Edit/Delete ---
     window.editMerchant = function (id) {
-        fetch('merchants/' + id, getFetchOptions())
-            .then(async res => {
-                if (!res.ok) {
-                    await handleFetchError(res, 'editMerchant');
-                    return;
-                }
-                return res.json();
-            })
-            .then(m => {
-                if (!m) return; // Error already handled
-                document.getElementById('editMerchantId').value = m.merchantId;
-                document.getElementById('editMerchantLegalName').value = m.legalName || '';
-                document.getElementById('editMerchantTradingName').value = m.tradingName || '';
-                document.getElementById('editMerchantEmail').value = m.contactEmail || '';
-                document.getElementById('editMerchantBusinessType').value = m.businessType || 'RETAIL';
-                document.getElementById('editMerchantStatus').value = m.status || 'ACTIVE';
-                document.getElementById('editMerchantModal').style.display = 'block';
-            })
-            .catch(err => {
-                // Error already handled by handleFetchError
-                console.error('Error in editMerchant:', err);
-            });
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/328b5c76-f5f4-4b08-a869-a5ae08fcc3e6', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'dashboard.js:3201', message: 'editMerchant called', data: { merchantId: id, getFetchOptionsExists: typeof getFetchOptions }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'A' }) }).catch(() => { });
+        // #endregion
+        try {
+            fetch('merchants/' + id, getFetchOptions())
+                .then(async res => {
+                    if (!res.ok) {
+                        await handleFetchError(res, 'editMerchant');
+                        return;
+                    }
+                    return res.json();
+                })
+                .then(m => {
+                    if (!m) return; // Error already handled
+                    document.getElementById('editMerchantId').value = m.merchantId;
+                    document.getElementById('editMerchantLegalName').value = m.legalName || '';
+                    document.getElementById('editMerchantTradingName').value = m.tradingName || '';
+                    document.getElementById('editMerchantEmail').value = m.contactEmail || '';
+                    document.getElementById('editMerchantBusinessType').value = m.businessType || 'RETAIL';
+                    document.getElementById('editMerchantStatus').value = m.status || 'ACTIVE';
+                    document.getElementById('editMerchantModal').style.display = 'block';
+                })
+                .catch(err => {
+                    // #region agent log
+                    fetch('http://127.0.0.1:7243/ingest/328b5c76-f5f4-4b08-a869-a5ae08fcc3e6', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'dashboard.js:3220', message: 'editMerchant error', data: { merchantId: id, error: err.message }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'D' }) }).catch(() => { });
+                    // #endregion
+                    // Error already handled by handleFetchError
+                    console.error('Error in editMerchant:', err);
+                });
+        } catch (err) {
+            // #region agent log
+            fetch('http://127.0.0.1:7243/ingest/328b5c76-f5f4-4b08-a869-a5ae08fcc3e6', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'dashboard.js:3225', message: 'editMerchant exception', data: { merchantId: id, error: err.message }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'E' }) }).catch(() => { });
+            // #endregion
+            alert('Error: ' + err.message);
+        }
     };
 
     window.closeEditMerchantModal = function () {
         document.getElementById('editMerchantModal').style.display = 'none';
     };
 
-            const editMerchantForm = document.getElementById('editMerchantForm');
+    const editMerchantForm = document.getElementById('editMerchantForm');
     if (editMerchantForm) {
         editMerchantForm.addEventListener('submit', function (e) {
             e.preventDefault();
@@ -3251,24 +3700,39 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     window.deleteMerchant = function (id) {
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/328b5c76-f5f4-4b08-a869-a5ae08fcc3e6', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'dashboard.js:3253', message: 'deleteMerchant called', data: { merchantId: id, getFetchOptionsExists: typeof getFetchOptions }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'A' }) }).catch(() => { });
+        // #endregion
         if (!id) {
             alert('Error: Merchant ID is missing.');
             return;
         }
-        
+
         if (!confirm(`Are you sure you want to delete merchant ${id}?\n\nThis action cannot be undone and will permanently remove the merchant and all associated data from the system.\n\nWARNING: This may affect transaction processing and compliance records.`)) {
             return;
         }
-        fetch('merchants/' + id, getFetchOptions('DELETE'))
-            .then(res => {
-                if (res.ok) {
-                    alert("Merchant deleted");
-                    fetchMerchants();
-                } else {
-                    alert("Failed to delete merchant");
-                }
-            })
-            .catch(err => handleApiError(err, 'deleteMerchant'));
+        try {
+            fetch('merchants/' + id, getFetchOptions('DELETE'))
+                .then(res => {
+                    if (res.ok) {
+                        alert("Merchant deleted");
+                        fetchMerchants();
+                    } else {
+                        alert("Failed to delete merchant");
+                    }
+                })
+                .catch(err => {
+                    // #region agent log
+                    fetch('http://127.0.0.1:7243/ingest/328b5c76-f5f4-4b08-a869-a5ae08fcc3e6', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'dashboard.js:3271', message: 'deleteMerchant error', data: { merchantId: id, error: err.message }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'D' }) }).catch(() => { });
+                    // #endregion
+                    handleApiError(err, 'deleteMerchant');
+                });
+        } catch (err) {
+            // #region agent log
+            fetch('http://127.0.0.1:7243/ingest/328b5c76-f5f4-4b08-a869-a5ae08fcc3e6', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'dashboard.js:3275', message: 'deleteMerchant exception', data: { merchantId: id, error: err.message }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'E' }) }).catch(() => { });
+            // #endregion
+            alert('Error: ' + err.message);
+        }
     };
 
     window.merchantSettings = function (id) { alert("Settings for merchant " + id + " (Coming Soon)"); };
@@ -3325,7 +3789,7 @@ document.addEventListener('DOMContentLoaded', function () {
             alert('Error: Role ID is missing.');
             return;
         }
-        
+
         if (!confirm(`Are you sure you want to delete role ID ${id}?\n\nThis action cannot be undone and will permanently remove the role from the system.\n\nWARNING: Users assigned to this role may lose access. Please reassign users before deleting.`)) {
             return;
         }
@@ -3345,15 +3809,15 @@ document.addEventListener('DOMContentLoaded', function () {
     window.viewMerchant = function (id) {
         const modal = document.getElementById('viewMerchantModal');
         const content = document.getElementById('viewMerchantContent');
-        
+
         if (!modal || !content) {
             console.error('View merchant modal not found');
             return;
         }
-        
+
         modal.style.display = 'block';
         content.innerHTML = '<div class="loading-spinner"></div><p style="text-align:center;">Loading merchant details...</p>';
-        
+
         fetch('merchants/' + id, getFetchOptions())
             .then(async res => {
                 if (!res.ok) {
@@ -3366,7 +3830,7 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(merchant => {
                 if (!merchant) return; // Error already handled
                 let html = '<div class="merchant-view-container">';
-                
+
                 // Basic Information
                 html += '<div class="merchant-section"><h3>Basic Information</h3>';
                 html += '<div class="info-grid">';
@@ -3379,7 +3843,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 html += `<div class="info-item"><label>MCC:</label><span>${merchant.mcc || 'N/A'} ${merchant.mccDescription ? '(' + merchant.mccDescription + ')' : ''}</span></div>`;
                 html += `<div class="info-item"><label>KYC Status:</label><span class="status-badge ${(merchant.kycStatus || '').toLowerCase()}">${merchant.kycStatus || 'N/A'}</span></div>`;
                 html += '</div></div>';
-                
+
                 // Risk Assessment
                 html += '<div class="merchant-section"><h3>Risk Assessment</h3>';
                 html += '<div class="info-grid">';
@@ -3388,7 +3852,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 html += `<div class="info-item"><label>Risk Level:</label><span class="risk-badge ${riskLevel.toLowerCase()}">${riskLevel}</span></div>`;
                 html += `<div class="info-item"><label>Risk Score:</label><span>${riskScore}/100</span></div>`;
                 html += '</div></div>';
-                
+
                 // Merchant Screening Results
                 html += '<div class="merchant-section"><h3>Merchant Screening Results</h3>';
                 if (merchant.merchantScreeningResult) {
@@ -3408,7 +3872,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     html += '<p class="no-data">No screening results available</p>';
                 }
                 html += '</div>';
-                
+
                 // Beneficial Owners
                 html += '<div class="merchant-section"><h3>Beneficial Owners</h3>';
                 if (merchant.beneficialOwnerResults && merchant.beneficialOwnerResults.length > 0) {
@@ -3439,18 +3903,18 @@ document.addEventListener('DOMContentLoaded', function () {
                     html += '<p class="no-data">No beneficial owners registered</p>';
                 }
                 html += '</div>';
-                
+
                 // Limits & Usage
                 html += '<div class="merchant-section"><h3>Limits & Usage</h3>';
                 html += '<div class="info-grid">';
                 html += `<div class="info-item"><label>Daily Limit:</label><span>$${merchant.dailyLimit || '0'}</span></div>`;
                 html += `<div class="info-item"><label>Current Usage:</label><span>$${merchant.currentUsage || '0'}</span></div>`;
-                const usagePercent = merchant.dailyLimit && merchant.dailyLimit > 0 
-                    ? ((merchant.currentUsage || 0) / merchant.dailyLimit * 100).toFixed(1) 
+                const usagePercent = merchant.dailyLimit && merchant.dailyLimit > 0
+                    ? ((merchant.currentUsage || 0) / merchant.dailyLimit * 100).toFixed(1)
                     : 0;
                 html += `<div class="info-item"><label>Usage:</label><span>${usagePercent}%</span></div>`;
                 html += '</div></div>';
-                
+
                 html += '</div>';
                 content.innerHTML = html;
             })
@@ -3460,7 +3924,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 content.innerHTML = '<div class="error-message"><p>Error loading merchant details. Please check the error notification.</p></div>';
             });
     };
-    
+
     window.closeViewMerchantModal = function () {
         document.getElementById('viewMerchantModal').style.display = 'none';
     };
@@ -3487,7 +3951,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     const severity = alert.severity || 'INFO';
                     const severityClass = severity.toLowerCase();
                     const timeAgo = alert.createdAt ? getTimeAgo(new Date(alert.createdAt)) : 'Unknown';
-                    
+
                     // Format alert message based on available data
                     let alertMessage = alert.reason || 'Transaction Alert';
                     if (alert.merchantId) {
@@ -3539,7 +4003,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 let html = '';
                 transactions.forEach(txn => {
                     const timeAgo = txn.txnTs ? getTimeAgo(new Date(txn.txnTs)) : 'Unknown';
-                    
+
                     // Format amount
                     let amountDisplay = 'N/A';
                     if (txn.amountCents) {
@@ -3547,7 +4011,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         const currency = txn.currency || (window.currencyFormatter ? window.currencyFormatter.getDefaultCurrency() : 'USD');
                         amountDisplay = formatCurrency(amount, currency);
                     }
-                    
+
                     // Format transaction description
                     let description = `Transaction ${txn.txnId || 'N/A'}`;
                     if (txn.merchantId) {
@@ -3555,7 +4019,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     } else {
                         description = `${description} - ${amountDisplay}`;
                     }
-                    
+
                     // Add terminal info if available
                     if (txn.terminalId) {
                         description += ` (Terminal: ${txn.terminalId})`;
@@ -3588,7 +4052,7 @@ document.addEventListener('DOMContentLoaded', function () {
     updateMessagesCount();
     fetchLiveAlerts();
     fetchRecentActivity();
-    
+
     // Ensure all modals are hidden on page load
     document.querySelectorAll('.modal').forEach(modal => {
         modal.style.display = 'none';

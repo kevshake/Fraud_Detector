@@ -12,6 +12,7 @@ public
 class EnhancedDueDiligenceService {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(EnhancedDueDiligenceService.class);
 
+    @SuppressWarnings("unused")
     private final MerchantRepository merchantRepository;
 
     public EnhancedDueDiligenceService(MerchantRepository merchantRepository) {

@@ -20,8 +20,8 @@ CREATE TABLE IF NOT EXISTS merchant_transaction_limits (
     CONSTRAINT unique_merchant_limit UNIQUE (merchant_id)
 );
 
-CREATE INDEX idx_merchant_limits_status ON merchant_transaction_limits(status);
-CREATE INDEX idx_merchant_limits_merchant ON merchant_transaction_limits(merchant_id);
+CREATE INDEX IF NOT EXISTS idx_merchant_limits_status ON merchant_transaction_limits(status);
+CREATE INDEX IF NOT EXISTS idx_merchant_limits_merchant ON merchant_transaction_limits(merchant_id);
 
 -- Global Limits Table
 CREATE TABLE IF NOT EXISTS global_limits (
@@ -42,8 +42,8 @@ CREATE TABLE IF NOT EXISTS global_limits (
     CONSTRAINT unique_global_limit_name UNIQUE (name)
 );
 
-CREATE INDEX idx_global_limits_type ON global_limits(limit_type);
-CREATE INDEX idx_global_limits_status ON global_limits(status);
+CREATE INDEX IF NOT EXISTS idx_global_limits_type ON global_limits(limit_type);
+CREATE INDEX IF NOT EXISTS idx_global_limits_status ON global_limits(status);
 
 -- Risk Thresholds Table
 CREATE TABLE IF NOT EXISTS risk_thresholds (
@@ -64,8 +64,8 @@ CREATE TABLE IF NOT EXISTS risk_thresholds (
     CONSTRAINT unique_risk_level UNIQUE (risk_level)
 );
 
-CREATE INDEX idx_risk_thresholds_level ON risk_thresholds(risk_level);
-CREATE INDEX idx_risk_thresholds_status ON risk_thresholds(status);
+CREATE INDEX IF NOT EXISTS idx_risk_thresholds_level ON risk_thresholds(risk_level);
+CREATE INDEX IF NOT EXISTS idx_risk_thresholds_status ON risk_thresholds(status);
 
 -- Velocity Rules Table
 CREATE TABLE IF NOT EXISTS velocity_rules (
@@ -88,8 +88,8 @@ CREATE TABLE IF NOT EXISTS velocity_rules (
     CONSTRAINT unique_velocity_rule_name UNIQUE (rule_name)
 );
 
-CREATE INDEX idx_velocity_rules_status ON velocity_rules(status);
-CREATE INDEX idx_velocity_rules_risk_level ON velocity_rules(risk_level);
+CREATE INDEX IF NOT EXISTS idx_velocity_rules_status ON velocity_rules(status);
+CREATE INDEX IF NOT EXISTS idx_velocity_rules_risk_level ON velocity_rules(risk_level);
 
 -- Country Compliance Rules Table
 CREATE TABLE IF NOT EXISTS country_compliance_rules (
@@ -109,12 +109,13 @@ CREATE TABLE IF NOT EXISTS country_compliance_rules (
     CONSTRAINT unique_country_code UNIQUE (country_code)
 );
 
-CREATE INDEX idx_country_compliance_status ON country_compliance_rules(status);
-CREATE INDEX idx_country_compliance_country ON country_compliance_rules(country_code);
+CREATE INDEX IF NOT EXISTS idx_country_compliance_status ON country_compliance_rules(status);
+CREATE INDEX IF NOT EXISTS idx_country_compliance_country ON country_compliance_rules(country_code);
 
 COMMENT ON TABLE merchant_transaction_limits IS 'Transaction limits configured per merchant';
 COMMENT ON TABLE global_limits IS 'System-wide transaction limits';
 COMMENT ON TABLE risk_thresholds IS 'Risk-based transaction limits';
 COMMENT ON TABLE velocity_rules IS 'Velocity monitoring rules for transaction patterns';
 COMMENT ON TABLE country_compliance_rules IS 'Country-specific compliance rules and restrictions';
+
 

@@ -25,6 +25,7 @@ import java.util.Map;
 @Component
 public class SchemeMonitoringReportGenerator implements ReportGenerator {
 
+    @SuppressWarnings("unused")
     private final AerospikeMetricsRepository metricsRepository;
     private final SchemeSimulatorService schemeSimulatorService;
     // Assuming we have a way to find merchants for a PSP.

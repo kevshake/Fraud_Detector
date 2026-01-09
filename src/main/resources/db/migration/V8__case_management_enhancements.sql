@@ -12,13 +12,13 @@ CREATE TABLE IF NOT EXISTS case_activities (
     performed_at TIMESTAMP NOT NULL,
     related_entity_id BIGINT,
     related_entity_type VARCHAR(50),
-    CONSTRAINT fk_case_activities_case FOREIGN KEY (case_id) REFERENCES compliance_cases(id) ON DELETE CASCADE,
+    CONSTRAINT fk_case_activities_case FOREIGN KEY (case_id) REFERENCES compliance_cases(case_id) ON DELETE CASCADE,
     CONSTRAINT fk_case_activities_user FOREIGN KEY (performed_by) REFERENCES platform_users(id)
 );
 
-CREATE INDEX idx_case_activities_case ON case_activities(case_id, performed_at DESC);
-CREATE INDEX idx_case_activities_type ON case_activities(activity_type);
-CREATE INDEX idx_case_activities_user ON case_activities(performed_by);
+CREATE INDEX IF NOT EXISTS idx_case_activities_case ON case_activities(case_id, performed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_case_activities_type ON case_activities(activity_type);
+CREATE INDEX IF NOT EXISTS idx_case_activities_user ON case_activities(performed_by);
 
 -- Case Queues Table
 CREATE TABLE IF NOT EXISTS case_queues (
@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS case_queues (
 
 -- Add queue reference to compliance_cases
 ALTER TABLE compliance_cases ADD COLUMN IF NOT EXISTS queue_id BIGINT;
+ALTER TABLE compliance_cases DROP CONSTRAINT IF EXISTS fk_cases_queue;
 ALTER TABLE compliance_cases ADD CONSTRAINT fk_cases_queue FOREIGN KEY (queue_id) REFERENCES case_queues(id);
 
 -- Case Mentions Table
@@ -44,13 +45,13 @@ CREATE TABLE IF NOT EXISTS case_mentions (
     mentioned_by_user_id BIGINT,
     mentioned_at TIMESTAMP NOT NULL,
     read BOOLEAN DEFAULT FALSE,
-    CONSTRAINT fk_case_mentions_case FOREIGN KEY (case_id) REFERENCES compliance_cases(id) ON DELETE CASCADE,
+    CONSTRAINT fk_case_mentions_case FOREIGN KEY (case_id) REFERENCES compliance_cases(case_id) ON DELETE CASCADE,
     CONSTRAINT fk_case_mentions_mentioned FOREIGN KEY (mentioned_user_id) REFERENCES platform_users(id),
     CONSTRAINT fk_case_mentions_by FOREIGN KEY (mentioned_by_user_id) REFERENCES platform_users(id)
 );
 
-CREATE INDEX idx_case_mentions_user ON case_mentions(mentioned_user_id, read);
-CREATE INDEX idx_case_mentions_case ON case_mentions(case_id);
+CREATE INDEX IF NOT EXISTS idx_case_mentions_user ON case_mentions(mentioned_user_id, read);
+CREATE INDEX IF NOT EXISTS idx_case_mentions_case ON case_mentions(case_id);
 
 -- Escalation Rules Table
 CREATE TABLE IF NOT EXISTS escalation_rules (
@@ -76,16 +77,17 @@ CREATE TABLE IF NOT EXISTS case_transactions (
     relationship_type VARCHAR(50), -- PRIMARY, RELATED, SUSPICIOUS_PATTERN
     added_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     added_by BIGINT,
-    CONSTRAINT fk_case_transactions_case FOREIGN KEY (case_id) REFERENCES compliance_cases(id) ON DELETE CASCADE,
+    CONSTRAINT fk_case_transactions_case FOREIGN KEY (case_id) REFERENCES compliance_cases(case_id) ON DELETE CASCADE,
     CONSTRAINT fk_case_transactions_txn FOREIGN KEY (transaction_id) REFERENCES transactions(txn_id),
     CONSTRAINT fk_case_transactions_user FOREIGN KEY (added_by) REFERENCES platform_users(id)
 );
 
-CREATE INDEX idx_case_transactions_case ON case_transactions(case_id);
-CREATE INDEX idx_case_transactions_txn ON case_transactions(transaction_id);
+CREATE INDEX IF NOT EXISTS idx_case_transactions_case ON case_transactions(case_id);
+CREATE INDEX IF NOT EXISTS idx_case_transactions_txn ON case_transactions(transaction_id);
 
 -- Update case_notes to support threading
 ALTER TABLE case_notes ADD COLUMN IF NOT EXISTS parent_note_id BIGINT;
+ALTER TABLE case_notes DROP CONSTRAINT IF EXISTS fk_case_notes_parent;
 ALTER TABLE case_notes ADD CONSTRAINT fk_case_notes_parent FOREIGN KEY (parent_note_id) REFERENCES case_notes(id);
 ALTER TABLE case_notes ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP;
 
@@ -114,4 +116,5 @@ COMMENT ON TABLE case_queues IS 'Case queues for automatic assignment';
 COMMENT ON TABLE case_mentions IS 'User mentions in case notes and activities';
 COMMENT ON TABLE escalation_rules IS 'Rules for automatic case escalation';
 COMMENT ON TABLE case_transactions IS 'Transactions linked to cases for timeline view';
+
 

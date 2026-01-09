@@ -106,6 +106,7 @@ public class HighConcurrencyFraudOrchestrator {
             .toList();
     }
 
+    @SuppressWarnings("unused")
     private FraudDetectionResult fallbackProcessTransaction(TransactionEntity transaction, Exception ex) {
         logger.warn("Circuit breaker open, using fallback for transaction {}", transaction.getTxnId());
         return createErrorResult(transaction.getTxnId());

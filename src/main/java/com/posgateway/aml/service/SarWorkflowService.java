@@ -19,6 +19,7 @@ import java.time.LocalDateTime;
  * Manages the lifecycle of Suspicious Activity Reports
  */
 @Service
+@SuppressWarnings("null") // Repository methods return Optional, saved entities are non-null
 public class SarWorkflowService {
 
     private static final Logger logger = LoggerFactory.getLogger(SarWorkflowService.class);

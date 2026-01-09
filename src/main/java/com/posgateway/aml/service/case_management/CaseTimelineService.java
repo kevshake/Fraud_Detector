@@ -29,6 +29,7 @@ import java.util.stream.Collectors;
 @Service
 public class CaseTimelineService {
 
+    @SuppressWarnings("unused")
     private static final Logger logger = LoggerFactory.getLogger(CaseTimelineService.class);
 
     private final ComplianceCaseRepository caseRepository;

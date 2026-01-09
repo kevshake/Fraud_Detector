@@ -83,13 +83,6 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- H2 Database (for testing) -->
-        <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
         <!-- Aerospike Client 9.2.0 (JDK 8-17 compatible) -->
         <dependency>
             <groupId>com.aerospike</groupId>
@@ -259,6 +252,13 @@
         <dependency>
             <groupId>org.hibernate.orm</groupId>
             <artifactId>hibernate-envers</artifactId>
+        </dependency>
+
+        <!-- Flyway for Database Migrations -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+            <version>9.22.3</version>
         </dependency>
     </dependencies>
 

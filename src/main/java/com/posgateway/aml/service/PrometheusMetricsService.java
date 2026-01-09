@@ -70,7 +70,9 @@ public class PrometheusMetricsService {
         private final Counter complianceCaseCreatedCounter;
         private final Counter complianceCaseResolvedCounter;
         private final Counter complianceCaseEscalatedCounter;
+        @SuppressWarnings("unused")
         private final Counter complianceCaseByStatusCounter;
+        @SuppressWarnings("unused")
         private final Counter complianceCaseByPriorityCounter;
         private final Counter sarCreatedCounter;
         private final Counter sarFiledCounter;
@@ -85,6 +87,7 @@ public class PrometheusMetricsService {
         private final Timer apiResponseTime;
         private final Counter apiRequestCounter;
         private final Counter apiErrorCounter;
+        @SuppressWarnings("unused")
         private final Counter apiErrorByTypeCounter;
 
         // System Health Metrics

@@ -99,3 +99,4 @@ INSERT INTO model_config (config_key, value, description, updated_by) VALUES
     ('fraud.notify.slack', 'false', 'Enable Slack notifications for fraud alerts', 'system')
 ON CONFLICT (config_key) DO NOTHING;
 
+

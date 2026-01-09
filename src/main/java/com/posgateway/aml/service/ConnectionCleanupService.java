@@ -65,8 +65,6 @@ public class ConnectionCleanupService {
     @Transactional
     public void periodicCleanup() {
         try {
-            long before = cleanedUpConnections.get();
-            
             // Clear EntityManager cache periodically
             if (entityManager != null) {
                 entityManager.clear();

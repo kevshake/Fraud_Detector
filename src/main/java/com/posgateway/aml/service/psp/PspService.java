@@ -20,6 +20,7 @@ public class PspService {
     private final PspRepository pspRepository;
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
+    @SuppressWarnings("unused")
     private final PasswordEncoder passwordEncoder;
 
     public PspService(PspRepository pspRepository, UserRepository userRepository, RoleRepository roleRepository,

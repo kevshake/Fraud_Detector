@@ -273,6 +273,7 @@ public class AerospikeSanctionsScreeningService {
     /**
      * Build Match object from Aerospike record
      */
+    @SuppressWarnings("unchecked")
     private Match buildMatchFromRecord(com.aerospike.client.Record record, double similarityScore) {
         return Match.builder()
                 .matchedName((String) record.bins.get("full_name"))

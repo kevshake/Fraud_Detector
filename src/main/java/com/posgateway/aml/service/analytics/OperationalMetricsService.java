@@ -21,6 +21,7 @@ import java.util.List;
 @Service
 public class OperationalMetricsService {
 
+    @SuppressWarnings("unused")
     private static final Logger logger = LoggerFactory.getLogger(OperationalMetricsService.class);
 
     private final ComplianceCaseRepository caseRepository;
