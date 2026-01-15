@@ -15,9 +15,11 @@ The AML Fraud Detector uses a **multi-database architecture**:
 
 | Database | Purpose | Data Types |
 |----------|---------|------------|
-| PostgreSQL | Primary RDBMS | Transactional data, users, cases |
-| Aerospike | High-speed cache | Sanctions lists, feature aggregates |
+| PostgreSQL | Primary RDBMS | Users, cases, alerts, audit logs, transactions (backup/audit) |
+| Aerospike | High-speed primary storage | **Transactions (primary)**, sanctions lists, feature aggregates |
 | Redis | Session/Stats cache | Statistics, rate limiting, sessions |
+
+**Note:** Transactions are now stored primarily in Aerospike for fast access (< 1ms latency). PostgreSQL maintains a backup copy for compliance and audit purposes. See [AEROSPIKE_TRANSACTION_STORAGE.md](AEROSPIKE_TRANSACTION_STORAGE.md) for details.
 
 ### 1.2 Design Principles
 
@@ -508,7 +510,19 @@ CREATE TABLE case_alerts (
     rule_id             VARCHAR(100),                 -- Rule ID
     model_version       VARCHAR(100),                 -- ML model version (e.g., "XGBoost-v2.1")
     rule_version        VARCHAR(100),                 -- Rule version (e.g., "Policy-2023-Q4")
-    score               DECIMAL(5,4),                -- Risk score (0.0-1.0)
+    score               DECIMAL(5,4),                -- Primary risk score (0.0-1.0) - ML score or rule override
+    
+    -- Comprehensive Score Tracking
+    ml_score            DOUBLE PRECISION,             -- Machine Learning score (0.0-1.0)
+    krs_score           DOUBLE PRECISION,             -- KYC Risk Score (0-100)
+    trs_score           DOUBLE PRECISION,             -- Transaction Risk Score (0-100)
+    cra_score           DOUBLE PRECISION,             -- Customer Risk Assessment (0-100)
+    anomaly_score       DOUBLE PRECISION,             -- Anomaly detection score (0.0-1.0)
+    fraud_score         DOUBLE PRECISION,             -- Fraud detection score (0-100+)
+    aml_score           DOUBLE PRECISION,             -- AML risk score (0-100+)
+    rule_score          DOUBLE PRECISION,              -- Rule-based score override (if applicable)
+    risk_details_json   TEXT,                         -- JSON containing all risk details and component scores
+    
     description         TEXT,
     raw_data            TEXT,                        -- JSON snapshot of triggering data
     triggered_at        TIMESTAMP NOT NULL,
@@ -520,7 +534,30 @@ CREATE TABLE case_alerts (
 CREATE INDEX idx_case_alert_case ON case_alerts(case_id);
 CREATE INDEX idx_case_alert_type ON case_alerts(alert_type);
 CREATE INDEX idx_case_alert_triggered ON case_alerts(triggered_at);
+CREATE INDEX idx_case_alerts_ml_score ON case_alerts(ml_score);
+CREATE INDEX idx_case_alerts_krs_score ON case_alerts(krs_score);
+CREATE INDEX idx_case_alerts_trs_score ON case_alerts(trs_score);
+CREATE INDEX idx_case_alerts_cra_score ON case_alerts(cra_score);
 ```
+
+**Score Fields Description:**
+
+| Field | Type | Range | Description |
+|-------|------|-------|-------------|
+| `score` | DECIMAL(5,4) | 0.0-1.0 | Primary risk score (ML score or rule override) |
+| `ml_score` | DOUBLE PRECISION | 0.0-1.0 | Machine Learning score from XGBoost model |
+| `krs_score` | DOUBLE PRECISION | 0-100 | KYC Risk Score - customer/merchant profile risk |
+| `trs_score` | DOUBLE PRECISION | 0-100 | Transaction Risk Score - transaction-specific risk |
+| `cra_score` | DOUBLE PRECISION | 0-100 | Customer Risk Assessment - evolving customer risk |
+| `anomaly_score` | DOUBLE PRECISION | 0.0-1.0 | Anomaly detection score (reconstruction error) |
+| `fraud_score` | DOUBLE PRECISION | 0-100+ | Fraud detection score (rule-based points) |
+| `aml_score` | DOUBLE PRECISION | 0-100+ | AML risk score (rule-based points) |
+| `rule_score` | DOUBLE PRECISION | 0.0-1.0 | Rule-based score override (if applicable) |
+| `risk_details_json` | TEXT | JSON | Complete risk context and component scores |
+
+**Migration:** See `V102__add_score_fields_to_case_alerts.sql` for the migration script.
+
+**Score Calculation Documentation:** For detailed formulas and calculation methods, see **[SCORING_PROCESS_DOCUMENTATION.md](../SCORING_PROCESS_DOCUMENTATION.md)**.
 
 ### 7.2 case_transactions
 

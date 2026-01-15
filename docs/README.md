@@ -16,8 +16,14 @@ This system provides comprehensive AML and fraud detection capabilities for paym
 ## Architecture
 
 ```
-Merchant → Transaction Ingestion → Feature Extraction → ML Scoring → Decision Engine → Action (BLOCK/HOLD/ALLOW) → Alerting
+Merchant → Transaction Ingestion → Aerospike (Primary Storage) + PostgreSQL (Backup)
+                                  ↓
+                            Feature Extraction → ML Scoring → Decision Engine → Action (BLOCK/HOLD/ALLOW) → Alerting
+                                  ↓
+                            UI Reads from Aerospike (with PostgreSQL fallback)
 ```
+
+**Transaction Storage:** Transactions are stored in **Aerospike** for fast access (< 1ms latency) with PostgreSQL as backup for compliance. See [AEROSPIKE_TRANSACTION_STORAGE.md](docs/AEROSPIKE_TRANSACTION_STORAGE.md) for details.
 
 ## Technology Stack
 
@@ -25,18 +31,29 @@ Merchant → Transaction Ingestion → Feature Extraction → ML Scoring → Dec
 - **Spring Boot 3.2.0**
 - **Spring Data JPA**
 - **REST Assured 5.3.2** (for all RESTful messaging)
-- **PostgreSQL** (production)
+- **PostgreSQL** (primary RDBMS for users, cases, audit)
+- **Aerospike** (primary transaction storage for fast access)
+- **Redis** (session cache, statistics)
 - **Maven**
 
 ## Database Schema
 
-The system uses PostgreSQL with the following tables:
+The system uses a **multi-database architecture**:
 
+### PostgreSQL (Primary RDBMS)
 - `model_config`: Configurable thresholds and parameters (no hardcoding)
-- `transactions`: Raw transaction data from all merchants
+- `transactions`: Transaction backup/audit (primary storage in Aerospike)
 - `transaction_features`: Features used for scoring and historical data
 - `alerts`: Generated alerts and cases for review
 - `model_metrics`: Model performance monitoring metrics
+- `users`, `roles`, `compliance_cases`, `audit_logs`: User management and compliance data
+
+### Aerospike (High-Performance Storage)
+- **`transactions` namespace**: Primary transaction storage for fast access (< 1ms latency)
+- `sanctions` namespace: Sanctions lists and watchlists
+- `cache` namespace: Feature aggregates and hot data
+
+**Note:** Transactions are stored in **Aerospike** as the primary storage for fast UI access, with PostgreSQL maintaining a backup copy for compliance and audit purposes. See [AEROSPIKE_TRANSACTION_STORAGE.md](docs/AEROSPIKE_TRANSACTION_STORAGE.md) for details.
 
 ## Configuration
 
@@ -505,6 +522,16 @@ See **[DATABASE_QUERY_OPTIMIZATION.md](DATABASE_QUERY_OPTIMIZATION.md)** and **[
 - **[GRAFANA_QUICK_REFERENCE.md](GRAFANA_QUICK_REFERENCE.md)** - Quick reference for Grafana users
 - **[PROMETHEUS_GRAFANA_SETUP.md](PROMETHEUS_GRAFANA_SETUP.md)** - Prometheus and Grafana setup
 - **[REVENUE_DASHBOARD_GUIDE.md](REVENUE_DASHBOARD_GUIDE.md)** - Revenue tracking dashboard guide
+
+### Scoring & Risk Assessment
+- **[SCORING_PROCESS_DOCUMENTATION.md](SCORING_PROCESS_DOCUMENTATION.md)** - **Comprehensive documentation of all scoring systems** including detailed calculation formulas, component breakdowns, worked examples, and lookup tables for ML Score, KRS, TRS, CRA, Anomaly Detection, Fraud Detection, and AML Risk scores
+- **[SCORE_TRACKING_IMPLEMENTATION.md](SCORE_TRACKING_IMPLEMENTATION.md)** - Implementation guide for score tracking across database, Kafka, Prometheus, and Grafana
+- **[WEIGHTED_SCORING_SYSTEMS.md](WEIGHTED_SCORING_SYSTEMS.md)** - Detailed guide for KRS, TRS, and CRA weighted average scoring systems
+
+### Data Storage & Performance
+- **[AEROSPIKE_TRANSACTION_STORAGE.md](AEROSPIKE_TRANSACTION_STORAGE.md)** - **Transaction storage in Aerospike** for fast access (< 1ms latency). Includes architecture, configuration, migration guide, and performance benefits
+- **[AEROSPIKE_CONNECTION_SETUP.md](AEROSPIKE_CONNECTION_SETUP.md)** - Aerospike connection setup and configuration
+- **[CACHING_STRATEGY.md](CACHING_STRATEGY.md)** - Multi-tier caching strategy
 
 ### Implementation Guides
 - **[SWAGGER_OPENAPI_SETUP.md](SWAGGER_OPENAPI_SETUP.md)** - API documentation setup

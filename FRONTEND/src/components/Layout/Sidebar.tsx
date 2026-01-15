@@ -1,0 +1,446 @@
+import { useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import {
+  Box,
+  Drawer,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Collapse,
+  Badge,
+  Divider,
+  Typography,
+  IconButton,
+  Tooltip,
+} from "@mui/material";
+import {
+  Dashboard as DashboardIcon,
+  FolderOpen as CasesIcon,
+  Description as SarIcon,
+  Notifications as AlertsIcon,
+  TrendingUp as RiskIcon,
+  CalendarToday as CalendarIcon,
+  Receipt as ReportsIcon,
+  Business as MerchantsIcon,
+  Visibility as MonitoringIcon,
+  Search as ScreeningIcon,
+  Person as ProfileIcon,
+  Mail as MessagesIcon,
+  Settings as SettingsIcon,
+  People as UsersIcon,
+  AdminPanelSettings as RolesIcon,
+  Assessment as ChartsIcon,
+  History as AuditIcon,
+  Tune as LimitsIcon,
+  ExpandLess,
+  ExpandMore,
+  Shield as ShieldIcon,
+  Code as RulesIcon,
+  Menu as MenuIcon,
+  ChevronLeft as ChevronLeftIcon,
+} from "@mui/icons-material";
+
+const drawerWidth = 280;
+const miniDrawerWidth = 80;
+
+interface NavSection {
+  title?: string;
+  items: NavItem[];
+}
+
+interface NavItem {
+  id: string;
+  label: string;
+  icon: React.ReactNode;
+  path: string;
+  badge?: number;
+  children?: NavItem[];
+}
+
+const navSections: NavSection[] = [
+  {
+    items: [
+      {
+        id: "dashboard",
+        label: "Dashboard",
+        icon: <DashboardIcon />,
+        path: "/dashboard",
+      },
+      {
+        id: "cases",
+        label: "Cases",
+        icon: <CasesIcon />,
+        path: "/cases",
+        badge: 0,
+      },
+      {
+        id: "sar",
+        label: "SAR Reports",
+        icon: <SarIcon />,
+        path: "/sar",
+        badge: 0,
+      },
+      {
+        id: "alerts",
+        label: "Alerts",
+        icon: <AlertsIcon />,
+        path: "/alerts",
+        badge: 0,
+      },
+      {
+        id: "risk-analytics",
+        label: "Risk Analytics",
+        icon: <RiskIcon />,
+        path: "/risk-analytics",
+      },
+      {
+        id: "compliance-calendar",
+        label: "Compliance Calendar",
+        icon: <CalendarIcon />,
+        path: "/compliance-calendar",
+      },
+      {
+        id: "regulatory-reports",
+        label: "Regulatory Reports",
+        icon: <ReportsIcon />,
+        path: "/regulatory-reports",
+      },
+      {
+        id: "merchants",
+        label: "Merchants",
+        icon: <MerchantsIcon />,
+        path: "/merchants",
+      },
+      {
+        id: "transaction-monitoring",
+        label: "Transaction Monitoring",
+        icon: <MonitoringIcon />,
+        path: "/transaction-monitoring",
+      },
+      {
+        id: "screening",
+        label: "Screening",
+        icon: <ScreeningIcon />,
+        path: "/screening",
+      },
+      {
+        id: "rules-generation",
+        label: "Limits & AML Rules",
+        icon: <RulesIcon />,
+        path: "/rules-generation",
+      },
+      {
+        id: "profile",
+        label: "Profile",
+        icon: <ProfileIcon />,
+        path: "/profile",
+      },
+      {
+        id: "messages",
+        label: "Messages",
+        icon: <MessagesIcon />,
+        path: "/messages",
+        badge: 0,
+      },
+    ],
+  },
+  {
+    title: "ADMINISTRATION",
+    items: [
+      {
+        id: "settings",
+        label: "Settings",
+        icon: <SettingsIcon />,
+        path: "/settings",
+      },
+      {
+        id: "users",
+        label: "User Management",
+        icon: <UsersIcon />,
+        path: "/users",
+      },
+      {
+        id: "reports",
+        label: "Reports",
+        icon: <ChartsIcon />,
+        path: "/reports",
+      },
+      {
+        id: "audit",
+        label: "Audit Logs",
+        icon: <AuditIcon />,
+        path: "/audit",
+      },
+    ],
+  },
+];
+
+export default function Sidebar() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [collapsed, setCollapsed] = useState(false);
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    dashboard: true,
+  });
+
+  const toggleSection = (sectionId: string) => {
+    setOpenSections((prev) => ({
+      ...prev,
+      [sectionId]: !prev[sectionId],
+    }));
+  };
+
+  const isActive = (path: string) => {
+    return location.pathname === path || location.pathname.startsWith(path + "/");
+  };
+
+  const renderNavItem = (item: NavItem, level: number = 0) => {
+    const hasChildren = item.children && item.children.length > 0;
+    const isOpen = openSections[item.id] || false;
+    const active = isActive(item.path);
+
+    return (
+      <Box key={item.id}>
+        <ListItem disablePadding sx={{ pl: level * 2 }}>
+          <ListItemButton
+            onClick={() => {
+              if (hasChildren) {
+                toggleSection(item.id);
+              } else {
+                navigate(item.path);
+              }
+            }}
+            selected={active && !hasChildren}
+            sx={{
+              "&.Mui-selected": {
+                backgroundColor: "rgba(169, 50, 38, 0.2)",
+                borderLeft: "3px solid #a93226",
+              },
+            }}
+          >
+            <ListItemIcon sx={{ minWidth: 40, color: active ? "#a93226" : "inherit" }}>
+              {item.icon}
+            </ListItemIcon>
+            <ListItemText primary={item.label} />
+            {item.badge !== undefined && item.badge > 0 && (
+              <Badge badgeContent={item.badge} color="error" sx={{ mr: 1 }} />
+            )}
+            {hasChildren && (isOpen ? <ExpandLess /> : <ExpandMore />)}
+          </ListItemButton>
+        </ListItem>
+        {hasChildren && (
+          <Collapse in={isOpen} timeout="auto" unmountOnExit>
+            <List component="div" disablePadding>
+              {item.children!.map((child) => renderNavItem(child, level + 1))}
+            </List>
+          </Collapse>
+        )}
+      </Box>
+    );
+  };
+
+  return (
+    <Drawer
+      variant="permanent"
+      sx={{
+        width: collapsed ? miniDrawerWidth : drawerWidth,
+        flexShrink: 0,
+        transition: "width 0.3s ease",
+        "& .MuiDrawer-paper": {
+          width: collapsed ? miniDrawerWidth : drawerWidth,
+          boxSizing: "border-box",
+          backgroundColor: "#FFFFFF",
+          color: "text.primary",
+          borderRight: "none",
+          boxShadow: "4px 0 20px rgba(0,0,0,0.02)",
+          m: 2,
+          height: "calc(100vh - 32px)",
+          borderRadius: "20px",
+          transition: "width 0.3s ease",
+          overflowX: "hidden",
+        },
+      }}
+    >
+      <Box sx={{ p: collapsed ? 2 : 3, display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1 }}>
+        {!collapsed && (
+          <>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+              <Box
+                sx={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: "12px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  overflow: "hidden",
+                }}
+              >
+                <img
+                  src="/hokeka-logo.jpg"
+                  alt="Hokeka Logo"
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover"
+                  }}
+                />
+              </Box>
+              <Box>
+                <Typography variant="h6" sx={{ fontWeight: 800, fontSize: "1.1rem", lineHeight: 1.2 }}>
+                  AML Fraud Detector
+                </Typography>
+                <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.7rem", display: "block" }}>
+                  Powered by Hokeka
+                </Typography>
+              </Box>
+            </Box>
+          </>
+        )}
+        {collapsed && (
+          <Box
+            sx={{
+              background: "linear-gradient(135deg, #a93226 0%, #d4ac0d 100%)",
+              borderRadius: "12px",
+              p: 0.8,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              mx: "auto"
+            }}
+          >
+            <ShieldIcon sx={{ color: "#fff", fontSize: 24 }} />
+          </Box>
+        )}
+        <Tooltip title={collapsed ? "Expand sidebar" : "Collapse sidebar"} arrow placement="right">
+          <IconButton
+            onClick={() => setCollapsed(!collapsed)}
+            sx={{
+              ml: collapsed ? 0 : 1,
+              color: "text.secondary",
+              "&:hover": { bgcolor: "rgba(0,0,0,0.05)" }
+            }}
+          >
+            {collapsed ? <MenuIcon /> : <ChevronLeftIcon />}
+          </IconButton>
+        </Tooltip>
+      </Box>
+
+      <Box sx={{ overflow: "auto", flex: 1, px: 2 }}>
+        {navSections.map((section, idx) => (
+          <Box key={idx} sx={{ mb: 3 }}>
+            {section.title && !collapsed && (
+              <Typography
+                variant="caption"
+                sx={{
+                  px: 2,
+                  py: 1,
+                  display: "block",
+                  color: "text.secondary",
+                  fontSize: "0.75rem",
+                  fontWeight: 700,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.5px"
+                }}
+              >
+                {section.title}
+              </Typography>
+            )}
+            <List disablePadding>
+              {section.items.map((item) => {
+                // Custom render logic for cleaner list items
+                const active = isActive(item.path);
+                const hasChildren = item.children && item.children.length > 0;
+                const isOpen = openSections[item.id] || false;
+
+                return (
+                  <Box key={item.id} sx={{ mb: 0.5 }}>
+                    <ListItem disablePadding>
+                      <Tooltip title={item.label} placement="right" arrow>
+                        <ListItemButton
+                          onClick={() => {
+                            if (hasChildren) {
+                              if (!collapsed) toggleSection(item.id);
+                            } else {
+                              navigate(item.path);
+                            }
+                          }}
+                          selected={active && !hasChildren}
+                          sx={{
+                            borderRadius: "12px",
+                            mb: 0.5,
+                            py: 1.2,
+                            px: collapsed ? 1.5 : 2,
+                            justifyContent: collapsed ? "center" : "flex-start",
+                            "&.Mui-selected": {
+                              backgroundColor: "rgba(169, 50, 38, 0.1)",
+                              color: "#a93226",
+                              fontWeight: 600,
+                              "&:hover": { backgroundColor: "rgba(169, 50, 38, 0.15)" },
+                            },
+                            "&:hover": {
+                              backgroundColor: "rgba(0,0,0,0.03)",
+                            },
+                          }}
+                        >
+                          <ListItemIcon sx={{ minWidth: collapsed ? 0 : 36, color: active ? "#a93226" : "text.secondary" }}>
+                            {item.icon}
+                          </ListItemIcon>
+                          {!collapsed && (
+                            <>
+                              <ListItemText
+                                primary={item.label}
+                                primaryTypographyProps={{
+                                  sx: {
+                                    fontSize: "0.9rem",
+                                    fontWeight: active ? 600 : 500
+                                  }
+                                }}
+                              />
+                              {item.badge !== undefined && item.badge > 0 && (
+                                <Badge badgeContent={item.badge} color="primary" sx={{ mr: 1 }} />
+                              )}
+                              {hasChildren && (isOpen ? <ExpandLess sx={{ opacity: 0.5 }} /> : <ExpandMore sx={{ opacity: 0.5 }} />)}
+                            </>
+                          )}
+                        </ListItemButton>
+                      </Tooltip>
+                    </ListItem>
+                    {hasChildren && !collapsed && (
+                      <Collapse in={isOpen} timeout="auto" unmountOnExit>
+                        <List component="div" disablePadding>
+                          {item.children!.map((child) => (
+                            <Tooltip key={child.id} title={child.label} placement="right" arrow>
+                              <ListItemButton
+                                sx={{
+                                  pl: 6,
+                                  borderRadius: "10px",
+                                  mb: 0.2,
+                                  "&.Mui-selected": { color: "#6C5DD3", bgcolor: "transparent" }
+                                }}
+                                selected={isActive(child.path)}
+                                onClick={() => navigate(child.path)}
+                              >
+                                <Box sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: isActive(child.path) ? "#6C5DD3" : "rgba(0,0,0,0.2)", mr: 2 }} />
+                                <ListItemText
+                                  primary={child.label}
+                                  primaryTypographyProps={{ sx: { fontSize: "0.85rem" } }}
+                                />
+                              </ListItemButton>
+                            </Tooltip>
+                          ))}
+                        </List>
+                      </Collapse>
+                    )}
+                  </Box>
+                );
+              })}
+            </List>
+          </Box>
+        ))}
+      </Box>
+    </Drawer>
+  );
+}

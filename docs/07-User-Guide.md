@@ -88,11 +88,20 @@ Shows the most recent critical alerts requiring attention:
 
 Click a transaction to view:
 - **Basic Info**: Amount, merchant, terminal, timestamp
-- **Fraud Score**: 0-100 scale with risk level
+- **Scores**: All calculated risk scores displayed together:
+  - **ML Score** (0.0-1.0): Primary machine learning score
+  - **KRS Score** (0-100): KYC Risk Score for customer profile
+  - **TRS Score** (0-100): Transaction Risk Score
+  - **CRA Score** (0-100): Customer Risk Assessment (evolving)
+  - **Anomaly Score** (0.0-1.0): Anomaly detection score
+  - **Fraud Score** (0-100+): Fraud detection points
+  - **AML Score** (0-100+): AML risk points
 - **Decision**: BLOCK, HOLD, ALERT, or ALLOW
 - **Reasons**: Why this decision was made
 - **EMV Data**: Chip card information (if available)
 - **Features**: ML features used for scoring
+
+**Note:** For detailed information on how scores are calculated, see **[SCORING_PROCESS_DOCUMENTATION.md](../SCORING_PROCESS_DOCUMENTATION.md)**.
 
 ### 3.3 Searching Transactions
 

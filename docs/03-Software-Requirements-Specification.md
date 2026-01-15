@@ -148,6 +148,17 @@ The AML Fraud Detector operates as a middleware system between merchant POS term
 | FRD-004 | System SHALL maintain blocklists (PAN, terminal, merchant) | High |
 | FRD-005 | System SHALL extract velocity features (1h, 24h, 7d, 30d) | High |
 | FRD-006 | System SHALL extract EMV-specific features | Medium |
+| FRD-007 | System SHALL calculate KYC Risk Score (KRS) for business and consumer users | High |
+| FRD-008 | System SHALL calculate Transaction Risk Score (TRS) for each transaction | High |
+| FRD-009 | System SHALL calculate Customer Risk Assessment (CRA) dynamically | High |
+| FRD-010 | System SHALL track all scores (ML, KRS, TRS, CRA, Anomaly, Fraud, AML) | Critical |
+| FRD-011 | System SHALL store all scores in database for audit and analysis | Critical |
+| FRD-012 | System SHALL publish all scores in Kafka events | High |
+| FRD-013 | System SHALL expose all scores in Prometheus metrics | High |
+| FRD-014 | System SHALL display all scores in Grafana dashboards | High |
+
+**Score Calculation Documentation:**
+For detailed requirements and formulas for all scoring systems, see **[SCORING_PROCESS_DOCUMENTATION.md](SCORING_PROCESS_DOCUMENTATION.md)**.
 | FRD-007 | System SHALL detect structuring patterns | High |
 
 #### 3.2.3 AML Compliance

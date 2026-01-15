@@ -85,9 +85,17 @@ com.posgateway.aml/
 │
 ├── service/                             # Business logic
 │   ├── DecisionEngine.java             # Core decision logic
+│   ├── ScoringService.java             # ML scoring orchestration
 │   ├── FraudDetectionService.java      # Fraud detection
 │   ├── AmlService.java                 # AML risk assessment
 │   ├── TransactionIngestionService.java # Transaction processing
+│   ├── risk/                           # Risk scoring services
+│   │   ├── KycRiskScoreService.java    # KYC Risk Score (KRS)
+│   │   ├── TransactionRiskScoreService.java # Transaction Risk Score (TRS)
+│   │   ├── CustomerRiskAssessmentService.java # Customer Risk Assessment (CRA)
+│   │   └── CustomerRiskProfilingService.java # Customer risk profiling
+│   ├── deeplearning/                   # Deep learning services
+│   │   └── DL4JAnomalyService.java     # Anomaly detection (autoencoder)
 │   ├── case_management/                # Case workflow services
 │   ├── sanctions/                      # Sanctions screening
 │   └── analytics/                      # Analytics services
@@ -190,9 +198,66 @@ public class AmlService {
 }
 ```
 
-### 3.3 Decision Engine Component
+### 3.3 Scoring Services Component
 
-#### 3.3.1 Decision Logic
+#### 3.3.1 Multi-Layered Scoring Architecture
+
+The system implements multiple scoring systems that work together:
+
+```java
+@Service
+public class ScoringService {
+    // Orchestrates ML scoring, rule evaluation, and anomaly detection
+    public ScoringResult scoreTransaction(String txnId, Map<String, Object> features) {
+        // 1. ML Score from XGBoost
+        double mlScore = mlScoringClient.score(features);
+        
+        // 2. Anomaly detection
+        double anomalyScore = dl4jAnomalyService.detectAnomaly(features);
+        
+        // 3. Rule evaluation (may override ML score)
+        RuleDecision ruleDecision = droolsRulesService.evaluate(txnId, mlScore);
+        
+        return new ScoringResult(mlScore, anomalyScore, ruleDecision);
+    }
+}
+
+@Service
+public class KycRiskScoreService {
+    // Calculates KYC Risk Score (KRS) using weighted averages
+    public KycRiskScoreResult calculateBusinessKrs(String merchantId) {
+        // Weighted average: KRS = Σ(component × weight) / Σ(weights)
+        // Components: country registration, director/UBO nationality, 
+        //             business age, business domain
+    }
+}
+
+@Service
+public class TransactionRiskScoreService {
+    // Calculates Transaction Risk Score (TRS) using weighted averages
+    public TransactionRiskScoreResult calculateTrs(TransactionEntity txn) {
+        // Weighted average: TRS = Σ(component × weight) / Σ(weights)
+        // Components: payment origin/destination, payment method, 
+        //             receiver merchant, transaction amount
+    }
+}
+
+@Service
+public class CustomerRiskAssessmentService {
+    // Calculates dynamic Customer Risk Assessment (CRA)
+    public CustomerRiskAssessmentResult calculateCra(String merchantId) {
+        // CRA[0] = KRS
+        // CRA[i] = (CRA[i-1] + TRS[i]) / 2
+    }
+}
+```
+
+**Score Calculation Details:**
+For complete formulas, component calculations, and examples, see **[SCORING_PROCESS_DOCUMENTATION.md](SCORING_PROCESS_DOCUMENTATION.md)**.
+
+#### 3.3.2 Decision Engine Component
+
+#### 3.3.2.1 Decision Logic
 
 ```java
 public class DecisionEngine {

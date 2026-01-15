@@ -74,13 +74,57 @@ The AML Fraud Detector is a comprehensive compliance and risk management platfor
 ### 3.2 Fraud Detection
 
 #### F3.2.1 Real-Time Scoring
-- **ML Model Integration**: XGBoost-based fraud scoring
-- **Score Range**: 0.0 (legitimate) to 1.0 (fraudulent)
-- **Features Used**:
-  - Transaction-level (amount, currency, time)
-  - Behavioral (velocity, aggregates)
-  - EMV-specific (chip presence, CVM method)
-  - AML-specific (cumulative amounts, patterns)
+
+The system employs a multi-layered scoring architecture combining machine learning, rule-based logic, and weighted average scoring systems:
+
+**Primary Scoring Systems:**
+
+1. **Machine Learning Score (ML Score)**
+   - **Model**: XGBoost-based fraud scoring
+   - **Score Range**: 0.0 (legitimate) to 1.0 (fraudulent)
+   - **Features Used**:
+     - Transaction-level (amount, currency, time)
+     - Behavioral (velocity, aggregates)
+     - EMV-specific (chip presence, CVM method)
+     - AML-specific (cumulative amounts, patterns)
+     - Graph-based (pageRank, betweenness centrality)
+
+2. **KYC Risk Score (KRS)**
+   - **Type**: Weighted average scoring for customer/merchant profile risk
+   - **Score Range**: 0-100
+   - **Business Users**: Based on country of registration, director/UBO nationality, business age, business domain
+   - **Consumer Users**: Based on country of residence/nationality, age group
+   - **Formula**: `KRS = Σ(componentScore × weight) / Σ(weights)`
+
+3. **Transaction Risk Score (TRS)**
+   - **Type**: Weighted average scoring for transaction-specific risk
+   - **Score Range**: 0-100
+   - **Components**: Payment origin/destination, payment method, receiver merchant, transaction amount
+   - **Formula**: `TRS = Σ(componentScore × weight) / Σ(weights)`
+
+4. **Customer Risk Assessment (CRA)**
+   - **Type**: Dynamic evolving risk profile
+   - **Score Range**: 0-100
+   - **Evolution**: Starts with KRS, updates with each transaction's TRS
+   - **Formula**: `CRA[i] = (CRA[i-1] + TRS[i]) / 2`
+
+5. **Anomaly Detection Score**
+   - **Model**: DL4J Autoencoder neural network
+   - **Score Range**: 0.0-1.0 (reconstruction error)
+   - **Purpose**: Identifies novel transaction patterns
+
+6. **Fraud Detection Score**
+   - **Type**: Rule-based point accumulation
+   - **Score Range**: 0-100+
+   - **Components**: Device risk, IP risk, behavioral risk, velocity risk
+
+7. **AML Risk Score**
+   - **Type**: Rule-based point accumulation
+   - **Score Range**: 0-100+
+   - **Components**: Amount risk, velocity risk, geographic risk, pattern risk
+
+**Score Calculation Documentation:**
+For detailed formulas, component calculations, worked examples, and lookup tables, see **[SCORING_PROCESS_DOCUMENTATION.md](SCORING_PROCESS_DOCUMENTATION.md)**.
 
 #### F3.2.2 Decision Engine Rules
 
@@ -120,12 +164,31 @@ The AML Fraud Detector is a comprehensive compliance and risk management platfor
 | PAN cumulative/30d | $500,000+ | Case |
 
 #### F3.3.3 Risk Assessment
+
+The system calculates multiple risk scores that are tracked and displayed together:
+
 - **Risk Factors**:
   - Transaction amount (high-value, structuring)
   - Velocity anomalies
   - Geographic risk (cross-border, high-risk countries)
   - Pattern detection (smurfing, layering)
-- **Risk Score**: 0-100 aggregated score
+- **Risk Scores Tracked**:
+  - ML Score (0.0-1.0): Primary machine learning score
+  - KRS Score (0-100): KYC Risk Score for customer profile
+  - TRS Score (0-100): Transaction Risk Score
+  - CRA Score (0-100): Customer Risk Assessment (evolving)
+  - Anomaly Score (0.0-1.0): Anomaly detection score
+  - Fraud Score (0-100+): Fraud detection points
+  - AML Score (0-100+): AML risk points
+
+All scores are:
+- Stored in database (`case_alerts` table)
+- Published to Kafka events
+- Recorded in Prometheus metrics
+- Displayed in Grafana dashboards
+
+**Score Calculation Details:**
+See **[SCORING_PROCESS_DOCUMENTATION.md](SCORING_PROCESS_DOCUMENTATION.md)** for complete calculation formulas and examples.
 
 ---
 

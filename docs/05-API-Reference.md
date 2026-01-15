@@ -12,7 +12,22 @@
 ### 1.1 API Standards
 - **Protocol**: REST over HTTP/HTTPS
 - **Content-Type**: `application/json`
-- **Authentication**: Session-based (Form Login)
+- **Authentication**: Session-based authentication with strict session isolation
+  - Login via `POST /api/v1/auth/login` to create a session
+  - Session cookies are automatically managed by the browser
+  - All authenticated requests require valid session cookies
+  - Session timeout: 30 minutes (configurable)
+- **PSP ID Tracking**: All API requests include `pspId` query parameter
+  - Super Admin users: `pspId=0` (SYSTEM_ADMIN PSP)
+  - PSP users: `pspId={their_psp_id}` (their assigned PSP ID)
+  - Backend automatically filters data based on PSP ID
+  - Frontend automatically includes `pspId` in all requests
+- **Security Features**:
+  - Session fixation protection
+  - Cross-user data access prevention
+  - Session ownership validation
+  - Complete session cleanup on logout
+  - PSP-based data isolation enforced at API level
 - **Documentation**: Swagger UI at `/swagger-ui.html`
 
 ### 1.2 Response Format
@@ -53,7 +68,473 @@
 
 ---
 
-## 2. Transaction APIs
+## 2. Authentication & Session Management APIs
+
+### 2.1 Login
+
+Authenticate a user and create a session.
+
+**Endpoint:** `POST /api/v1/auth/login`
+
+**Authentication:** Not required (public endpoint)
+
+**Request Body:**
+```json
+{
+    "username": "admin",
+    "password": "password"
+}
+```
+
+**Response (200 OK):**
+```json
+{
+    "success": true,
+    "token": "ABC123XYZ789",
+    "redirectUrl": "/dashboard",
+    "user": {
+        "id": 1,
+        "username": "admin",
+        "email": "admin@example.com",
+        "firstName": "Admin",
+        "lastName": "User",
+        "enabled": true,
+        "createdAt": "2026-01-01T00:00:00",
+        "pspId": 0,
+        "role": {
+            "id": 1,
+            "name": "ADMIN",
+            "permissions": ["ALL"]
+        },
+        "psp": {
+            "id": 0,
+            "name": "System Admin",
+            "code": "SYSTEM_ADMIN"
+        }
+    }
+}
+```
+
+**Note:** All users have a `pspId`:
+- **Super Admin users**: `pspId = 0` (SYSTEM_ADMIN PSP)
+- **PSP users**: `pspId > 0` (their assigned PSP ID)
+
+**Error Responses:**
+- `400 Bad Request`: Missing username or password
+- `401 Unauthorized`: Invalid credentials
+- `403 Forbidden`: User account is disabled
+
+**Security Features:**
+- Invalidates any existing session to prevent session fixation
+- Creates new session with user-specific attributes
+- Stores user ID and username in session for validation
+- Ensures session isolation per user
+- Session timeout: 30 minutes (1800 seconds)
+
+---
+
+### 2.2 Get Current User
+
+Get the currently authenticated user's information.
+
+**Endpoint:** `GET /api/v1/auth/me`
+
+**Authentication:** Required (session-based)
+
+**Response (200 OK):**
+```json
+{
+    "id": 1,
+    "username": "admin",
+    "email": "admin@example.com",
+    "firstName": "Admin",
+    "lastName": "User",
+    "enabled": true,
+    "createdAt": "2026-01-01T00:00:00",
+    "role": {
+        "id": 1,
+        "name": "ADMIN",
+        "permissions": ["ALL"]
+    },
+    "psp": {
+        "id": 1,
+        "name": "Example PSP",
+        "code": "PSP001"
+    }
+}
+```
+
+**Error Responses:**
+- `401 Unauthorized`: Not authenticated or session validation failed
+
+**Security Features:**
+- Validates authentication from SecurityContext
+- Validates session ownership (user ID in session matches authenticated user)
+- Prevents cross-user data access
+- Only returns data for the authenticated user
+
+---
+
+### 2.3 Update Current User Profile
+
+Update the currently authenticated user's profile information.
+
+**Endpoint:** `PUT /api/v1/users/me`
+
+**Authentication:** Required (session-based)
+
+**Request Body:**
+```json
+{
+    "firstName": "Admin",
+    "lastName": "User",
+    "email": "admin@example.com"
+}
+```
+
+**Response (200 OK):**
+```json
+{
+    "id": 1,
+    "username": "admin",
+    "email": "admin@example.com",
+    "firstName": "Admin",
+    "lastName": "User",
+    "enabled": true,
+    "role": { ... },
+    "psp": { ... }
+}
+```
+
+**Error Responses:**
+- `400 Bad Request`: Validation error or email already exists
+- `401 Unauthorized`: Not authenticated
+
+---
+
+### 2.4 Change Password
+
+Change the currently authenticated user's password.
+
+**Endpoint:** `PUT /api/v1/users/me/password`
+
+**Authentication:** Required (session-based)
+
+**Request Body:**
+```json
+{
+    "currentPassword": "oldPassword123",
+    "newPassword": "newPassword456"
+}
+```
+
+**Response (200 OK):**
+```json
+{
+    "success": true
+}
+```
+
+**Error Responses:**
+- `400 Bad Request`: Incorrect current password
+- `401 Unauthorized`: Not authenticated
+
+### 2.3 Logout
+
+Logout the current user and invalidate the session.
+
+**Endpoint:** `POST /api/v1/auth/logout`
+
+**Authentication:** Required (session-based)
+
+**Response (200 OK):**
+```json
+{
+    "message": "Logged out successfully"
+}
+```
+
+**Security Features:**
+- Clears all session attributes before invalidation
+- Clears SecurityContext
+- Logs logout event for audit
+- Ensures complete session cleanup
+
+---
+
+### 2.4 Check Session
+
+Check if the current session is valid and get remaining time.
+
+**Endpoint:** `GET /auth/session/check` or `GET /api/v1/auth/session/check`
+
+**Authentication:** Required (session-based)
+
+**Response (200 OK):**
+```json
+{
+    "valid": true,
+    "timeRemaining": 1650,
+    "maxInactiveInterval": 1800,
+    "lastAccessedTime": 1704700800000,
+    "username": "admin"
+}
+```
+
+**Error Responses:**
+- `401 Unauthorized`: No active session or not authenticated
+
+---
+
+### 2.5 Refresh Session
+
+Refresh the current session to extend its timeout.
+
+**Endpoint:** `POST /auth/session/refresh` or `POST /api/v1/auth/session/refresh`
+
+**Authentication:** Required (session-based)
+
+**Response (200 OK):**
+```json
+{
+    "success": true,
+    "message": "Session refreshed",
+    "sessionTimeout": 1800,
+    "timeRemaining": 1800,
+    "username": "admin"
+}
+```
+
+**Error Responses:**
+- `401 Unauthorized`: No active session or not authenticated
+
+---
+
+### 2.6 Get Session Information
+
+Get detailed information about the current session.
+
+**Endpoint:** `GET /auth/session/info`
+
+**Authentication:** Optional (returns info if session exists)
+
+**Response (200 OK):**
+```json
+{
+    "active": true,
+    "sessionId": "ABC123XYZ789",
+    "maxInactiveInterval": 1800,
+    "createdAt": 1704700800000,
+    "lastAccessedAt": 1704702450000,
+    "username": "admin"
+}
+```
+
+---
+
+### 2.7 Invalidate Session
+
+Manually invalidate the current session.
+
+**Endpoint:** `POST /auth/session/invalidate`
+
+**Authentication:** Optional
+
+**Response (200 OK):**
+```json
+{
+    "success": true,
+    "message": "Session invalidated"
+}
+```
+
+---
+
+### 2.8 Get CSRF Token
+
+Get CSRF token for form submissions.
+
+**Endpoint:** `GET /auth/csrf` or `GET /api/v1/auth/csrf`
+
+**Authentication:** Not required (public endpoint)
+
+**Response (200 OK):**
+```json
+{
+    "token": "csrf-token-value",
+    "headerName": "X-CSRF-TOKEN",
+    "parameterName": "_csrf"
+}
+```
+
+---
+
+### 2.9 Request Password Reset
+
+Request a password reset link via email.
+
+**Endpoint:** `POST /auth/password-reset/request` or `POST /api/v1/auth/password-reset/request`
+
+**Authentication:** Not required (public endpoint)
+
+**Request Body:**
+```json
+{
+    "identifier": "user@example.com"
+}
+```
+
+**Response (200 OK):**
+```json
+{
+    "message": "If the account exists, a reset link has been sent."
+}
+```
+
+**Note:** Always returns 200 OK to prevent user enumeration attacks.
+
+---
+
+### 2.10 Confirm Password Reset
+
+Confirm password reset using a one-time token.
+
+**Endpoint:** `POST /auth/password-reset/confirm` or `POST /api/v1/auth/password-reset/confirm`
+
+**Authentication:** Not required (public endpoint)
+
+**Request Body:**
+```json
+{
+    "token": "reset-token-from-email"
+}
+```
+
+**Response (200 OK):**
+```json
+{
+    "message": "Password reset successful. Your password has been reset to the default password. Please check your email for details."
+}
+```
+
+---
+
+### 2.11 Emergency Password Reset
+
+Emergency password reset for super-user recovery (disabled by default).
+
+**Endpoint:** `POST /auth/password-reset/emergency` or `POST /api/v1/auth/password-reset/emergency`
+
+**Authentication:** Not required (requires special header)
+
+**Request Headers:**
+- `X-EMERGENCY-RESET-SECRET`: Secret key (required)
+
+**Request Body:**
+```json
+{
+    "identifier": "admin@example.com"
+}
+```
+
+**Response (200 OK):**
+```json
+{
+    "message": "If the account exists, the password has been reset to the default password. Please check your email for details."
+}
+```
+
+**Error Responses:**
+- `403 Forbidden`: Emergency reset not enabled or invalid secret
+
+**Note:** This endpoint is disabled by default and requires server-side configuration.
+
+---
+
+### 2.12 Get Roles
+
+Get list of available roles, optionally filtered by PSP.
+
+**Endpoint:** `GET /auth/roles`
+
+**Authentication:** Required
+
+**Query Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| pspId | Long | Optional PSP ID to filter roles |
+
+**Response (200 OK):**
+```json
+[
+    {
+        "id": 1,
+        "name": "ADMIN",
+        "description": "System Administrator",
+        "permissions": ["ALL"]
+    },
+    {
+        "id": 2,
+        "name": "PSP_ADMIN",
+        "description": "PSP Administrator",
+        "permissions": ["MANAGE_USERS", "VIEW_REPORTS"]
+    }
+]
+```
+
+---
+
+### 2.13 Get Permissions
+
+Get list of all available permissions.
+
+**Endpoint:** `GET /auth/permissions`
+
+**Authentication:** Required
+
+**Response (200 OK):**
+```json
+[
+    "ALL",
+    "MANAGE_USERS",
+    "VIEW_REPORTS",
+    "MANAGE_CASES",
+    "VIEW_ALERTS"
+]
+```
+
+---
+
+### 2.14 Get Role Permissions
+
+Get permissions for a specific role.
+
+**Endpoint:** `GET /auth/role-permissions`
+
+**Authentication:** Required
+
+**Query Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| roleId | Long | Role ID (required) |
+
+**Response (200 OK):**
+```json
+[
+    "ALL",
+    "MANAGE_USERS",
+    "VIEW_REPORTS"
+]
+```
+
+**Error Responses:**
+- `400 Bad Request`: Role not found
+
+---
+
+## 3. Transaction APIs
 
 ### 2.1 Ingest Transaction
 
@@ -74,8 +555,9 @@ Process a new transaction through the fraud detection pipeline.
     "emvTags": {
         "9F34": "020000",
         "82": "3F00",
-        "4F": "A0000000041010"
-    }
+        "OF": "A0000000041010"
+    },
+    "direction": "INBOUND"
 }
 ```
 
@@ -88,17 +570,38 @@ Process a new transaction through the fraud detection pipeline.
     "reasons": [
         "Score 0.850 >= hold threshold 0.700"
     ],
-    "latencyMs": 45
+    "latencyMs": 45,
+    "scores": {
+        "mlScore": 0.85,
+        "krsScore": 65.5,
+        "trsScore": 59.5,
+        "craScore": 63.75,
+        "anomalyScore": 0.015,
+        "fraudScore": 30.0,
+        "amlScore": 70.0
+    }
 }
 ```
 
 | Field | Type | Description |
 |-------|------|-------------|
 | txnId | Long | Assigned transaction ID |
-| score | Double | Fraud score (0.0 - 1.0) |
+| score | Double | Primary fraud score (0.0 - 1.0) - ML score or rule override |
 | action | String | BLOCK, HOLD, ALERT, or ALLOW |
 | reasons | Array | List of triggered rules |
 | latencyMs | Long | Processing time in ms |
+| scores | Object | **All calculated scores** (see Score Details below) |
+
+**Score Details:**
+- `mlScore`: Machine Learning score (0.0-1.0) from XGBoost model
+- `krsScore`: KYC Risk Score (0-100) - customer/merchant profile risk
+- `trsScore`: Transaction Risk Score (0-100) - transaction-specific risk
+- `craScore`: Customer Risk Assessment (0-100) - evolving customer risk profile
+- `anomalyScore`: Anomaly detection score (0.0-1.0) - reconstruction error
+- `fraudScore`: Fraud detection score (0-100+) - rule-based points
+- `amlScore`: AML risk score (0-100+) - AML rule-based points
+
+**Note:** For detailed score calculation formulas and examples, see **[SCORING_PROCESS_DOCUMENTATION.md](../SCORING_PROCESS_DOCUMENTATION.md)**.
 
 ---
 
@@ -161,13 +664,15 @@ Retrieve list of transactions with filtering.
     "decision": "HOLD",
     "reasons": ["Score exceeded hold threshold"],
     "features": { ... },
-    "createdAt": "2026-01-09T10:30:00"
+    "createdAt": "2026-01-09T10:30:00",
+    "direction": "INBOUND",
+    "merchantCountry": "KEN"
 }
 ```
 
 ---
 
-## 3. Alert APIs
+## 4. Alert APIs
 
 ### 3.1 List Alerts
 
@@ -243,7 +748,7 @@ Retrieve list of transactions with filtering.
 
 ---
 
-## 4. Case Management APIs
+## 5. Case Management APIs
 
 ### 4.1 List Cases
 
@@ -330,7 +835,7 @@ Retrieve list of transactions with filtering.
 
 ---
 
-## 5. Merchant APIs
+## 6. Merchant APIs
 
 ### 5.1 List Merchants
 
@@ -349,6 +854,8 @@ Retrieve list of transactions with filtering.
             "kycStatus": "VERIFIED",
             "contractStatus": "ACTIVE",
             "dailyLimit": 50000000,
+            "krs": 75.5,
+            "cra": 60.0,
             "createdAt": "2025-06-01T00:00:00"
         }
     ]
@@ -405,7 +912,7 @@ Full merchant onboarding with KYC.
 
 ---
 
-## 6. User Management APIs
+## 7. User Management APIs
 
 ### 6.1 List Users
 
@@ -453,15 +960,70 @@ Full merchant onboarding with KYC.
 
 ---
 
-## 7. Analytics APIs
+### 6.4 Get Current User
+
+**Note:** The current user endpoint is documented in the [Authentication & Session Management APIs](#2-authentication--session-management-apis) section.
+
+**Primary Endpoint:** `GET /api/v1/auth/me`
+
+**Alternative Endpoint (if available):** `GET /api/v1/users/me`
+
+See section [2.2 Get Current User](#22-get-current-user) for complete documentation.
+
+---
+
+### 6.5 Role Management
+
+**List Roles:** `GET /api/v1/roles`
+
+**Response:**
+```json
+[
+    {
+        "id": 1,
+        "name": "ADMIN",
+        "description": "Administrator role",
+        "global": true,
+        "permissions": ["VIEW_ALL", "MANAGE_USERS", "MANAGE_RULES"]
+    }
+]
+```
+
+---
+
+## 8. Analytics APIs
 
 ### 7.1 Risk Heatmap - Customer
 
 **Endpoint:** `GET /api/v1/analytics/risk/heatmap/customer`
 
+**Response:**
+```json
+{
+    "customer1": 25,
+    "customer2": 65,
+    "customer3": 45
+}
+```
+
 ---
 
-### 7.2 Risk Heatmap - Geographic
+### 7.2 Risk Heatmap - Merchant
+
+**Endpoint:** `GET /api/v1/analytics/risk/heatmap/merchant`
+
+**Response:**
+```json
+{
+    "merchant1": 30,
+    "merchant2": 70,
+    "merchant3": 50
+}
+```
+
+---
+
+### 7.3 Risk Heatmap - Geographic
 
 **Endpoint:** `GET /api/v1/analytics/risk/heatmap/geographic`
 
@@ -477,7 +1039,7 @@ Full merchant onboarding with KYC.
 
 ---
 
-### 7.3 Risk Trends
+### 7.4 Risk Trends
 
 **Endpoint:** `GET /api/v1/analytics/risk/trends`
 
@@ -485,42 +1047,76 @@ Full merchant onboarding with KYC.
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| startDate | String | Start date |
-| endDate | String | End date |
-| granularity | String | DAILY, WEEKLY, MONTHLY |
+| days | int | Number of days (default: 30) |
+| startDate | String | Start date (optional) |
+| endDate | String | End date (optional) |
+| granularity | String | DAILY, WEEKLY, MONTHLY (optional) |
+
+**Response:**
+```json
+{
+    "labels": ["2026-01-01", "2026-01-02", "2026-01-03"],
+    "data": [25, 30, 28]
+}
+```
 
 ---
 
-## 8. Reporting APIs
+## 9. Reporting APIs
 
 ### 8.1 SAR Reports
 
-**List SARs:** `GET /api/v1/compliance/sars`
+**List SARs:** `GET /api/v1/compliance/sar`
 
-**Create SAR:** `POST /api/v1/compliance/sars`
+**Create SAR:** `POST /api/v1/compliance/sar`
 
-**Get SAR Details:** `GET /api/v1/compliance/sars/{id}`
+**Get SAR Details:** `GET /api/v1/compliance/sar/{id}`
 
-**Submit SAR:** `POST /api/v1/compliance/sars/{id}/submit`
+**Submit SAR:** `POST /api/v1/compliance/sar/{id}/file`
+
+**Delete SAR:** `DELETE /api/v1/compliance/sar/{id}`
 
 ---
 
 ### 8.2 Audit Logs
 
-**Endpoint:** `GET /api/v1/audit-logs`
+**Endpoint:** `GET /api/v1/audit/logs`
 
 **Query Parameters:**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| userId | Long | Filter by user |
-| action | String | Filter by action type |
-| startDate | String | Start date |
-| endDate | String | End date |
+| limit | int | Maximum number of logs to return (default: 100, max: 1000) |
+| username | String | Filter by username |
+| actionType | String | Filter by action type |
+| entityType | String | Filter by entity type |
+| entityId | String | Filter by entity ID |
+| success | Boolean | Filter by success status |
+| ipAddress | String | Filter by IP address |
+| sessionId | String | Filter by session ID |
+| start | String | Start date (ISO format) |
+| end | String | End date (ISO format) |
+
+**Response (200 OK):**
+```json
+[
+    {
+        "id": 1,
+        "username": "admin",
+        "actionType": "CREATE",
+        "entityType": "MERCHANT",
+        "entityId": "123",
+        "timestamp": "2026-01-09T10:00:00",
+        "success": true,
+        "ipAddress": "192.168.1.1",
+        "sessionId": "abc123"
+    }
+]
+```
 
 ---
 
-## 9. Sanctions Screening APIs
+## 10. Sanctions Screening APIs
 
 ### 9.1 Screen Entity
 
@@ -561,9 +1157,139 @@ Full merchant onboarding with KYC.
 
 ---
 
-## 10. Health & Monitoring APIs
+## 11. Dashboard APIs
 
-### 10.1 Health Check
+### 10.1 Dashboard Statistics
+
+**Endpoint:** `GET /api/v1/dashboard/stats`
+
+**Response:**
+```json
+{
+    "totalMerchants": 150,
+    "activeMerchants": 120,
+    "pendingScreening": 5,
+    "openCases": 25,
+    "urgentCases": 3
+}
+```
+
+---
+
+### 10.2 Transaction Volume
+
+**Endpoint:** `GET /api/v1/dashboard/transaction-volume`
+
+**Query Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| days | int | Number of days (default: 7) |
+
+**Response:**
+```json
+{
+    "labels": ["Jan 1", "Jan 2", "Jan 3"],
+    "data": [1500, 1800, 1650],
+    "pspId": 1
+}
+```
+
+---
+
+### 10.3 Risk Distribution
+
+**Endpoint:** `GET /api/v1/dashboard/risk-distribution`
+
+**Response:**
+```json
+{
+    "LOW": 150,
+    "MEDIUM": 45,
+    "HIGH": 12
+}
+```
+
+---
+
+### 10.4 Live Alerts
+
+**Endpoint:** `GET /api/v1/dashboard/live-alerts`
+
+**Query Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| limit | int | Maximum number of alerts (default: 5) |
+
+**Response:**
+```json
+[
+    {
+        "id": 100,
+        "type": "HIGH_FRAUD_SCORE",
+        "priority": "HIGH",
+        "status": "OPEN",
+        "description": "Fraud score exceeded threshold",
+        "createdAt": "2026-01-09T10:35:00"
+    }
+]
+```
+
+---
+
+### 10.5 Recent Transactions
+
+**Endpoint:** `GET /api/v1/dashboard/recent-transactions`
+
+**Query Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| limit | int | Maximum number of transactions (default: 5) |
+
+**Response:**
+```json
+[
+    {
+        "id": 12345,
+        "merchantId": "MERCH-001",
+        "amountCents": 10000,
+        "currency": "USD",
+        "decision": "ALLOW",
+        "txnTs": "2026-01-09T10:30:00"
+    }
+]
+```
+
+---
+
+### 10.6 Reporting Summary
+
+**Endpoint:** `GET /api/v1/reporting/summary`
+
+**Response:**
+```json
+{
+    "casesByStatus": {
+        "NEW": 10,
+        "ASSIGNED": 5,
+        "INVESTIGATING": 8,
+        "RESOLVED": 50
+    },
+    "sarsByStatus": {
+        "DRAFT": 2,
+        "FILED": 15
+    },
+    "auditLast24h": 150
+}
+```
+
+---
+
+## 12. Health & Monitoring APIs
+
+### 11.1 Health Check
 
 **Endpoint:** `GET /actuator/health`
 
@@ -581,15 +1307,195 @@ Full merchant onboarding with KYC.
 
 ---
 
-### 10.2 Prometheus Metrics
+### 11.2 Prometheus Metrics
 
 **Endpoint:** `GET /actuator/prometheus`
 
 ---
 
-## 11. Client Registration APIs
+## 13. Compliance Calendar APIs
 
-### 11.1 Register Client
+### 12.1 Upcoming Deadlines
+
+**Endpoint:** `GET /api/v1/compliance/calendar/upcoming`
+
+**Response:**
+```json
+[
+    {
+        "id": 1,
+        "deadlineType": "SAR_FILING",
+        "deadlineDate": "2026-01-15",
+        "caseId": 100,
+        "description": "SAR filing deadline for Case #100"
+    }
+]
+```
+
+---
+
+### 12.2 Overdue Deadlines
+
+**Endpoint:** `GET /api/v1/compliance/calendar/overdue`
+
+**Response:**
+```json
+[
+    {
+        "id": 2,
+        "deadlineType": "SAR_FILING",
+        "deadlineDate": "2026-01-05",
+        "caseId": 99,
+        "description": "Overdue SAR filing for Case #99",
+        "daysOverdue": 4
+    }
+]
+```
+
+---
+
+## 14. Regulatory Reporting APIs
+
+### 13.1 Generate Regulatory Report
+
+**Endpoint:** `GET /api/v1/reporting/regulatory/{type}`
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| type | String | Report type: `ctr`, `lctr`, or `iftr` |
+
+**Query Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| startDate | String | Start date (ISO format, optional) |
+| endDate | String | End date (ISO format, optional) |
+
+**Response (CTR):**
+```json
+{
+    "reportType": "CTR",
+    "period": {
+        "startDate": "2026-01-01",
+        "endDate": "2026-01-31"
+    },
+    "totalTransactions": 150,
+    "totalAmount": 1500000.00,
+    "currency": "USD",
+    "transactions": [...]
+}
+```
+
+---
+
+## 15. Transaction Monitoring APIs
+
+### 14.1 Monitoring Dashboard Stats
+
+**Endpoint:** `GET /api/v1/monitoring/dashboard/stats`
+
+**Response:**
+```json
+{
+    "totalMonitored": 5000,
+    "blockedCount": 50,
+    "heldCount": 120,
+    "alertCount": 200,
+    "allowedCount": 4630
+}
+```
+
+---
+
+### 14.2 Risk Distribution
+
+**Endpoint:** `GET /api/v1/monitoring/risk-distribution`
+
+**Response:**
+```json
+{
+    "LOW": 3000,
+    "MEDIUM": 1500,
+    "HIGH": 400,
+    "CRITICAL": 100
+}
+```
+
+---
+
+### 14.3 Risk Indicators
+
+**Endpoint:** `GET /api/v1/monitoring/risk-indicators`
+
+**Response:**
+```json
+[
+    {
+        "indicator": "High Volume Spike",
+        "count": 25,
+        "riskLevel": "HIGH"
+    },
+    {
+        "indicator": "Unusual Geographic Pattern",
+        "count": 15,
+        "riskLevel": "MEDIUM"
+    }
+]
+```
+
+---
+
+### 14.4 Recent Activity
+
+**Endpoint:** `GET /api/v1/monitoring/recent-activity`
+
+**Response:**
+```json
+[
+    {
+        "timestamp": "2026-01-09T10:30:00",
+        "action": "Transaction Blocked",
+        "description": "Transaction #12345 blocked due to high risk score",
+        "transactionId": 12345
+    }
+]
+```
+
+---
+
+### 14.5 Monitored Transactions
+
+**Endpoint:** `GET /api/v1/monitoring/transactions`
+
+**Query Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| riskLevel | String | Filter by risk level (optional) |
+| decision | String | Filter by decision: BLOCK, HOLD, ALERT, ALLOW (optional) |
+| limit | int | Maximum number of transactions (default: 50) |
+
+**Response:**
+```json
+[
+    {
+        "id": 12345,
+        "merchantId": "MERCH-001",
+        "amountCents": 10000,
+        "decision": "BLOCK",
+        "riskScore": 0.95,
+        "txnTs": "2026-01-09T10:30:00"
+    }
+]
+```
+
+---
+
+## 16. Client Registration APIs
+
+### 15.1 Register Client
 
 **Endpoint:** `POST /api/v1/clients/register`
 
@@ -616,21 +1522,21 @@ Full merchant onboarding with KYC.
 
 ---
 
-## 12. Batch Processing APIs
+## 17. Batch Processing APIs
 
-### 12.1 Trigger Batch Scoring
+### 16.1 Trigger Batch Scoring
 
 **Endpoint:** `POST /api/v1/batch/score/yesterday`
 
-### 12.2 Backfill Features
+### 16.2 Backfill Features
 
 **Endpoint:** `POST /api/v1/batch/backfill/features`
 
 ---
 
-## 13. Grafana Integration APIs
+## 18. Grafana Integration APIs
 
-### 13.1 Get User Context
+### 18.1 Get User Context
 
 **Endpoint:** `GET /api/v1/grafana/user-context`
 
@@ -641,9 +1547,8 @@ Full merchant onboarding with KYC.
 **Response (200 OK):**
 ```json
 {
-    "username": "psp_admin_1",
-    "userRole": "PSP_ADMIN",
-    "pspCode": "PSP_M-PESA",
+    "user_role": "PSP_USER",
+    "psp_code": "PSP_M-PESA",
     "psp_id": "1",
     "can_view_all_psps": "false"
 }
@@ -652,8 +1557,7 @@ Full merchant onboarding with KYC.
 **Response for Platform Administrator:**
 ```json
 {
-    "username": "platform_admin",
-    "userRole": "ADMIN",
+    "user_role": "PLATFORM_ADMIN",
     "psp_code": "ALL",
     "psp_id": "ALL",
     "can_view_all_psps": "true"
@@ -664,16 +1568,104 @@ Full merchant onboarding with KYC.
 
 ---
 
-## 14. PSP Data Isolation
+### 18.2 Get Available Dashboards
 
-### 14.1 PSP Filtering
+**Endpoint:** `GET /api/v1/grafana/dashboards`
+
+**Description:** Returns a list of available Grafana dashboards filtered by user role. Follows the recommended pattern of backend-driven dashboard menu (not hardcoded in frontend).
+
+**Authentication:** Required (Session-based)
+
+**Response (200 OK):**
+```json
+[
+    {
+        "menu": "TRANSACTION OVERVIEW",
+        "uid": "transaction-overview",
+        "path": "/dashboard/transactions",
+        "systemOnly": false
+    },
+    {
+        "menu": "AML RISK",
+        "uid": "aml-risk",
+        "path": "/dashboard/aml-risk",
+        "systemOnly": false
+    },
+    {
+        "menu": "FRAUD DETECTION",
+        "uid": "fraud-detection",
+        "path": "/dashboard/fraud",
+        "systemOnly": false
+    },
+    {
+        "menu": "COMPLIANCE",
+        "uid": "compliance",
+        "path": "/dashboard/compliance",
+        "systemOnly": false
+    },
+    {
+        "menu": "MODEL PERFORMANCE",
+        "uid": "model-performance",
+        "path": "/dashboard/models",
+        "systemOnly": false
+    },
+    {
+        "menu": "SCREENING",
+        "uid": "screening",
+        "path": "/dashboard/screening",
+        "systemOnly": false
+    },
+    {
+        "menu": "SYSTEM PERFORMANCE",
+        "uid": "system-performance",
+        "path": "/dashboard/system",
+        "systemOnly": true
+    },
+    {
+        "menu": "INFRASTRUCTURE",
+        "uid": "infrastructure-resources",
+        "path": "/dashboard/infrastructure",
+        "systemOnly": true
+    },
+    {
+        "menu": "THREAD POOLS",
+        "uid": "thread-pools-throughput",
+        "path": "/dashboard/threads",
+        "systemOnly": true
+    },
+    {
+        "menu": "CIRCUIT BREAKER",
+        "uid": "circuit-breaker-resilience",
+        "path": "/dashboard/circuit-breaker",
+        "systemOnly": true
+    }
+]
+```
+
+**Response Fields:**
+- `menu`: Display name for the dashboard menu item
+- `uid`: Grafana dashboard UID (used in iframe URL: `/d/{uid}`)
+- `path`: Frontend route path for the dashboard
+- `systemOnly`: `true` if dashboard is only available to system administrators, `false` otherwise
+
+**Role-Based Filtering:**
+- **PSP Users**: Receive only dashboards with `systemOnly: false`
+- **System Administrators**: Receive all dashboards (both `systemOnly: true` and `false`)
+
+**Note:** This endpoint enables dynamic dashboard menu generation based on user permissions, following production-grade integration patterns. The frontend should use this endpoint to build the dashboard navigation menu instead of hardcoding dashboard lists.
+
+---
+
+## 19. PSP Data Isolation
+
+### 18.1 PSP Filtering
 
 All endpoints that return PSP-scoped data automatically filter results based on the authenticated user's role:
 
 - **PSP Users** (`PSP_ADMIN`, `PSP_ANALYST`, `PSP_USER`): Automatically filtered to their PSP
 - **Platform Administrators** (`ADMIN`, `MLRO`, `PLATFORM_ADMIN`): Can access all PSPs
 
-### 14.2 PSP ID Parameter
+### 18.2 PSP ID Parameter
 
 For endpoints that accept `pspId` as a query parameter:
 
@@ -695,7 +1687,7 @@ GET /api/v1/transactions
 # Returns: All transactions from all PSPs
 ```
 
-### 14.3 Security
+### 18.3 Security
 
 - PSP users attempting to access another PSP's data will receive `403 Forbidden`
 - Security violations are logged for audit purposes
@@ -723,6 +1715,213 @@ GET /api/v1/transactions
 | POST | /api/v1/users | Create user | ✅ Validated |
 | GET | /api/v1/users/{id} | Get user | ✅ Validated |
 | POST | /api/v1/sanctions/screen | Screen entity | N/A |
-| GET | /api/v1/audit-logs | Get audit logs | ✅ Auto-filtered |
+| GET | /api/v1/audit/logs | Get audit logs | ✅ Auto-filtered |
+| GET | /api/v1/compliance/sar | List SAR reports | ✅ Auto-filtered |
+| GET | /api/v1/compliance/calendar/upcoming | Upcoming deadlines | ✅ Auto-filtered |
+| GET | /api/v1/compliance/calendar/overdue | Overdue deadlines | ✅ Auto-filtered |
+| GET | /api/v1/dashboard/stats | Dashboard statistics | ✅ Auto-filtered |
+| GET | /api/v1/dashboard/transaction-volume | Transaction volume | ✅ Auto-filtered |
+| GET | /api/v1/dashboard/risk-distribution | Risk distribution | ✅ Auto-filtered |
+| GET | /api/v1/dashboard/live-alerts | Live alerts | ✅ Auto-filtered |
+| GET | /api/v1/dashboard/recent-transactions | Recent transactions | ✅ Auto-filtered |
+| GET | /api/v1/reporting/summary | Reporting summary | ✅ Auto-filtered |
+| GET | /api/v1/reporting/regulatory/{type} | Regulatory reports | ✅ Auto-filtered |
+| GET | /api/v1/monitoring/dashboard/stats | Monitoring stats | ✅ Auto-filtered |
+| GET | /api/v1/monitoring/risk-distribution | Monitoring risk distribution | ✅ Auto-filtered |
+| GET | /api/v1/monitoring/risk-indicators | Risk indicators | ✅ Auto-filtered |
+| GET | /api/v1/monitoring/recent-activity | Recent activity | ✅ Auto-filtered |
+| GET | /api/v1/monitoring/transactions | Monitored transactions | ✅ Auto-filtered |
+| GET | /api/v1/limits/velocity-rules | List velocity rules | ✅ Auto-filtered |
+| POST | /api/v1/limits/velocity-rules | Create velocity rule | ✅ Validated |
+| PUT | /api/v1/limits/velocity-rules/{id} | Update velocity rule | ✅ Validated |
+| DELETE | /api/v1/limits/velocity-rules/{id} | Delete velocity rule | ✅ Validated |
+| GET | /api/v1/limits/risk-thresholds | List risk thresholds | ✅ Auto-filtered |
+| POST | /api/v1/limits/risk-thresholds | Create/update risk threshold | ✅ Validated |
+| GET | /api/v1/psps | List PSPs | ✅ Auto-filtered |
+| GET | /api/v1/psps/{id} | Get PSP by ID | ✅ Validated |
+| GET | /api/v1/users/me | Get current user | ✅ Auto-filtered |
+| GET | /api/v1/roles | List roles | ✅ Auto-filtered |
 | GET | /api/v1/grafana/user-context | Get Grafana user context | N/A |
+| GET | /api/v1/grafana/dashboards | Get available Grafana dashboards | Role-based |
 | GET | /actuator/health | Health check |
+| POST | /api/v1/rules/generate | Generate Rules with AI |
+| GET | /api/v1/rules | List Dynamic Rules |
+| GET | /api/v1/rules/{id} | Get single rule | ✅ Validated |
+| POST | /api/v1/rules | Create Rule |
+| PUT | /api/v1/rules/{id} | Update Rule | ✅ Validated |
+| DELETE | /api/v1/rules/{id} | Delete Rule |
+| POST | /api/v1/rules/{id}/enable | Enable rule | ✅ Validated |
+| POST | /api/v1/rules/{id}/disable | Disable rule | ✅ Validated |
+| GET | /api/v1/rules/{id}/effectiveness | Rule effectiveness | ✅ Validated |
+
+---
+
+## 20. Rules Generation APIs
+
+### 19.1 Generate Rules (AI)
+
+**Endpoint:** `POST /api/v1/rules/generate`
+
+**Request Body:**
+```json
+{
+    "prompt": "Create a rule to flag transactions over $10,000 from high risk countries",
+    "riskLevel": "HIGH",
+    "ruleType": "TRANSACTION"
+}
+```
+
+**Response:**
+```json
+{
+    "ruleId": "GENERATED_RULE_123",
+    "ruleContent": "rule \"High Value High Risk\" when ... then ... end",
+    "description": "Flags transactions > 10000 from high risk countries",
+    "status": "DRAFT"
+}
+```
+
+### 19.2 List Rules
+
+**Endpoint:** `GET /api/v1/rules`
+
+**Response:**
+```json
+[
+    {
+        "id": 1,
+        "name": "Block High Risk Country",
+        "description": "Blocks transactions from high-risk countries",
+        "ruleType": "DROOLS_DRL",
+        "ruleExpression": "rule \"Block High Risk\" when ... then ... end",
+        "priority": 100,
+        "enabled": true,
+        "pspId": null,
+        "createdBy": 1,
+        "createdAt": "2026-01-09T08:00:00"
+    }
+]
+```
+
+---
+
+### 19.3 Get Single Rule
+
+**Endpoint:** `GET /api/v1/rules/{id}`
+
+**Response:**
+```json
+{
+    "id": 1,
+    "name": "Block High Risk Country",
+    "description": "Blocks transactions from high-risk countries",
+    "ruleType": "DROOLS_DRL",
+    "ruleExpression": "rule \"Block High Risk\" when ... then ... end",
+    "priority": 100,
+    "enabled": true,
+    "pspId": null,
+    "createdBy": 1,
+    "createdAt": "2026-01-09T08:00:00"
+}
+```
+
+---
+
+### 19.4 Create Rule
+
+**Endpoint:** `POST /api/v1/rules`
+
+**Request Body:**
+```json
+{
+    "name": "New Rule",
+    "description": "Manual rule",
+    "ruleType": "SPEL",
+    "ruleExpression": "#tx.amount >= 10000",
+    "priority": 100,
+    "enabled": true,
+    "action": "ALERT"
+}
+```
+
+**Note:** `pspId` is automatically set based on the current user. Super admin rules have `pspId: null`.
+
+---
+
+### 19.5 Update Rule
+
+**Endpoint:** `PUT /api/v1/rules/{id}`
+
+**Request Body:**
+```json
+{
+    "name": "Updated Rule",
+    "description": "Updated description",
+    "ruleExpression": "#tx.amount >= 15000",
+    "priority": 90,
+    "enabled": true
+}
+```
+
+**Note:** Only super admin can update super admin rules (`pspId: null`). PSP users can only update their own PSP's rules.
+
+---
+
+### 19.6 Enable Rule
+
+**Endpoint:** `POST /api/v1/rules/{id}/enable`
+
+**Response:**
+```json
+{
+    "id": 1,
+    "enabled": true,
+    "message": "Rule enabled successfully"
+}
+```
+
+---
+
+### 19.7 Disable Rule
+
+**Endpoint:** `POST /api/v1/rules/{id}/disable`
+
+**Response:**
+```json
+{
+    "id": 1,
+    "enabled": false,
+    "message": "Rule disabled successfully"
+}
+```
+
+---
+
+### 19.8 Get Rule Effectiveness
+
+**Endpoint:** `GET /api/v1/rules/{id}/effectiveness`
+
+**Response:**
+```json
+{
+    "ruleId": 1,
+    "ruleName": "Block High Risk Country",
+    "totalExecutions": 10000,
+    "triggeredCount": 250,
+    "falsePositiveRate": 0.15,
+    "truePositiveRate": 0.85,
+    "averageExecutionTime": 2.5,
+    "lastExecutedAt": "2026-01-09T10:30:00"
+}
+```
+
+---
+
+### 19.9 Delete Rule
+
+**Endpoint:** `DELETE /api/v1/rules/{id}`
+
+**Response:** `204 No Content`
+
+**Note:** Only super admin can delete super admin rules. PSP users can only delete their own PSP's rules.
+

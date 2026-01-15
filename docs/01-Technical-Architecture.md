@@ -21,6 +21,37 @@ The AML Fraud Detector is an enterprise-grade Anti-Money Laundering (AML) and Fr
 
 ---
 
+## 1.1 Project Structure
+
+The AML Fraud Detector is organized as two independent projects:
+
+### Backend (Spring Boot API)
+**Location:** `BACKEND/`
+- **Technology:** Java 17 + Spring Boot 3.2.0
+- **Port:** 2637
+- **API Base Path:** `/api/v1`
+- **Build Tool:** Maven
+- **Purpose:** REST API server providing all business logic, data access, and integrations
+
+### Frontend (React Application)
+**Location:** `FRONTEND/`
+- **Technology:** React 18 + TypeScript + Vite
+- **Port:** 5173 (development)
+- **Purpose:** Modern single-page application (SPA) for user interface
+- **API Communication:** Calls backend REST API at `http://localhost:2637/api/v1`
+
+### Documentation
+**Location:** `docs/`
+- All technical documentation, architecture diagrams, and guides
+
+**Deployment Model:**
+- Backend and frontend are deployed independently
+- Frontend communicates with backend via REST API only
+- No shared code or dependencies between projects
+- Enables separate scaling and deployment strategies
+
+---
+
 ## 2. System Architecture
 
 ### 2.1 High-Level Architecture
@@ -50,7 +81,9 @@ The AML Fraud Detector is an enterprise-grade Anti-Money Laundering (AML) and Fr
 │  │  Transaction   │  │  AML Service   │  │  Fraud Detection Service  │    │
 │  │  Orchestrator  │──│  • Velocity    │──│  • Feature Extraction     │    │
 │  │                │  │  • Sanctions   │  │  • ML Scoring             │    │
-│  │                │  │  • Patterns    │  │  • Decision Engine        │    │
+│  │                │  │  • Patterns    │  │  • Weighted Scoring     │    │
+│  │                │  │                │  │    (KRS/TRS/CRA)         │    │
+│  │                │  │                │  │  • Decision Engine        │    │
 │  └────────────────┘  └────────────────┘  └────────────────────────────┘    │
 │  ┌────────────────┐  ┌────────────────┐  ┌────────────────────────────┐    │
 │  │  Case Mgmt     │  │  Compliance    │  │  Reporting Service        │    │
@@ -80,10 +113,11 @@ The AML Fraud Detector is an enterprise-grade Anti-Money Laundering (AML) and Fr
 ┌────────────────────┐ ┌────────────────────┐ ┌────────────────────┐
 │    PostgreSQL      │ │    Aerospike       │ │       Redis        │
 │  ─────────────     │ │  ─────────────     │ │  ─────────────     │
-│  • Transactions    │ │  • Sanctions List  │ │  • Statistics      │
-│  • Users/Roles     │ │  • Feature Cache   │ │  • Session Cache   │
-│  • Cases/Alerts    │ │  • Hot Data        │ │  • Rate Limits     │
-│  • Audit Logs      │ │                    │ │                    │
+│  • Transactions    │ │  • Transactions   │ │  • Statistics      │
+│    (Backup/Audit)  │ │    (Primary)       │ │  • Session Cache   │
+│  • Users/Roles     │ │  • Sanctions List  │ │  • Rate Limits     │
+│  • Cases/Alerts    │ │  • Feature Cache   │ │                    │
+│  • Audit Logs      │ │  • Hot Data        │ │                    │
 └────────────────────┘ └────────────────────┘ └────────────────────┘
 ```
 
@@ -146,20 +180,29 @@ com.posgateway.aml/
 
 | Database | Purpose | Configuration |
 |----------|---------|---------------|
-| PostgreSQL 13+ | Primary transactional data | JDBC + HikariCP |
-| Aerospike 6.0+ | Sanctions screening, caching | Aerospike Java Client 9.2.0 |
+| PostgreSQL 13+ | Primary RDBMS (users, cases, alerts, audit) | JDBC + HikariCP |
+| Aerospike 6.0+ | **Transactions (primary)**, sanctions screening, caching | Aerospike Java Client 9.2.0 |
 | Redis | Session cache, statistics | Spring Data Redis |
+
+**Transaction Storage:** Transactions are stored primarily in Aerospike for fast access (< 1ms latency). PostgreSQL maintains a backup copy for compliance and audit purposes. See [AEROSPIKE_TRANSACTION_STORAGE.md](AEROSPIKE_TRANSACTION_STORAGE.md) for details.
 
 ### 3.3 Frontend Technologies
 
-| Component | Technology | Purpose |
-|-----------|------------|---------|
-| Structure | HTML5 | Page structure |
-| Logic | ES6+ JavaScript | Application logic |
-| Styling | CSS3 + Variables | Theming (Glassmorphism) |
-| Charts | Chart.js | Data visualization |
-| Maps | Leaflet.js | Geographic risk heatmap |
-| Icons | FontAwesome 6 | UI iconography |
+| Component | Technology | Version | Purpose |
+|-----------|------------|---------|---------|
+| Framework | React | 18.2+ | UI component library |
+| Language | TypeScript | 5.2+ | Type-safe JavaScript |
+| Build Tool | Vite | 5.0+ | Fast dev server and bundler |
+| UI Library | Material-UI (MUI) | 5.14+ | Component library |
+| Data Fetching | TanStack Query | 5.14+ | Server state management |
+| Routing | React Router | 6.20+ | Client-side routing |
+| Charts | Chart.js | (to be migrated) | Data visualization |
+| Maps | Leaflet.js | (to be migrated) | Geographic risk heatmap |
+| Icons | FontAwesome 6 | 6.x | UI iconography |
+
+**Legacy UI Files:**
+- Original static UI (HTML/CSS/JS) preserved in `FRONTEND/public/legacy_ui/` for reference during migration
+- Gradual migration to React components in progress
 
 ---
 
@@ -175,6 +218,15 @@ Transaction Received
 │ Transaction       │
 │ Ingestion Service │
 └────────┬──────────┘
+         │
+         ├─────────────────────────────────────┐
+         │                                     │
+         ▼                                     ▼
+┌───────────────────┐              ┌───────────────────┐
+│ Aerospike        │              │ PostgreSQL        │
+│ (Primary Storage)│              │ (Backup/Audit)    │
+│ < 1ms latency    │              │                   │
+└───────────────────┘              └───────────────────┘
          │
          ▼
 ┌───────────────────┐     ┌───────────────────┐
@@ -202,6 +254,14 @@ Transaction Received
 ├───────────┬───────────┬───────────────────┤
 │   BLOCK   │   HOLD    │  ALERT  │  ALLOW  │
 └───────────┴───────────┴─────────┴─────────┘
+         │
+         ▼
+┌───────────────────┐
+│ UI Reads from     │
+│ Aerospike         │
+│ (with PostgreSQL  │
+│  fallback)        │
+└───────────────────┘
 ```
 
 ### 4.2 AML Screening Pipeline
@@ -457,4 +517,7 @@ See [08-Deployment-Guide.md](08-Deployment-Guide.md) for complete list.
 
 - [02-Functional-Specification.md](02-Functional-Specification.md)
 - [05-API-Reference.md](05-API-Reference.md)
+- **[SCORING_PROCESS_DOCUMENTATION.md](SCORING_PROCESS_DOCUMENTATION.md)** - Comprehensive documentation of all scoring systems including ML, KRS, TRS, CRA, Anomaly, Fraud, and AML score calculations with detailed formulas and examples
+- **[SCORE_TRACKING_IMPLEMENTATION.md](SCORE_TRACKING_IMPLEMENTATION.md)** - Implementation guide for score tracking across database, Kafka, Prometheus, and Grafana
+- **[WEIGHTED_SCORING_SYSTEMS.md](WEIGHTED_SCORING_SYSTEMS.md)** - Detailed guide for KRS, TRS, and CRA weighted average scoring systems
 - [06-Database-Design.md](06-Database-Design.md)

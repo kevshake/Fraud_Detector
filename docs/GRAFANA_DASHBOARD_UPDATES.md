@@ -56,7 +56,10 @@ Only relevant metrics are stored:
 - `hikaricp_*` - HikariCP connection pool metrics
 - `process_*` - Process metrics
 - `system_*` - System metrics
-- `database_*` - Database metrics
+- `aml_active_cases` - Active AML cases gauge
+- `aml_risk_krs` - KYC Risk Score (Merchant Profile)
+- `aml_risk_trs` - Transaction Risk Score
+- `aml_risk_cra` - Customer Risk Assessment (Rolling Average)
 - `circuitbreaker_*` - Circuit breaker metrics
 - `thread_pool_*` - Thread pool metrics
 
