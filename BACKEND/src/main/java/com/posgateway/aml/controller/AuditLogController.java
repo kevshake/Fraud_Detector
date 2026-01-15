@@ -57,10 +57,9 @@ public class AuditLogController {
      */
     @GetMapping
     @PreAuthorize("hasAuthority('VIEW_AUDIT_LOGS')")
-    @GetMapping
-    @PreAuthorize("hasAuthority('VIEW_AUDIT_LOGS')")
-    public ResponseEntity<List<AuditLog>> getAllAuditLogs(
-            @RequestParam(required = false, defaultValue = "100") int limit,
+    public ResponseEntity<org.springframework.data.domain.Page<AuditLog>> getAllAuditLogs(
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false, defaultValue = "20") int size,
             @RequestParam(required = false) String username,
             @RequestParam(required = false) String actionType,
             @RequestParam(required = false) String entityType,
@@ -73,7 +72,8 @@ public class AuditLogController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end,
             @org.springframework.security.core.annotation.AuthenticationPrincipal com.posgateway.aml.entity.User currentUser) {
 
-        int safeLimit = Math.max(1, Math.min(limit, 1000));
+        int safeSize = Math.max(1, Math.min(size, 100)); // Max 100 per page to be safe
+        int safePage = Math.max(0, page);
 
         Specification<AuditLog> spec = Specification.where(null);
 
@@ -125,16 +125,11 @@ public class AuditLogController {
         }
         if (end != null) {
             spec = spec.and((root, query, cb) -> cb.lessThanOrEqualTo(root.get("timestamp"), end));
-        } else {
-            // Default to last 30 days if no end date provided/start date context? 
-            // Actually, usually users want most recent. Let's not enforce 30 days filter on retrieval unless requested, 
-            // but the retention clean up will handle the deletion.
-        }
+        } 
 
-        List<AuditLog> logs = auditLogRepository
-                .findAll(spec, PageRequest.of(0, safeLimit, Sort.by(Sort.Direction.DESC, "timestamp")))
-                .getContent();
+        org.springframework.data.domain.Page<AuditLog> pageResult = auditLogRepository
+                .findAll(spec, PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "timestamp")));
 
-        return ResponseEntity.ok(logs);
+        return ResponseEntity.ok(pageResult);
     }
 }

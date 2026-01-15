@@ -110,11 +110,21 @@ export interface Merchant {
 export interface AuditLog {
   id: number;
   entityType: string;
-  entityId: number;
-  action: string;
+  entityId: string;
+  actionType: string;
   username: string;
   timestamp: string;
+  reason?: string;
   details?: string;
+  pspId?: number;
+}
+
+export interface PageResponse<T> {
+  content: T[];
+  totalElements: number;
+  totalPages: number;
+  size: number;
+  number: number;
 }
 
 export interface DashboardStats {
