@@ -4,13 +4,15 @@ import com.posgateway.aml.entity.User;
 import com.posgateway.aml.entity.psp.Psp;
 import com.posgateway.aml.model.Permission;
 import com.posgateway.aml.repository.PspRepository;
+import com.posgateway.aml.repository.UserRepository;
 import com.posgateway.aml.service.PermissionService;
 import com.posgateway.aml.service.UserService;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 // @RequiredArgsConstructor removed
 @RestController
@@ -20,16 +22,21 @@ public class UserController {
     private final UserService userService;
     private final PermissionService permissionService;
     private final PspRepository pspRepository;
+    private final UserRepository userRepository;
 
-    public UserController(UserService userService, PermissionService permissionService, PspRepository pspRepository) {
+    public UserController(UserService userService, PermissionService permissionService, PspRepository pspRepository, UserRepository userRepository) {
         this.userService = userService;
         this.permissionService = permissionService;
         this.pspRepository = pspRepository;
+        this.userRepository = userRepository;
     }
 
     @GetMapping
-    public ResponseEntity<List<User>> listUsers(@AuthenticationPrincipal User currentUser,
-            @RequestParam(required = false) Long pspId) {
+    public ResponseEntity<org.springframework.data.domain.Page<User>> listUsers(
+            @AuthenticationPrincipal User currentUser,
+            @RequestParam(required = false) Long pspId,
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false, defaultValue = "25") int size) {
         if (currentUser == null) {
             // Fallback for security disabled
             currentUser = userService.getSuperAdmin().orElse(null);
@@ -39,23 +46,38 @@ public class UserController {
             throw new SecurityException("Not authorized");
         }
 
-        Psp targetPsp = null;
+        int safeSize = Math.max(1, Math.min(size, 100)); // Max 100 per page
+        int safePage = Math.max(0, page);
 
-        // If current user is Global Admin (PSP is null)
+        // Build Specification for filtering
+        org.springframework.data.jpa.domain.Specification<User> spec = 
+            org.springframework.data.jpa.domain.Specification.where(null);
+
+        // PSP Isolation Logic
         if (currentUser == null || currentUser.getPsp() == null) {
+            // Global Admin: Can filter by specific PSP or see all
             if (pspId != null) {
-                targetPsp = pspRepository.findById(pspId)
-                        .orElseThrow(() -> new IllegalArgumentException("PSP not found"));
+                spec = spec.and((root, query, cb) -> cb.equal(root.get("psp").get("pspId"), pspId));
             }
+            // If pspId is null, show all users (no PSP filter)
         } else {
             // PSP Admin/User: Can only see own PSP
-            targetPsp = currentUser.getPsp();
-            if (pspId != null && !pspId.equals(targetPsp.getPspId())) {
+            Long userPspId = currentUser.getPsp().getPspId();
+            if (pspId != null && !pspId.equals(userPspId)) {
                 throw new SecurityException("Cannot access other PSP's users");
             }
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("psp").get("pspId"), userPspId));
         }
 
-        return ResponseEntity.ok(userService.getUsersByPsp(targetPsp));
+        // Create Pageable with sorting by created date descending
+        org.springframework.data.domain.Pageable pageable = 
+            PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "createdAt"));
+
+        // Execute query with pagination
+        org.springframework.data.domain.Page<User> pageResult = 
+            userRepository.findAll(spec, pageable);
+
+        return ResponseEntity.ok(pageResult);
     }
 
     /**

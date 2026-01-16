@@ -15,6 +15,7 @@ import {
   Button,
   Chip,
   Tooltip,
+  TablePagination,
 } from "@mui/material";
 import { Search as SearchIcon, FilterList as FilterIcon } from "@mui/icons-material";
 import { useAuditLogs, useAllPsps } from "../../features/api/queries";
@@ -28,6 +29,7 @@ export default function AuditLogsPage() {
   const defaultStartDate = new Date();
   defaultStartDate.setDate(defaultStartDate.getDate() - 30);
 
+  const [page, setPage] = useState({ index: 0, size: 25 });
   const [filters, setFilters] = useState({
     startDate: defaultStartDate.toISOString().split("T")[0],
     endDate: new Date().toISOString().split("T")[0],
@@ -37,7 +39,8 @@ export default function AuditLogsPage() {
   });
 
   const { data: logs, isLoading } = useAuditLogs({
-    limit: 100,
+    page: page.index,
+    size: page.size,
     start: filters.startDate ? `${filters.startDate}T00:00:00` : undefined,
     end: filters.endDate ? `${filters.endDate}T23:59:59` : undefined,
     actionType: filters.actionType || undefined,
@@ -183,14 +186,13 @@ export default function AuditLogsPage() {
                   Loading audit logs...
                 </TableCell>
               </TableRow>
-            ) : logs && logs.length > 0 ? (
-              logs.map((log) => (
+            ) : logs && logs.content && logs.content.length > 0 ? (
+              logs.content.map((log) => (
                 <TableRow key={log.id} hover>
                   <TableCell sx={{ color: "text.primary", fontSize: "0.875rem" }}>
                     {new Date(log.timestamp).toLocaleString()}
                   </TableCell>
                   <TableCell sx={{ color: "text.secondary", fontSize: "0.875rem" }}>
-                    {/* Assuming we might want to show PSP name if we had it, or just ID/System */}
                     {log.pspId ? (log.pspId === 0 ? "System" : `PSP #${log.pspId}`) : "System"}
                   </TableCell>
                   <TableCell sx={{ color: "text.primary" }}>{log.username}</TableCell>
@@ -214,7 +216,7 @@ export default function AuditLogsPage() {
                   <TableCell sx={{ color: "text.primary" }}>{log.entityType}</TableCell>
                   <TableCell sx={{ color: "text.primary" }}>{log.entityId}</TableCell>
                   <TableCell sx={{ color: "text.secondary" }}>
-                    {log.reason || "N/A"}
+                    {log.reason || log.details || "N/A"}
                   </TableCell>
                 </TableRow>
               ))
@@ -227,8 +229,15 @@ export default function AuditLogsPage() {
             )}
           </TableBody>
         </Table>
+        <TablePagination
+          rowsPerPageOptions={[10, 25, 50, 100]}
+          component="div"
+          count={logs?.totalElements || 0}
+          rowsPerPage={page.size}
+          page={page.index}
+          onPageChange={(_, newPage) => setPage(prev => ({ ...prev, index: newPage }))}
+          onRowsPerPageChange={(e) => setPage({ index: 0, size: parseInt(e.target.value, 10) })}
+        />
       </TableContainer>
     </Box>
-  );
 }
-

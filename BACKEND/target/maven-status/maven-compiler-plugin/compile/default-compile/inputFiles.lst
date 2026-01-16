@@ -20,6 +20,7 @@ D:\PROJECTS\POS_GATEWAY\APP\AML_FRAUD_DETECTOR\BACKEND\src\main\java\com\posgate
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAUD_DETECTOR\BACKEND\src\main\java\com\posgateway\aml\config\SecurityConfig.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAUD_DETECTOR\BACKEND\src\main\java\com\posgateway\aml\repository\ComplianceCaseRepository.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAUD_DETECTOR\BACKEND\src\main\java\com\posgateway\aml\compliance\RegulatoryComplianceService.java
+D:\PROJECTS\POS_GATEWAY\APP\AML_FRAUD_DETECTOR\BACKEND\src\main\java\com\posgateway\aml\aspect\AuditLoggingAspect.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAUD_DETECTOR\BACKEND\src\main\java\com\posgateway\aml\dto\auth\EmergencyPasswordResetRequest.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAUD_DETECTOR\BACKEND\src\main\java\com\posgateway\aml\entity\limits\GlobalLimit.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAUD_DETECTOR\BACKEND\src\main\java\com\posgateway\aml\service\document\DocumentExpiryService.java
@@ -124,6 +125,7 @@ D:\PROJECTS\POS_GATEWAY\APP\AML_FRAUD_DETECTOR\BACKEND\src\main\java\com\posgate
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAUD_DETECTOR\BACKEND\src\main\java\com\posgateway\aml\service\psp\ApiUsageTrackingService.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAUD_DETECTOR\BACKEND\src\main\java\com\posgateway\aml\entity\User.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAUD_DETECTOR\BACKEND\src\main\java\com\posgateway\aml\service\kyc\RiskBasedCddService.java
+D:\PROJECTS\POS_GATEWAY\APP\AML_FRAUD_DETECTOR\BACKEND\src\main\java\com\posgateway\aml\dto\SystemSettingsRequest.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAUD_DETECTOR\BACKEND\src\main\java\com\posgateway\aml\entity\billing\BillingCalculation.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAUD_DETECTOR\BACKEND\src\main\java\com\posgateway\aml\service\limits\LimitsManagementService.java
 D:\PROJECTS\POS_GATEWAY\APP\AML_FRAUD_DETECTOR\BACKEND\src\main\java\com\posgateway\aml\entity\merchant\BeneficialOwner.java

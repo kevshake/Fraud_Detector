@@ -10,7 +10,10 @@ import {
   Typography,
   Chip,
   Button,
+  TablePagination,
+  CircularProgress,
 } from "@mui/material";
+import { useState } from "react";
 import { useMerchants } from "../../features/api/queries";
 
 const riskColors: Record<string, string> = {
@@ -20,7 +23,12 @@ const riskColors: Record<string, string> = {
 };
 
 export default function MerchantsPage() {
-  const { data: merchants, isLoading } = useMerchants();
+  const [page, setPage] = useState({ index: 0, size: 25 });
+  
+  const { data: merchants, isLoading } = useMerchants({
+    page: page.index,
+    size: page.size,
+  });
 
   return (
     <Box>
@@ -51,12 +59,12 @@ export default function MerchantsPage() {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={7} align="center" sx={{ color: "text.disabled", py: 4 }}>
-                  Loading merchants...
+                <TableCell colSpan={9} align="center" sx={{ color: "text.disabled", py: 4 }}>
+                  <CircularProgress size={24} />
                 </TableCell>
               </TableRow>
-            ) : merchants && merchants.length > 0 ? (
-              merchants.map((merchant) => (
+            ) : merchants?.content && merchants.content.length > 0 ? (
+              merchants.content.map((merchant) => (
                 <TableRow key={merchant.id} hover>
                   <TableCell sx={{ color: "text.primary" }}>{merchant.merchantId}</TableCell>
                   <TableCell sx={{ color: "text.primary" }}>{merchant.businessName}</TableCell>
@@ -91,13 +99,22 @@ export default function MerchantsPage() {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={7} align="center" sx={{ color: "text.disabled", py: 4 }}>
+                <TableCell colSpan={9} align="center" sx={{ color: "text.disabled", py: 4 }}>
                   No merchants found
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
+        <TablePagination
+          rowsPerPageOptions={[10, 25, 50, 100]}
+          component="div"
+          count={merchants?.totalElements || 0}
+          rowsPerPage={page.size}
+          page={page.index}
+          onPageChange={(_, newPage) => setPage(prev => ({ ...prev, index: newPage }))}
+          onRowsPerPageChange={(e) => setPage({ index: 0, size: parseInt(e.target.value, 10) })}
+        />
       </TableContainer>
     </Box>
   );

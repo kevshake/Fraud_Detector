@@ -17,6 +17,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -305,7 +308,7 @@ public class TransactionController {
     }
 
     /**
-     * Get all transactions
+     * Get all transactions with pagination
      * GET /transactions
      * 
      * Security: PSP users can only see their own PSP's transactions.
@@ -313,48 +316,41 @@ public class TransactionController {
      */
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'ANALYST', 'PSP_ADMIN', 'PSP_ANALYST', 'VIEWER')")
-    public ResponseEntity<List<TransactionEntity>> getAllTransactions(
-            @RequestParam(required = false, defaultValue = "100") int limit,
+    public ResponseEntity<org.springframework.data.domain.Page<TransactionEntity>> getAllTransactions(
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false, defaultValue = "25") int size,
             @RequestParam(required = false) Long pspId) {
-        logger.info("Get all transactions request (limit: {}, pspId: {})", limit, pspId);
+        logger.info("Get all transactions request (page: {}, size: {}, pspId: {})", page, size, pspId);
         try {
+            int safeSize = Math.max(1, Math.min(size, 100)); // Max 100 per page
+            int safePage = Math.max(0, page);
+            
             // Enforce PSP isolation - sanitize PSP ID parameter
             Long sanitizedPspId = pspIsolationService.sanitizePspId(pspId);
             
-            List<TransactionEntity> transactions;
+            // Build Specification for filtering
+            Specification<TransactionEntity> spec = Specification.where(null);
             
+            // PSP Isolation Logic
             if (sanitizedPspId != null) {
                 // Filter by PSP ID - PSP users automatically get their PSP, Platform Admins can specify
-                transactions = transactionRepository.findByPspIdOrderByTxnTsDesc(sanitizedPspId).stream()
-                        .filter(t -> t.getTxnTs() != null) // Filter out null timestamps
-                        .limit(limit)
-                        .collect(Collectors.toList());
-            } else {
-                // Platform Admin view - all transactions
-                // Use findAllByOrderByTxnTsDesc if available, otherwise sort manually
-                try {
-                    transactions = transactionRepository.findAllByOrderByTxnTsDesc().stream()
-                            .filter(t -> t.getTxnTs() != null) // Filter out null timestamps
-                            .limit(limit)
-                            .collect(Collectors.toList());
-                } catch (Exception e) {
-                    // Fallback to manual sorting if method doesn't exist
-                    logger.debug("Using fallback sorting method");
-                    transactions = transactionRepository.findAll().stream()
-                            .filter(t -> t.getTxnTs() != null) // Filter out null timestamps
-                            .sorted((a, b) -> {
-                                if (a.getTxnTs() == null && b.getTxnTs() == null) return 0;
-                                if (a.getTxnTs() == null) return 1;
-                                if (b.getTxnTs() == null) return -1;
-                                return b.getTxnTs().compareTo(a.getTxnTs());
-                            })
-                            .limit(limit)
-                            .collect(Collectors.toList());
-                }
+                spec = spec.and((root, query, cb) -> cb.equal(root.get("pspId"), sanitizedPspId));
             }
             
-            logger.info("Returning {} transactions", transactions.size());
-            return ResponseEntity.ok(transactions);
+            // Filter out null timestamps
+            spec = spec.and((root, query, cb) -> cb.isNotNull(root.get("txnTs")));
+            
+            // Create Pageable with sorting
+            org.springframework.data.domain.Pageable pageable = 
+                PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "txnTs"));
+            
+            // Execute query with pagination
+            org.springframework.data.domain.Page<TransactionEntity> pageResult = 
+                transactionRepository.findAll(spec, pageable);
+            
+            logger.info("Returning page {} with {} transactions (total: {})", 
+                safePage, pageResult.getContent().size(), pageResult.getTotalElements());
+            return ResponseEntity.ok(pageResult);
         } catch (Exception e) {
             logger.error("Error fetching transactions: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();

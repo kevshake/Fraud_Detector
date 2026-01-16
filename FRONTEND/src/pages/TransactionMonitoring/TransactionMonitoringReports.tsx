@@ -3,15 +3,18 @@ import { useTransactions } from "../../features/api/queries";
 import { format } from "date-fns";
 
 export default function TransactionMonitoringReports() {
-  const { data: transactions, isLoading } = useTransactions(1000);
+  // Load first page with large size for statistics (up to 1000 records)
+  // Note: Stats are calculated from paginated data, may not reflect all transactions
+  const { data: transactions, isLoading } = useTransactions({ page: 0, size: 1000 });
 
-  const totalTransactions = transactions?.length || 0;
-  const blockedTransactions = transactions?.filter((t) => t.decision === "BLOCK").length || 0;
-  const heldTransactions = transactions?.filter((t) => t.decision === "HOLD").length || 0;
-  const totalAmount = transactions?.reduce((sum, t) => sum + (t.amountCents || 0), 0) || 0;
-  const blockedAmount = transactions
-    ?.filter((t) => t.decision === "BLOCK")
-    .reduce((sum, t) => sum + (t.amountCents || 0), 0) || 0;
+  const totalTransactions = transactions?.totalElements || transactions?.content?.length || 0;
+  const transactionList = transactions?.content || [];
+  const blockedTransactions = transactionList.filter((t) => t.decision === "BLOCK").length;
+  const heldTransactions = transactionList.filter((t) => t.decision === "HOLD").length;
+  const totalAmount = transactionList.reduce((sum, t) => sum + (t.amountCents || 0), 0);
+  const blockedAmount = transactionList
+    .filter((t) => t.decision === "BLOCK")
+    .reduce((sum, t) => sum + (t.amountCents || 0), 0);
 
   const handleExport = () => {
     // TODO: Implement export functionality

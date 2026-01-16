@@ -2,6 +2,7 @@ package com.posgateway.aml.repository;
 
 import com.posgateway.aml.entity.merchant.Merchant;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -14,7 +15,7 @@ import java.util.Optional;
  * Repository for Merchant entity
  */
 @Repository
-public interface MerchantRepository extends JpaRepository<Merchant, Long> {
+public interface MerchantRepository extends JpaRepository<Merchant, Long>, JpaSpecificationExecutor<Merchant> {
 
     /**
      * Find merchant by registration number and country

@@ -56,12 +56,30 @@ export const useRecentTransactions = (limit: number = 5) => {
 };
 
 // Cases
-export const useCases = (status?: string) => {
-  return useQuery<Case[]>({
-    queryKey: ["cases", status],
+// Cases
+export interface CaseQueryParams {
+  page?: number;
+  size?: number;
+  status?: string;
+}
+
+export const useCases = (params?: string | CaseQueryParams) => {
+  // Support backward compatibility: if string is provided, use it as status with default pagination
+  const queryParams = typeof params === 'string' 
+    ? { page: 0, size: 25, status: params } 
+    : params || {};
+
+  // Convert object to query string
+  const queryString = Object.entries(queryParams)
+    .filter(([_, value]) => value !== undefined && value !== null && value !== '')
+    .map(([key, value]) => `${key}=${encodeURIComponent(String(value))}`)
+    .join('&');
+
+  return useQuery<PageResponse<Case>>({
+    queryKey: ["cases", queryParams],
     queryFn: () =>
-      apiClient.get<Case[]>(
-        `compliance/cases${status ? `?status=${status}` : ""}`
+      apiClient.get<PageResponse<Case>>(
+        `compliance/cases${queryString ? `?${queryString}` : ""}`
       ),
   });
 };
@@ -102,37 +120,99 @@ export const useSarReports = (status?: string) => {
 };
 
 // Alerts
-export const useAlerts = () => {
-  return useQuery<Alert[]>({
-    queryKey: ["alerts"],
-    queryFn: () => apiClient.get<Alert[]>("alerts"),
+export interface AlertQueryParams {
+  page?: number;
+  size?: number;
+  status?: string;
+}
+
+export const useAlerts = (params?: AlertQueryParams) => {
+  const queryParams = params || {};
+
+  // Convert object to query string
+  const queryString = Object.entries(queryParams)
+    .filter(([_, value]) => value !== undefined && value !== null && value !== '')
+    .map(([key, value]) => `${key}=${encodeURIComponent(String(value))}`)
+    .join('&');
+
+  return useQuery<PageResponse<Alert>>({
+    queryKey: ["alerts", queryParams],
+    queryFn: () =>
+      apiClient.get<PageResponse<Alert>>(`alerts${queryString ? `?${queryString}` : ""}`),
   });
 };
 
 // Transactions
-export const useTransactions = (limit?: number) => {
-  return useQuery<Transaction[]>({
-    queryKey: ["transactions", limit],
+export interface TransactionQueryParams {
+  page?: number;
+  size?: number;
+  pspId?: number;
+}
+
+export const useTransactions = (params?: number | TransactionQueryParams) => {
+  // Support backward compatibility: if number is provided, use it as page size with page 0
+  const queryParams = typeof params === 'number' 
+    ? { page: 0, size: params } 
+    : params || {};
+
+  // Convert object to query string
+  const queryString = Object.entries(queryParams)
+    .filter(([_, value]) => value !== undefined && value !== null && value !== '')
+    .map(([key, value]) => `${key}=${encodeURIComponent(String(value))}`)
+    .join('&');
+
+  return useQuery<PageResponse<Transaction>>({
+    queryKey: ["transactions", queryParams],
     queryFn: () =>
-      apiClient.get<Transaction[]>(
-        `transactions${limit ? `?limit=${limit}` : ""}`
+      apiClient.get<PageResponse<Transaction>>(
+        `transactions${queryString ? `?${queryString}` : ""}`
       ),
   });
 };
 
 // Merchants
-export const useMerchants = () => {
-  return useQuery<Merchant[]>({
-    queryKey: ["merchants"],
-    queryFn: () => apiClient.get<Merchant[]>("merchants"),
+// Merchants
+export interface MerchantQueryParams {
+  page?: number;
+  size?: number;
+}
+
+export const useMerchants = (params?: MerchantQueryParams) => {
+  const queryParams = params || {};
+
+  // Convert object to query string
+  const queryString = Object.entries(queryParams)
+    .filter(([_, value]) => value !== undefined && value !== null && value !== '')
+    .map(([key, value]) => `${key}=${encodeURIComponent(String(value))}`)
+    .join('&');
+
+  return useQuery<PageResponse<Merchant>>({
+    queryKey: ["merchants", queryParams],
+    queryFn: () =>
+      apiClient.get<PageResponse<Merchant>>(`merchants${queryString ? `?${queryString}` : ""}`),
   });
 };
 
 // Users
-export const useUsers = () => {
-  return useQuery<User[]>({
-    queryKey: ["users"],
-    queryFn: () => apiClient.get<User[]>("users"),
+export interface UserQueryParams {
+  page?: number;
+  size?: number;
+  pspId?: number;
+}
+
+export const useUsers = (params?: UserQueryParams) => {
+  const queryParams = params || {};
+
+  // Convert object to query string
+  const queryString = Object.entries(queryParams)
+    .filter(([_, value]) => value !== undefined && value !== null && value !== '')
+    .map(([key, value]) => `${key}=${encodeURIComponent(String(value))}`)
+    .join('&');
+
+  return useQuery<PageResponse<User>>({
+    queryKey: ["users", queryParams],
+    queryFn: () =>
+      apiClient.get<PageResponse<User>>(`users${queryString ? `?${queryString}` : ""}`),
   });
 };
 
@@ -146,7 +226,8 @@ export const useRoles = () => {
 
 // Audit Logs
 export interface AuditLogQueryParams {
-  limit?: number;
+  page?: number;
+  size?: number;
   username?: string;
   actionType?: string;
   entityType?: string;
@@ -158,7 +239,7 @@ export interface AuditLogQueryParams {
 }
 
 export const useAuditLogs = (params?: number | AuditLogQueryParams) => {
-  const queryParams = typeof params === 'number' ? { limit: params } : params || {};
+  const queryParams = typeof params === 'number' ? { size: params } : params || {};
 
   // Convert object to query string
   const queryString = Object.entries(queryParams)
@@ -166,10 +247,10 @@ export const useAuditLogs = (params?: number | AuditLogQueryParams) => {
     .map(([key, value]) => `${key}=${encodeURIComponent(String(value))}`)
     .join('&');
 
-  return useQuery<AuditLog[]>({
+  return useQuery<PageResponse<AuditLog>>({
     queryKey: ["audit", queryParams],
     queryFn: () =>
-      apiClient.get<AuditLog[]>(`audit/logs${queryString ? `?${queryString}` : ""}`),
+      apiClient.get<PageResponse<AuditLog>>(`audit/logs${queryString ? `?${queryString}` : ""}`),
   });
 };
 
@@ -263,10 +344,25 @@ export const useMonitoringRecentActivity = () => {
   });
 };
 
-export const useMonitoringTransactions = () => {
-  return useQuery({
-    queryKey: ["monitoring", "transactions"],
-    queryFn: () => apiClient.get("monitoring/transactions"),
+export interface MonitoringTransactionQueryParams {
+  page?: number;
+  size?: number;
+  riskLevel?: string;
+  decision?: string;
+}
+
+export const useMonitoringTransactions = (params?: MonitoringTransactionQueryParams) => {
+  const queryParams = params || {};
+
+  // Convert object to query string
+  const queryString = Object.entries(queryParams)
+    .filter(([_, value]) => value !== undefined && value !== null && value !== '')
+    .map(([key, value]) => `${key}=${encodeURIComponent(String(value))}`)
+    .join('&');
+
+  return useQuery<PageResponse<any>>({
+    queryKey: ["monitoring", "transactions", queryParams],
+    queryFn: () => apiClient.get<PageResponse<any>>(`monitoring/transactions${queryString ? `?${queryString}` : ""}`),
   });
 };
 

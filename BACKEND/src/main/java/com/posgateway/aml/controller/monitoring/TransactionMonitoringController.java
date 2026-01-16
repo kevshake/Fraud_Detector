@@ -53,14 +53,15 @@ public class TransactionMonitoringController {
     }
 
     /**
-     * Get monitored transactions
+     * Get monitored transactions with pagination
      */
     @GetMapping("/transactions")
-    public ResponseEntity<List<Map<String, Object>>> getMonitoredTransactions(
+    public ResponseEntity<org.springframework.data.domain.Page<Map<String, Object>>> getMonitoredTransactions(
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false, defaultValue = "25") int size,
             @RequestParam(required = false) String riskLevel,
-            @RequestParam(required = false) String decision,
-            @RequestParam(defaultValue = "50") int limit) {
-        return ResponseEntity.ok(monitoringService.getMonitoredTransactions(riskLevel, decision, limit));
+            @RequestParam(required = false) String decision) {
+        return ResponseEntity.ok(monitoringService.getMonitoredTransactions(page, size, riskLevel, decision));
     }
 
     /**

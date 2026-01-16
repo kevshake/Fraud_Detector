@@ -15,6 +15,8 @@ import {
     FormControl,
     InputLabel,
     Tooltip,
+    TablePagination,
+    CircularProgress,
 } from "@mui/material";
 import { useCases } from "../../features/api/queries";
 import type { CaseStatus, Priority } from "../../types";
@@ -37,7 +39,13 @@ const priorityColors: Record<Priority, string> = {
 
 export default function CasesAllCases() {
     const [statusFilter, setStatusFilter] = useState<string>("");
-    const { data: cases, isLoading, isError, error } = useCases(statusFilter || undefined);
+    const [page, setPage] = useState({ index: 0, size: 25 });
+    
+    const { data: cases, isLoading, isError, error } = useCases({
+        page: page.index,
+        size: page.size,
+        status: statusFilter || undefined,
+    });
 
     return (
         <Box>
@@ -92,7 +100,7 @@ export default function CasesAllCases() {
                         {isLoading ? (
                             <TableRow>
                                 <TableCell colSpan={7} align="center" sx={{ color: "text.disabled", py: 4 }}>
-                                    Loading cases...
+                                    <CircularProgress size={24} />
                                 </TableCell>
                             </TableRow>
                         ) : isError ? (
@@ -101,8 +109,8 @@ export default function CasesAllCases() {
                                     Error loading cases: {error instanceof Error ? error.message : "Unknown error"}
                                 </TableCell>
                             </TableRow>
-                        ) : cases && cases.length > 0 ? (
-                            cases.map((caseItem) => (
+                        ) : cases?.content && cases.content.length > 0 ? (
+                            cases.content.map((caseItem) => (
                                 <TableRow key={caseItem.id} hover>
                                     <TableCell sx={{ color: "text.primary" }}>{caseItem.caseReference}</TableCell>
                                     <TableCell>
@@ -154,6 +162,15 @@ export default function CasesAllCases() {
                         )}
                     </TableBody>
                 </Table>
+                <TablePagination
+                  rowsPerPageOptions={[10, 25, 50, 100]}
+                  component="div"
+                  count={cases?.totalElements || 0}
+                  rowsPerPage={page.size}
+                  page={page.index}
+                  onPageChange={(_, newPage) => setPage(prev => ({ ...prev, index: newPage }))}
+                  onRowsPerPageChange={(e) => setPage({ index: 0, size: parseInt(e.target.value, 10) })}
+                />
             </TableContainer>
         </Box>
     );

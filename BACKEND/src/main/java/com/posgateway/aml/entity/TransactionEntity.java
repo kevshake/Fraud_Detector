@@ -11,7 +11,9 @@ import java.time.LocalDateTime;
 @Table(name = "transactions", indexes = {
         @Index(name = "idx_txn_merchant", columnList = "merchant_id"),
         @Index(name = "idx_txn_timestamp", columnList = "txn_ts"),
-        @Index(name = "idx_txn_pan_hash", columnList = "pan_hash")
+        @Index(name = "idx_txn_pan_hash", columnList = "pan_hash"),
+        @Index(name = "idx_txn_risk_level", columnList = "risk_level"),
+        @Index(name = "idx_txn_decision", columnList = "decision")
 })
 public class TransactionEntity {
 
@@ -74,6 +76,13 @@ public class TransactionEntity {
 
     @Column(name = "merchant_country", length = 3)
     private String merchantCountry;
+
+    // Calculated fields stored for pagination performance
+    @Column(name = "risk_level", length = 20)
+    private String riskLevel; // LOW, MEDIUM, HIGH, CRITICAL
+
+    @Column(name = "decision", length = 20)
+    private String decision; // APPROVED, MANUAL_REVIEW, DECLINED
 
     @PrePersist
     protected void onCreate() {
@@ -234,5 +243,21 @@ public class TransactionEntity {
 
     public void setMerchantCountry(String merchantCountry) {
         this.merchantCountry = merchantCountry;
+    }
+
+    public String getRiskLevel() {
+        return riskLevel;
+    }
+
+    public void setRiskLevel(String riskLevel) {
+        this.riskLevel = riskLevel;
+    }
+
+    public String getDecision() {
+        return decision;
+    }
+
+    public void setDecision(String decision) {
+        this.decision = decision;
     }
 }

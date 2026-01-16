@@ -11,7 +11,10 @@ import {
   Chip,
   Button,
   Tooltip,
+  TablePagination,
+  CircularProgress,
 } from "@mui/material";
+import { useState } from "react";
 import { useAlerts } from "../../features/api/queries";
 import type { Priority } from "../../types";
 
@@ -29,7 +32,12 @@ const statusColors: Record<string, string> = {
 };
 
 export default function AlertsPage() {
-  const { data: alerts, isLoading, isError, error } = useAlerts();
+  const [page, setPage] = useState({ index: 0, size: 25 });
+  
+  const { data: alerts, isLoading, isError, error } = useAlerts({
+    page: page.index,
+    size: page.size,
+  });
 
   return (
     <Box>
@@ -61,7 +69,7 @@ export default function AlertsPage() {
             {isLoading ? (
               <TableRow>
                 <TableCell colSpan={7} align="center" sx={{ color: "text.disabled", py: 4 }}>
-                  Loading alerts...
+                  <CircularProgress size={24} />
                 </TableCell>
               </TableRow>
             ) : isError ? (
@@ -70,8 +78,8 @@ export default function AlertsPage() {
                   Error loading alerts: {error instanceof Error ? error.message : "Unknown error"}
                 </TableCell>
               </TableRow>
-            ) : alerts && alerts.length > 0 ? (
-              alerts.map((alert) => (
+            ) : alerts?.content && alerts.content.length > 0 ? (
+              alerts.content.map((alert) => (
                 <TableRow key={alert.id} hover>
                   <TableCell sx={{ color: "text.primary" }}>#{alert.id}</TableCell>
                   <TableCell sx={{ color: "text.primary" }}>{alert.alertType}</TableCell>
@@ -121,6 +129,15 @@ export default function AlertsPage() {
             )}
           </TableBody>
         </Table>
+        <TablePagination
+          rowsPerPageOptions={[10, 25, 50, 100]}
+          component="div"
+          count={alerts?.totalElements || 0}
+          rowsPerPage={page.size}
+          page={page.index}
+          onPageChange={(_, newPage) => setPage(prev => ({ ...prev, index: newPage }))}
+          onRowsPerPageChange={(e) => setPage({ index: 0, size: parseInt(e.target.value, 10) })}
+        />
       </TableContainer>
     </Box>
   );

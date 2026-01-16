@@ -11,6 +11,9 @@ import com.posgateway.aml.repository.PspRepository;
 import com.posgateway.aml.service.merchant.MerchantOnboardingService;
 import com.posgateway.aml.service.merchant.MerchantUpdateService;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -123,21 +126,37 @@ public class MerchantController {
      */
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'SCREENING_ANALYST', 'PSP_ADMIN', 'PSP_ANALYST', 'VIEWER')")
-    public ResponseEntity<List<MerchantOnboardingResponse>> getAllMerchants() {
-        log.info("Get all merchants request");
+    public ResponseEntity<org.springframework.data.domain.Page<MerchantOnboardingResponse>> getAllMerchants(
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false, defaultValue = "25") int size) {
+        log.info("Get all merchants request (page: {}, size: {})", page, size);
         try {
+            int safeSize = Math.max(1, Math.min(size, 100)); // Max 100 per page
+            int safePage = Math.max(0, page);
+            
             // Enforce PSP isolation
             Long userPspId = pspIsolationService.getCurrentUserPspId();
             
-            List<Merchant> merchants;
-            if (userPspId != null) {
+            // Build Specification for filtering
+            org.springframework.data.jpa.domain.Specification<Merchant> spec = 
+                org.springframework.data.jpa.domain.Specification.where(null);
+            
+            // PSP Isolation Logic
+            if (userPspId != null && userPspId != 0L) {
                 // PSP user - only their PSP's merchants
-                merchants = merchantRepository.findByPspPspId(userPspId);
-            } else {
-                // Platform Admin - all merchants
-                merchants = merchantRepository.findAll();
+                spec = spec.and((root, query, cb) -> cb.equal(root.get("psp").get("pspId"), userPspId));
             }
-            List<MerchantOnboardingResponse> responses = merchants.stream()
+            
+            // Create Pageable with sorting
+            org.springframework.data.domain.Pageable pageable = 
+                PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "createdAt"));
+            
+            // Execute query with pagination
+            org.springframework.data.domain.Page<Merchant> merchantPage = 
+                merchantRepository.findAll(spec, pageable);
+            
+            // Convert to response DTOs
+            List<MerchantOnboardingResponse> responses = merchantPage.getContent().stream()
                     .filter(m -> m.getMerchantId() != null) // Filter out null IDs
                     .map(m -> {
                         try {
@@ -165,7 +184,18 @@ public class MerchantController {
                         }
                     })
                     .collect(java.util.stream.Collectors.toList());
-            return ResponseEntity.ok(responses);
+            
+            // Create paginated response
+            org.springframework.data.domain.Page<MerchantOnboardingResponse> responsePage = 
+                new PageImpl<>(
+                    responses, 
+                    pageable, 
+                    merchantPage.getTotalElements()
+                );
+            
+            log.info("Returning page {} with {} merchants (total: {})", 
+                safePage, responses.size(), responsePage.getTotalElements());
+            return ResponseEntity.ok(responsePage);
         } catch (Exception e) {
             log.error("Error fetching merchants: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();

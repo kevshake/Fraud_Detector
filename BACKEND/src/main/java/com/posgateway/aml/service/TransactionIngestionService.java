@@ -147,6 +147,12 @@ public class TransactionIngestionService {
         transaction.setAcquirerResponse(transactionRequest.getAcquirerResponse());
         transaction.setDirection(transactionRequest.getDirection()); // Store Direction
 
+        // Calculate and store riskLevel and decision for pagination performance
+        String riskLevel = calculateRiskLevel(transaction);
+        String decision = calculateDecision(riskLevel);
+        transaction.setRiskLevel(riskLevel);
+        transaction.setDecision(decision);
+
         TransactionEntity saved = transactionRepository.save(transaction);
 
         // Automatically record transaction statistics for AML velocity checks
@@ -156,10 +162,44 @@ public class TransactionIngestionService {
                 saved.getAmountCents(),
                 saved.getTerminalId());
 
-        logger.info("Transaction ingested successfully: txnId={}, merchantId={}",
-                saved.getTxnId(), saved.getMerchantId());
+        logger.info("Transaction ingested successfully: txnId={}, merchantId={}, riskLevel={}, decision={}",
+                saved.getTxnId(), saved.getMerchantId(), riskLevel, decision);
 
         return saved;
+    }
+
+    /**
+     * Calculate risk level based on TRS score
+     */
+    private String calculateRiskLevel(TransactionEntity txn) {
+        int score = getRiskScore(txn);
+        if (score >= 76) return "CRITICAL";
+        if (score >= 51) return "HIGH";
+        if (score >= 26) return "MEDIUM";
+        return "LOW";
+    }
+
+    /**
+     * Calculate decision based on risk level
+     */
+    private String calculateDecision(String riskLevel) {
+        if ("CRITICAL".equals(riskLevel)) return "DECLINED";
+        if ("HIGH".equals(riskLevel)) return "MANUAL_REVIEW";
+        return "APPROVED";
+    }
+
+    /**
+     * Get risk score from TRS or fallback to amount-based calculation
+     */
+    private int getRiskScore(TransactionEntity txn) {
+        // Use Real TRS (Transaction Risk Score) if available
+        if (txn.getTrs() != null) {
+            return txn.getTrs().intValue();
+        }
+        // Fallback for old data or if scoring failed
+        if (txn.getAmountCents() != null && txn.getAmountCents() > 100000) return 75;
+        if (txn.getAmountCents() != null && txn.getAmountCents() > 50000) return 95;
+        return 25;
     }
 
     /**

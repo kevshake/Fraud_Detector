@@ -15,6 +15,7 @@ import {
   Tab,
   Chip,
   Tooltip,
+  Divider,
 } from "@mui/material";
 import { apiClient } from "../../lib/apiClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -156,8 +157,25 @@ export default function SettingsPage() {
   const { user } = useAuth();
   const isSuperAdmin = user?.pspId === 0;
 
-  // System Settings State
-  const [systemSettings, setSystemSettings] = useState({
+  // System Settings Interface
+  interface SystemSettings {
+    maintenanceMode: boolean;
+    debugLogging: boolean;
+    riskThresholdHigh: number;
+    riskThresholdMedium: number;
+    auditRetentionDays: number;
+    allowCrossBorderTxns: boolean;
+  }
+
+  // Fetch system settings
+  const { data: systemSettingsData, isLoading: isLoadingSystemSettings } = useQuery<SystemSettings>({
+    queryKey: ["settings", "system"],
+    queryFn: () => apiClient.get<SystemSettings>("settings/system"),
+    enabled: isSuperAdmin,
+  });
+
+  // System Settings State (with defaults)
+  const [systemSettings, setSystemSettings] = useState<SystemSettings>({
     maintenanceMode: false,
     debugLogging: false,
     riskThresholdHigh: 80,
@@ -166,6 +184,13 @@ export default function SettingsPage() {
     allowCrossBorderTxns: true,
   });
 
+  // Update local state when data loads
+  useEffect(() => {
+    if (systemSettingsData) {
+      setSystemSettings(systemSettingsData);
+    }
+  }, [systemSettingsData]);
+
   const handleSystemSettingChange = (setting: string, value: any) => {
     setSystemSettings(prev => ({
       ...prev,
@@ -173,10 +198,24 @@ export default function SettingsPage() {
     }));
   };
 
-  const handleSaveSystemSettings = () => {
-    // Mock save
-    setSuccessMessage("System settings saved successfully");
-    setTimeout(() => setSuccessMessage(null), 3000);
+  // Update system settings mutation
+  const updateSystemSettingsMutation = useMutation({
+    mutationFn: async (data: SystemSettings) => {
+      return apiClient.put<SystemSettings>("settings/system", data);
+    },
+    onSuccess: () => {
+      setSuccessMessage("System settings saved successfully");
+      queryClient.invalidateQueries({ queryKey: ["settings", "system"] });
+      setTimeout(() => setSuccessMessage(null), 3000);
+    },
+    onError: () => {
+      setSuccessMessage("Failed to save system settings");
+      setTimeout(() => setSuccessMessage(null), 3000);
+    },
+  });
+
+  const handleSaveSystemSettings = async () => {
+    await updateSystemSettingsMutation.mutateAsync(systemSettings);
   };
 
   return (
@@ -205,21 +244,23 @@ export default function SettingsPage() {
           {/* PSP Selection */}
           <Grid container spacing={3} sx={{ mb: 3 }}>
             <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel>Select PSP</InputLabel>
-                <Select
-                  value={selectedPspId || ""}
-                  onChange={(e) => handlePspChange(e.target.value as number)}
-                  label="Select PSP"
-                  disabled={isLoadingPsps}
-                >
+              <Tooltip title="Select a PSP to customize its theme and branding" arrow>
+                <FormControl fullWidth>
+                  <InputLabel>Select PSP</InputLabel>
+                  <Select
+                    value={selectedPspId || ""}
+                    onChange={(e) => handlePspChange(e.target.value as number)}
+                    label="Select PSP"
+                    disabled={isLoadingPsps}
+                  >
                   {psps?.map((psp) => (
                     <MenuItem key={psp.id} value={psp.id}>
                       {psp.name} ({psp.code}) - {psp.status}
                     </MenuItem>
                   ))}
-                </Select>
-              </FormControl>
+                  </Select>
+                </FormControl>
+              </Tooltip>
             </Grid>
           </Grid>
 
@@ -259,112 +300,134 @@ export default function SettingsPage() {
               {/* Color Customization */}
               <Grid container spacing={3} sx={{ mb: 3 }}>
                 <Grid item xs={12} md={4}>
-                  <TextField
-                    fullWidth
-                    label="Primary Color"
-                    type="color"
-                    value={themeData.primaryColor || "#8B4049"}
-                    onChange={(e) => setThemeData({ ...themeData, primaryColor: e.target.value })}
-                    InputLabelProps={{ shrink: true }}
-                  />
+                  <Tooltip title="Main brand color used for primary buttons and highlights" arrow>
+                    <TextField
+                      fullWidth
+                      label="Primary Color"
+                      type="color"
+                      value={themeData.primaryColor || "#8B4049"}
+                      onChange={(e) => setThemeData({ ...themeData, primaryColor: e.target.value })}
+                      InputLabelProps={{ shrink: true }}
+                    />
+                  </Tooltip>
                 </Grid>
                 <Grid item xs={12} md={4}>
-                  <TextField
-                    fullWidth
-                    label="Secondary Color"
-                    type="color"
-                    value={themeData.secondaryColor || "#C9A961"}
-                    onChange={(e) => setThemeData({ ...themeData, secondaryColor: e.target.value })}
-                    InputLabelProps={{ shrink: true }}
-                  />
+                  <Tooltip title="Secondary brand color used for accents and secondary elements" arrow>
+                    <TextField
+                      fullWidth
+                      label="Secondary Color"
+                      type="color"
+                      value={themeData.secondaryColor || "#C9A961"}
+                      onChange={(e) => setThemeData({ ...themeData, secondaryColor: e.target.value })}
+                      InputLabelProps={{ shrink: true }}
+                    />
+                  </Tooltip>
                 </Grid>
                 <Grid item xs={12} md={4}>
-                  <TextField
-                    fullWidth
-                    label="Accent Color"
-                    type="color"
-                    value={themeData.accentColor || "#A0525C"}
-                    onChange={(e) => setThemeData({ ...themeData, accentColor: e.target.value })}
-                    InputLabelProps={{ shrink: true }}
-                  />
+                  <Tooltip title="Accent color used for error states and emphasis" arrow>
+                    <TextField
+                      fullWidth
+                      label="Accent Color"
+                      type="color"
+                      value={themeData.accentColor || "#A0525C"}
+                      onChange={(e) => setThemeData({ ...themeData, accentColor: e.target.value })}
+                      InputLabelProps={{ shrink: true }}
+                    />
+                  </Tooltip>
                 </Grid>
                 <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Logo URL"
-                    value={themeData.logoUrl || ""}
-                    onChange={(e) => setThemeData({ ...themeData, logoUrl: e.target.value })}
-                    placeholder="https://example.com/logo.png"
-                  />
+                  <Tooltip title="URL to the PSP's logo image (PNG, SVG, or JPG format)" arrow>
+                    <TextField
+                      fullWidth
+                      label="Logo URL"
+                      value={themeData.logoUrl || ""}
+                      onChange={(e) => setThemeData({ ...themeData, logoUrl: e.target.value })}
+                      placeholder="https://example.com/logo.png"
+                    />
+                  </Tooltip>
                 </Grid>
                 <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Font Family"
-                    value={themeData.fontFamily || ""}
-                    onChange={(e) => setThemeData({ ...themeData, fontFamily: e.target.value })}
-                    placeholder="'Inter', 'Outfit', sans-serif"
-                  />
+                  <Tooltip title="Font family for the entire application (e.g., 'Inter', 'Outfit', sans-serif)" arrow>
+                    <TextField
+                      fullWidth
+                      label="Font Family"
+                      value={themeData.fontFamily || ""}
+                      onChange={(e) => setThemeData({ ...themeData, fontFamily: e.target.value })}
+                      placeholder="'Inter', 'Outfit', sans-serif"
+                    />
+                  </Tooltip>
                 </Grid>
                 <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Font Size"
-                    value={themeData.fontSize || ""}
-                    onChange={(e) => setThemeData({ ...themeData, fontSize: e.target.value })}
-                    placeholder="14px or 1rem"
-                  />
+                  <Tooltip title="Base font size for the application (e.g., 14px or 1rem)" arrow>
+                    <TextField
+                      fullWidth
+                      label="Font Size"
+                      value={themeData.fontSize || ""}
+                      onChange={(e) => setThemeData({ ...themeData, fontSize: e.target.value })}
+                      placeholder="14px or 1rem"
+                    />
+                  </Tooltip>
                 </Grid>
                 <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Button Border Radius"
-                    value={themeData.buttonRadius || ""}
-                    onChange={(e) => setThemeData({ ...themeData, buttonRadius: e.target.value })}
-                    placeholder="12px or 0.5rem"
-                  />
+                  <Tooltip title="Border radius for buttons (e.g., 12px or 0.5rem)" arrow>
+                    <TextField
+                      fullWidth
+                      label="Button Border Radius"
+                      value={themeData.buttonRadius || ""}
+                      onChange={(e) => setThemeData({ ...themeData, buttonRadius: e.target.value })}
+                      placeholder="12px or 0.5rem"
+                    />
+                  </Tooltip>
                 </Grid>
                 <Grid item xs={12} md={6}>
-                  <FormControl fullWidth>
-                    <InputLabel>Button Style</InputLabel>
-                    <Select
-                      value={themeData.buttonStyle || "flat"}
-                      onChange={(e) => setThemeData({ ...themeData, buttonStyle: e.target.value })}
-                      label="Button Style"
-                    >
-                      <MenuItem value="flat">Flat</MenuItem>
-                      <MenuItem value="raised">Raised</MenuItem>
-                      <MenuItem value="outlined">Outlined</MenuItem>
-                    </Select>
-                  </FormControl>
+                  <Tooltip title="Visual style for buttons: Flat (minimal), Raised (elevated), or Outlined (border only)" arrow>
+                    <FormControl fullWidth>
+                      <InputLabel>Button Style</InputLabel>
+                      <Select
+                        value={themeData.buttonStyle || "flat"}
+                        onChange={(e) => setThemeData({ ...themeData, buttonStyle: e.target.value })}
+                        label="Button Style"
+                      >
+                        <MenuItem value="flat">Flat</MenuItem>
+                        <MenuItem value="raised">Raised</MenuItem>
+                        <MenuItem value="outlined">Outlined</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Tooltip>
                 </Grid>
                 <Grid item xs={12} md={6}>
-                  <FormControl fullWidth>
-                    <InputLabel>Navigation Style</InputLabel>
-                    <Select
-                      value={themeData.navStyle || "drawer"}
-                      onChange={(e) => setThemeData({ ...themeData, navStyle: e.target.value })}
-                      label="Navigation Style"
-                    >
-                      <MenuItem value="drawer">Drawer</MenuItem>
-                      <MenuItem value="topbar">Top Bar</MenuItem>
-                    </Select>
-                  </FormControl>
+                  <Tooltip title="Navigation layout style: Drawer (side panel) or Top Bar (horizontal menu)" arrow>
+                    <FormControl fullWidth>
+                      <InputLabel>Navigation Style</InputLabel>
+                      <Select
+                        value={themeData.navStyle || "drawer"}
+                        onChange={(e) => setThemeData({ ...themeData, navStyle: e.target.value })}
+                        label="Navigation Style"
+                      >
+                        <MenuItem value="drawer">Drawer</MenuItem>
+                        <MenuItem value="topbar">Top Bar</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Tooltip>
                 </Grid>
               </Grid>
 
               <Box sx={{ display: "flex", gap: 2, justifyContent: "flex-end" }}>
-                <Button variant="outlined" onClick={() => setThemeData(currentTheme || null)}>
-                  Reset
-                </Button>
-                <Button
-                  variant="contained"
-                  onClick={handleSaveTheme}
-                  disabled={saving}
-                  sx={{ backgroundColor: "#a93226", "&:hover": { backgroundColor: "#922b21" } }}
-                >
-                  {saving ? "Saving..." : "Save Theme"}
-                </Button>
+                <Tooltip title="Reset theme to the last saved configuration" arrow>
+                  <Button variant="outlined" onClick={() => setThemeData(currentTheme || null)}>
+                    Reset
+                  </Button>
+                </Tooltip>
+                <Tooltip title="Save the current theme configuration for this PSP" arrow>
+                  <Button
+                    variant="contained"
+                    onClick={handleSaveTheme}
+                    disabled={saving}
+                    sx={{ backgroundColor: "#a93226", "&:hover": { backgroundColor: "#922b21" } }}
+                  >
+                    {saving ? "Saving..." : "Save Theme"}
+                  </Button>
+                </Tooltip>
               </Box>
             </>
           ) : selectedPspId ? (
@@ -383,73 +446,105 @@ export default function SettingsPage() {
             </Typography>
 
             <Grid container spacing={3}>
-              <Grid item xs={12} md={6}>
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>System Status</Typography>
-                <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                  <TextField
-                    select
-                    label="Maintenance Mode"
-                    value={systemSettings.maintenanceMode ? "true" : "false"}
-                    onChange={(e) => handleSystemSettingChange('maintenanceMode', e.target.value === "true")}
-                    fullWidth
-                  >
-                    <MenuItem value="true">Enabled</MenuItem>
-                    <MenuItem value="false">Disabled</MenuItem>
-                  </TextField>
-                  <TextField
-                    select
-                    label="Debug Logging"
-                    value={systemSettings.debugLogging ? "true" : "false"}
-                    onChange={(e) => handleSystemSettingChange('debugLogging', e.target.value === "true")}
-                    fullWidth
-                  >
-                    <MenuItem value="true">Enabled</MenuItem>
-                    <MenuItem value="false">Disabled</MenuItem>
-                  </TextField>
-                </Box>
-              </Grid>
+              {isLoadingSystemSettings ? (
+                <Grid item xs={12}>
+                  <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
+                    <CircularProgress />
+                  </Box>
+                </Grid>
+              ) : (
+                <>
+                  <Grid item xs={12} md={6}>
+                    <Typography variant="subtitle2" sx={{ mb: 1 }}>System Status</Typography>
+                    <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                      <Tooltip title="Enable maintenance mode to restrict access for system updates" arrow>
+                        <TextField
+                          select
+                          label="Maintenance Mode"
+                          value={systemSettings.maintenanceMode ? "true" : "false"}
+                          onChange={(e) => handleSystemSettingChange('maintenanceMode', e.target.value === "true")}
+                          fullWidth
+                          disabled={updateSystemSettingsMutation.isPending}
+                        >
+                          <MenuItem value="true">Enabled</MenuItem>
+                          <MenuItem value="false">Disabled</MenuItem>
+                        </TextField>
+                      </Tooltip>
+                      <Tooltip title="Enable debug logging for detailed system diagnostics" arrow>
+                        <TextField
+                          select
+                          label="Debug Logging"
+                          value={systemSettings.debugLogging ? "true" : "false"}
+                          onChange={(e) => handleSystemSettingChange('debugLogging', e.target.value === "true")}
+                          fullWidth
+                          disabled={updateSystemSettingsMutation.isPending}
+                        >
+                          <MenuItem value="true">Enabled</MenuItem>
+                          <MenuItem value="false">Disabled</MenuItem>
+                        </TextField>
+                      </Tooltip>
+                    </Box>
+                  </Grid>
 
               <Grid item xs={12} md={6}>
                 <Typography variant="subtitle2" sx={{ mb: 1 }}>Risk & Compliance</Typography>
                 <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                  <TextField
-                    label="High Risk Score Threshold"
-                    type="number"
-                    value={systemSettings.riskThresholdHigh}
-                    onChange={(e) => handleSystemSettingChange('riskThresholdHigh', parseInt(e.target.value))}
-                    fullWidth
-                  />
-                  <TextField
-                    label="Medium Risk Score Threshold"
-                    type="number"
-                    value={systemSettings.riskThresholdMedium}
-                    onChange={(e) => handleSystemSettingChange('riskThresholdMedium', parseInt(e.target.value))}
-                    fullWidth
-                  />
+                  <Tooltip title="Risk score threshold (0-100) above which transactions are considered high risk" arrow>
+                    <TextField
+                      label="High Risk Score Threshold"
+                      type="number"
+                      value={systemSettings.riskThresholdHigh}
+                      onChange={(e) => handleSystemSettingChange('riskThresholdHigh', parseInt(e.target.value))}
+                      fullWidth
+                      disabled={updateSystemSettingsMutation.isPending}
+                    />
+                  </Tooltip>
+                  <Tooltip title="Risk score threshold (0-100) above which transactions are considered medium risk" arrow>
+                    <TextField
+                      label="Medium Risk Score Threshold"
+                      type="number"
+                      value={systemSettings.riskThresholdMedium}
+                      onChange={(e) => handleSystemSettingChange('riskThresholdMedium', parseInt(e.target.value))}
+                      fullWidth
+                      disabled={updateSystemSettingsMutation.isPending}
+                    />
+                  </Tooltip>
                 </Box>
               </Grid>
 
               <Grid item xs={12} md={6}>
                 <Typography variant="subtitle2" sx={{ mb: 1 }}>Data Policies</Typography>
                 <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                  <TextField
-                    label="Audit Log Retention (Days)"
-                    type="number"
-                    value={systemSettings.auditRetentionDays}
-                    onChange={(e) => handleSystemSettingChange('auditRetentionDays', parseInt(e.target.value))}
-                    fullWidth
-                  />
+                  <Tooltip title="Number of days to retain audit logs before automatic deletion" arrow>
+                    <TextField
+                      label="Audit Log Retention (Days)"
+                      type="number"
+                      value={systemSettings.auditRetentionDays}
+                      onChange={(e) => handleSystemSettingChange('auditRetentionDays', parseInt(e.target.value))}
+                      fullWidth
+                      disabled={updateSystemSettingsMutation.isPending}
+                    />
+                  </Tooltip>
                 </Box>
               </Grid>
 
               <Grid item xs={12}>
                 <Divider sx={{ my: 2 }} />
                 <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-                  <Button variant="contained" color="primary" onClick={handleSaveSystemSettings}>
-                    Save System Settings
-                  </Button>
+                  <Tooltip title="Save all system configuration settings" arrow>
+                    <Button 
+                      variant="contained" 
+                      color="primary" 
+                      onClick={handleSaveSystemSettings}
+                      disabled={updateSystemSettingsMutation.isPending}
+                    >
+                      {updateSystemSettingsMutation.isPending ? "Saving..." : "Save System Settings"}
+                    </Button>
+                  </Tooltip>
                 </Box>
               </Grid>
+                </>
+              )}
             </Grid>
           </Paper>
         </TabPanel>

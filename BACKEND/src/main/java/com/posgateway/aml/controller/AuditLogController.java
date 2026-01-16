@@ -52,8 +52,7 @@ public class AuditLogController {
     }
 
     /**
-     * Get all audit logs (paginated)
-     * GET /api/v1/audit/logs
+     * Get all audit logs
      */
     @GetMapping
     @PreAuthorize("hasAuthority('VIEW_AUDIT_LOGS')")

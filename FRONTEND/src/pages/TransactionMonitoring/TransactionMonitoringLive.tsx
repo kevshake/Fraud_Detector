@@ -1,4 +1,5 @@
-import { Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Chip, Grid, Card, CardContent } from "@mui/material";
+import { Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Chip, Grid, Card, CardContent, TablePagination, CircularProgress } from "@mui/material";
+import { useState } from "react";
 import {
   useMonitoringTransactions,
   useMonitoringDashboardStats,
@@ -6,7 +7,12 @@ import {
 } from "../../features/api/queries";
 
 export default function TransactionMonitoringLive() {
-  const { data: transactions, isLoading: transactionsLoading } = useMonitoringTransactions();
+  const [page, setPage] = useState({ index: 0, size: 25 });
+  
+  const { data: transactions, isLoading: transactionsLoading } = useMonitoringTransactions({
+    page: page.index,
+    size: page.size,
+  });
   const { data: stats, isLoading: statsLoading } = useMonitoringDashboardStats();
   const { data: recentActivity, isLoading: activityLoading } = useMonitoringRecentActivity();
 
@@ -58,13 +64,13 @@ export default function TransactionMonitoringLive() {
                   {transactionsLoading ? (
                     <TableRow>
                       <TableCell colSpan={5} align="center" sx={{ color: "text.disabled", py: 4 }}>
-                        Loading transactions...
+                        <CircularProgress size={24} />
                       </TableCell>
                     </TableRow>
-                  ) : transactions && Array.isArray(transactions) && transactions.length > 0 ? (
-                    transactions.slice(0, 20).map((txn: any, idx: number) => (
+                  ) : transactions?.content && transactions.content.length > 0 ? (
+                    transactions.content.map((txn: any, idx: number) => (
                       <TableRow key={idx} hover>
-                        <TableCell sx={{ color: "text.primary" }}>#{txn.id || idx}</TableCell>
+                        <TableCell sx={{ color: "text.primary" }}>#{txn.txnId || txn.transactionId || txn.id || idx}</TableCell>
                         <TableCell sx={{ color: "text.primary" }}>{txn.merchantId || "N/A"}</TableCell>
                         <TableCell sx={{ color: "text.primary" }}>
                           {txn.amountCents ? `$${(txn.amountCents / 100).toFixed(2)}` : "N/A"}
@@ -94,6 +100,15 @@ export default function TransactionMonitoringLive() {
                   )}
                 </TableBody>
               </Table>
+              <TablePagination
+                rowsPerPageOptions={[10, 25, 50, 100]}
+                component="div"
+                count={transactions?.totalElements || 0}
+                rowsPerPage={page.size}
+                page={page.index}
+                onPageChange={(_, newPage) => setPage(prev => ({ ...prev, index: newPage }))}
+                onRowsPerPageChange={(e) => setPage({ index: 0, size: parseInt(e.target.value, 10) })}
+              />
             </TableContainer>
           </Paper>
         </Grid>

@@ -55,16 +55,20 @@ public class ComplianceCaseController {
     public ResponseEntity<org.springframework.data.domain.Page<ComplianceCase>> getAllCases(
             @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "25") int size) {
 
         com.posgateway.aml.entity.User user = getCurrentUser();
         if (user == null) {
             return ResponseEntity.status(401).build();
         }
 
+        // Safe pagination bounds
+        int safeSize = Math.max(1, Math.min(size, 100)); // Max 100 per page
+        int safePage = Math.max(0, page);
+
         log.info("Get all compliance cases (user: {}, status: {}, page: {}, size: {})", user.getUsername(), status,
-                page, size);
-        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
+                safePage, safeSize);
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(safePage, safeSize);
 
         com.posgateway.aml.model.UserRole role = com.posgateway.aml.model.UserRole.valueOf(user.getRole().getName());
         boolean isPspUser = (role == com.posgateway.aml.model.UserRole.PSP_ADMIN

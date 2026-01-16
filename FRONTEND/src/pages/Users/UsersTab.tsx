@@ -8,6 +8,7 @@ import {
     TableContainer,
     TableHead,
     TableRow,
+    TablePagination,
     Button,
     Chip,
     IconButton,
@@ -35,6 +36,7 @@ import {
 } from "@mui/icons-material";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { User, Role, Psp } from "../../types/userManagement";
+import { useUsers } from "../../features/api/queries";
 
 export default function UsersTab() {
     const queryClient = useQueryClient();
@@ -51,15 +53,16 @@ export default function UsersTab() {
         enabled: true,
     });
 
-    // Fetch users
-    const { data: users, isLoading } = useQuery<User[]>({
-        queryKey: ["users"],
-        queryFn: async () => {
-            const response = await fetch("/api/v1/users");
-            if (!response.ok) throw new Error("Failed to fetch users");
-            return response.json();
-        },
+    const [page, setPage] = useState({ index: 0, size: 25 });
+
+    // Fetch users with pagination
+    const { data: usersPage, isLoading } = useUsers({
+        page: page.index,
+        size: page.size,
     });
+    
+    // Extract users from paginated response
+    const users = usersPage?.content || [];
 
     // Fetch roles for dropdown
     const { data: roles } = useQuery<Role[]>({
@@ -293,6 +296,15 @@ export default function UsersTab() {
                         )}
                     </TableBody>
                 </Table>
+                <TablePagination
+                  rowsPerPageOptions={[10, 25, 50, 100]}
+                  component="div"
+                  count={usersPage?.totalElements || 0}
+                  rowsPerPage={page.size}
+                  page={page.index}
+                  onPageChange={(_, newPage) => setPage(prev => ({ ...prev, index: newPage }))}
+                  onRowsPerPageChange={(e) => setPage({ index: 0, size: parseInt(e.target.value, 10) })}
+                />
             </TableContainer>
 
             {/* Create/Edit User Dialog */}

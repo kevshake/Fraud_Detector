@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.LocalDateTime;
 
 @RestController
-@RequestMapping("/api/v1/regulatory")
+@RequestMapping("/regulatory")
 public class RegulatoryReportingController {
 
     private static final Logger log = LoggerFactory.getLogger(RegulatoryReportingController.class);
@@ -27,7 +27,7 @@ public class RegulatoryReportingController {
 
     /**
      * Generate Currency Transaction Report (CTR)
-     * GET /api/v1/regulatory/ctr
+     * GET /regulatory/ctr
      */
     @GetMapping("/ctr")
     @PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'PSP_ADMIN', 'PSP_COMPLIANCE_OFFICER')")
@@ -44,7 +44,7 @@ public class RegulatoryReportingController {
 
     /**
      * Generate Large Cash Transaction Report (LCTR)
-     * GET /api/v1/regulatory/lctr
+     * GET /regulatory/lctr
      */
     @GetMapping("/lctr")
     @PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'PSP_ADMIN', 'PSP_COMPLIANCE_OFFICER')")
@@ -61,7 +61,7 @@ public class RegulatoryReportingController {
 
     /**
      * Generate International Funds Transfer Report (IFTR)
-     * GET /api/v1/regulatory/iftr
+     * GET /regulatory/iftr
      */
     @GetMapping("/iftr")
     @PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'PSP_ADMIN', 'PSP_COMPLIANCE_OFFICER')")

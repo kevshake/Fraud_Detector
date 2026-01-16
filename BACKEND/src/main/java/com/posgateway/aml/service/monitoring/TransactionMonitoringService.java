@@ -7,6 +7,9 @@ import com.posgateway.aml.repository.TransactionRepository;
 import com.posgateway.aml.repository.SuspiciousActivityReportRepository;
 import com.posgateway.aml.repository.AlertRepository;
 import com.posgateway.aml.repository.UserRepository;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -236,27 +239,57 @@ public class TransactionMonitoringService {
     }
 
     /**
-     * Get monitored transactions with filters, filtered by PSP
+     * Get monitored transactions with filters and pagination, filtered by PSP
      */
-    public List<Map<String, Object>> getMonitoredTransactions(String riskLevel, String decision, int limit) {
+    public org.springframework.data.domain.Page<Map<String, Object>> getMonitoredTransactions(
+            int page, int size, String riskLevel, String decision) {
         Long pspId = getCurrentPspId();
         
-        List<TransactionEntity> transactions;
+        int safeSize = Math.max(1, Math.min(size, 100)); // Max 100 per page
+        int safePage = Math.max(0, page);
+        
+        // Build Specification for filtering
+        org.springframework.data.jpa.domain.Specification<TransactionEntity> spec = 
+            org.springframework.data.jpa.domain.Specification.where(null);
+        
+        // PSP Isolation Logic
         if (pspId != null) {
-            transactions = transactionRepository.findByPspIdOrderByTxnTsDesc(pspId);
-        } else {
-            transactions = transactionRepository.findAll().stream()
-                    .filter(t -> t.getTxnTs() != null)
-                    .sorted((a, b) -> b.getTxnTs().compareTo(a.getTxnTs()))
-                    .collect(Collectors.toList());
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("pspId"), pspId));
         }
         
-        return transactions.stream()
-                .filter(t -> riskLevel == null || riskLevel.equals("All") || getRiskLevel(t).equalsIgnoreCase(riskLevel))
-                .filter(t -> decision == null || decision.equals("All") || getDecision(t).equalsIgnoreCase(decision))
-                .limit(limit)
+        // Filter out null timestamps
+        spec = spec.and((root, query, cb) -> cb.isNotNull(root.get("txnTs")));
+        
+        // Apply risk level filter at database level (using stored column)
+        if (riskLevel != null && !riskLevel.equals("All") && !riskLevel.isBlank()) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("riskLevel"), riskLevel));
+        }
+        
+        // Apply decision filter at database level (using stored column)
+        if (decision != null && !decision.equals("All") && !decision.isBlank()) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("decision"), decision));
+        }
+        
+        // Create Pageable with sorting
+        org.springframework.data.domain.Pageable pageable = 
+            org.springframework.data.domain.PageRequest.of(safePage, safeSize, 
+                org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "txnTs"));
+        
+        // Execute query with pagination - now filtering happens at database level
+        org.springframework.data.domain.Page<TransactionEntity> pageResult = 
+            transactionRepository.findAll(spec, pageable);
+        
+        // Map to DTOs
+        java.util.List<Map<String, Object>> content = pageResult.getContent().stream()
                 .map(this::toTransactionDTO)
-                .collect(Collectors.toList());
+                .collect(java.util.stream.Collectors.toList());
+        
+        // Return paginated result with accurate counts
+        return new org.springframework.data.domain.PageImpl<>(
+            content, 
+            pageable, 
+            pageResult.getTotalElements()
+        );
     }
 
     /**
@@ -281,8 +314,11 @@ public class TransactionMonitoringService {
         dto.put("amountCents", txn.getAmountCents());
         dto.put("currency", txn.getCurrency());
         dto.put("riskScore", getRiskScore(txn));
-        dto.put("riskLevel", getRiskLevel(txn));
-        dto.put("decision", getDecision(txn));
+        
+        // Use stored values if available, otherwise calculate
+        dto.put("riskLevel", txn.getRiskLevel() != null ? txn.getRiskLevel() : getRiskLevel(txn));
+        dto.put("decision", txn.getDecision() != null ? txn.getDecision() : getDecision(txn));
+        
         dto.put("deviceRisk", getDeviceRisk(txn));
         dto.put("vpnDetected", isVpnDetected(txn));
         dto.put("sanctionsStatus", getSanctionsStatus(txn));

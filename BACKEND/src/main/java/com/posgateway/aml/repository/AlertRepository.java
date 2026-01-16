@@ -2,6 +2,7 @@ package com.posgateway.aml.repository;
 
 import com.posgateway.aml.entity.Alert;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -13,7 +14,7 @@ import java.util.List;
  * Repository for Alerts
  */
 @Repository
-public interface AlertRepository extends JpaRepository<Alert, Long> {
+public interface AlertRepository extends JpaRepository<Alert, Long>, JpaSpecificationExecutor<Alert> {
 
     /**
      * Find alerts by status

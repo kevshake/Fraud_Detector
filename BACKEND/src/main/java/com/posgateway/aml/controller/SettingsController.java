@@ -1,12 +1,16 @@
 package com.posgateway.aml.controller;
 
+import com.posgateway.aml.dto.SystemSettingsRequest;
 import com.posgateway.aml.dto.psp.PspThemeUpdateRequest;
+import com.posgateway.aml.entity.User;
 import com.posgateway.aml.entity.psp.Psp;
 import com.posgateway.aml.repository.PspRepository;
+import com.posgateway.aml.service.ConfigService;
 import com.posgateway.aml.service.psp.PspService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -25,16 +29,18 @@ public class SettingsController {
 
     private final PspRepository pspRepository;
     private final PspService pspService;
+    private final ConfigService configService;
 
     @Autowired
-    public SettingsController(PspRepository pspRepository, PspService pspService) {
+    public SettingsController(PspRepository pspRepository, PspService pspService, ConfigService configService) {
         this.pspRepository = pspRepository;
         this.pspService = pspService;
+        this.configService = configService;
     }
 
     /**
-     * Get system settings
-     * GET /api/v1/settings
+     * Get user settings (legacy endpoint for backward compatibility)
+     * GET /settings
      */
     @GetMapping
     public ResponseEntity<Map<String, Object>> getSettings() {
@@ -51,7 +57,7 @@ public class SettingsController {
 
     /**
      * Update system settings
-     * PUT /api/v1/settings
+     * PUT /settings
      */
     @PutMapping
     public ResponseEntity<Map<String, Object>> updateSettings(@RequestBody Map<String, Object> settings) {
@@ -61,8 +67,81 @@ public class SettingsController {
     }
 
     /**
+     * Get system configuration settings
+     * GET /settings/system
+     * Returns maintenance mode, debug logging, risk thresholds, audit retention, etc.
+     */
+    @GetMapping("/system")
+    public ResponseEntity<Map<String, Object>> getSystemSettings() {
+        Map<String, Object> settings = new HashMap<>();
+        
+        // Get system configuration from database
+        settings.put("maintenanceMode", configService.getConfigAsBoolean("system.maintenance.mode", false));
+        settings.put("debugLogging", configService.getConfigAsBoolean("system.debug.logging", false));
+        settings.put("riskThresholdHigh", configService.getConfigAsInteger("risk.threshold.high", 80));
+        settings.put("riskThresholdMedium", configService.getConfigAsInteger("risk.threshold.medium", 50));
+        settings.put("auditRetentionDays", configService.getConfigAsInteger("audit.retention.days", 90));
+        settings.put("allowCrossBorderTxns", configService.getConfigAsBoolean("transaction.allow.cross.border", true));
+        
+        return ResponseEntity.ok(settings);
+    }
+
+    /**
+     * Update system configuration settings
+     * PUT /settings/system
+     * Updates maintenance mode, debug logging, risk thresholds, audit retention, etc.
+     */
+    @PutMapping("/system")
+    public ResponseEntity<Map<String, Object>> updateSystemSettings(
+            @RequestBody SystemSettingsRequest request,
+            @AuthenticationPrincipal User currentUser) {
+        
+        String updatedBy = currentUser != null ? currentUser.getUsername() : "system";
+        
+        // Update each setting if provided
+        if (request.getMaintenanceMode() != null) {
+            configService.updateConfig("system.maintenance.mode", 
+                String.valueOf(request.getMaintenanceMode()), updatedBy, 
+                "System maintenance mode setting");
+        }
+        
+        if (request.getDebugLogging() != null) {
+            configService.updateConfig("system.debug.logging", 
+                String.valueOf(request.getDebugLogging()), updatedBy, 
+                "Debug logging enabled/disabled");
+        }
+        
+        if (request.getRiskThresholdHigh() != null) {
+            configService.updateConfig("risk.threshold.high", 
+                String.valueOf(request.getRiskThresholdHigh()), updatedBy, 
+                "High risk score threshold (0-100)");
+        }
+        
+        if (request.getRiskThresholdMedium() != null) {
+            configService.updateConfig("risk.threshold.medium", 
+                String.valueOf(request.getRiskThresholdMedium()), updatedBy, 
+                "Medium risk score threshold (0-100)");
+        }
+        
+        if (request.getAuditRetentionDays() != null) {
+            configService.updateConfig("audit.retention.days", 
+                String.valueOf(request.getAuditRetentionDays()), updatedBy, 
+                "Number of days to retain audit logs");
+        }
+        
+        if (request.getAllowCrossBorderTxns() != null) {
+            configService.updateConfig("transaction.allow.cross.border", 
+                String.valueOf(request.getAllowCrossBorderTxns()), updatedBy, 
+                "Allow cross-border transactions");
+        }
+        
+        // Return updated settings
+        return getSystemSettings();
+    }
+
+    /**
      * Get application configuration
-     * GET /api/v1/settings/config
+     * GET /settings/config
      */
     @GetMapping("/config")
     public ResponseEntity<Map<String, Object>> getConfig() {
@@ -98,7 +177,7 @@ public class SettingsController {
 
     /**
      * Get PSP theme configuration
-     * GET /api/v1/settings/psps/{pspId}/theme
+     * GET /settings/psps/{pspId}/theme
      */
     @GetMapping("/psps/{pspId}/theme")
     public ResponseEntity<Map<String, Object>> getPspTheme(@PathVariable Long pspId) {
@@ -124,7 +203,7 @@ public class SettingsController {
 
     /**
      * Update PSP theme configuration
-     * PUT /api/v1/settings/psps/{pspId}/theme
+     * PUT /settings/psps/{pspId}/theme
      */
     @PutMapping("/psps/{pspId}/theme")
     public ResponseEntity<Map<String, Object>> updatePspTheme(
@@ -152,7 +231,7 @@ public class SettingsController {
 
     /**
      * Get available theme presets
-     * GET /api/v1/settings/themes/presets
+     * GET /settings/themes/presets
      */
     @GetMapping("/themes/presets")
     public ResponseEntity<Map<String, Map<String, String>>> getThemePresets() {

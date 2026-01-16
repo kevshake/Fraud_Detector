@@ -6,6 +6,9 @@ import com.posgateway.aml.repository.AlertRepository;
 import com.posgateway.aml.repository.MerchantRepository;
 import com.posgateway.aml.service.alert.AlertDispositionService;
 import com.posgateway.aml.service.security.PspIsolationService;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -46,38 +49,56 @@ public class AlertController {
      * Super Admin (PSP ID 0) can see all alerts, PSP users see only their PSP's alerts
      */
     @GetMapping
-    public ResponseEntity<List<Alert>> getAllAlerts(
-            @RequestParam(required = false) String status,
-            @RequestParam(required = false, defaultValue = "100") int limit) {
+    public ResponseEntity<org.springframework.data.domain.Page<Alert>> getAllAlerts(
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false, defaultValue = "25") int size,
+            @RequestParam(required = false) String status) {
+        
+        int safeSize = Math.max(1, Math.min(size, 100)); // Max 100 per page
+        int safePage = Math.max(0, page);
         
         Long userPspId = pspIsolationService.getCurrentUserPspId();
-        List<Alert> alerts;
         
-        // Super Admin (PSP ID 0) can see all alerts
+        // Build Specification for filtering
+        org.springframework.data.jpa.domain.Specification<Alert> spec = 
+            org.springframework.data.jpa.domain.Specification.where(null);
+        
+        // PSP Isolation Logic
         if (userPspId != null && userPspId == 0L) {
-            // Super Admin - get all alerts
-            if (status != null && !status.isEmpty()) {
-                alerts = alertRepository.findByStatus(status);
-            } else {
-                alerts = alertRepository.findOpenAlerts();
+            // Super Admin: Can see all alerts (no PSP filter)
+            // Optional status filter
+            if (status != null && !status.isBlank()) {
+                spec = spec.and((root, query, cb) -> cb.equal(root.get("status"), status));
             }
         } else {
-            // PSP User - filter by PSP ID through merchants
-            if (status != null && !status.isEmpty()) {
-                // Filter by status and PSP ID
-                alerts = alertRepository.findByStatusAndPspId(status, userPspId);
-            } else {
-                // Get all alerts for this PSP (not just open)
-                alerts = alertRepository.findAllByPspId(userPspId);
+            // PSP User: Filter by PSP ID through merchants
+            // Use a subquery to check if the alert's merchant belongs to the user's PSP
+            spec = spec.and((root, query, cb) -> {
+                var subquery = query.subquery(Long.class);
+                var merchantRoot = subquery.from(com.posgateway.aml.entity.merchant.Merchant.class);
+                subquery.select(merchantRoot.get("merchantId"))
+                        .where(cb.and(
+                            cb.equal(merchantRoot.get("merchantId"), root.get("merchantId")),
+                            cb.equal(merchantRoot.get("psp").get("pspId"), userPspId)
+                        ));
+                return cb.exists(subquery);
+            });
+            
+            // Optional status filter
+            if (status != null && !status.isBlank()) {
+                spec = spec.and((root, query, cb) -> cb.equal(root.get("status"), status));
             }
         }
         
-        // Limit results
-        if (alerts.size() > limit) {
-            alerts = alerts.subList(0, limit);
-        }
+        // Create Pageable with sorting by created date descending
+        org.springframework.data.domain.Pageable pageable = 
+            PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "createdAt"));
         
-        return ResponseEntity.ok(alerts);
+        // Execute query with pagination
+        org.springframework.data.domain.Page<Alert> pageResult = 
+            alertRepository.findAll(spec, pageable);
+        
+        return ResponseEntity.ok(pageResult);
     }
 
     /**
