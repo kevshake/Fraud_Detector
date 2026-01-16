@@ -45,7 +45,7 @@ export default function AlertsPage() {
         <Typography variant="h4" sx={{ color: "text.primary", fontWeight: 600 }}>
           Alerts
         </Typography>
-        <Tooltip title="Perform bulk actions on selected alerts (e.g., mark as resolved, assign priority)" arrow>
+        <Tooltip title="Perform bulk actions on multiple selected alerts simultaneously. You can mark multiple alerts as resolved, assign priority levels, or apply status changes to all selected items at once. Select alerts using the checkboxes in the table before using this feature." arrow enterDelay={2000}>
           <Button variant="contained" sx={{ backgroundColor: "#a93226", "&:hover": { backgroundColor: "#922b21" } }}>
             Bulk Actions
           </Button>
@@ -112,7 +112,7 @@ export default function AlertsPage() {
                     {new Date(alert.createdAt).toLocaleDateString()}
                   </TableCell>
                   <TableCell>
-                    <Tooltip title="View detailed information about this alert" arrow>
+                    <Tooltip title="View comprehensive details about this alert including transaction information, risk score, merchant details, investigation history, and all related case information. Opens a detailed view panel with full alert context." arrow enterDelay={2000}>
                       <Button size="small" sx={{ color: "#a93226" }}>
                         View
                       </Button>

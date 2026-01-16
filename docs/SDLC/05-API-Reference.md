@@ -678,14 +678,19 @@ Retrieve list of transactions with filtering.
 
 **Endpoint:** `GET /api/v1/alerts`
 
+**Authentication:** Required (session-based)
+
 **Query Parameters:**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| status | String | OPEN, INVESTIGATING, RESOLVED |
-| priority | String | LOW, MEDIUM, HIGH, CRITICAL |
-| page | int | Page number |
-| size | int | Page size |
+| status | String | Optional. Filter by status (OPEN, INVESTIGATING, RESOLVED) |
+| page | int | Page number (default: 0) |
+| size | int | Page size (default: 25, max: 100) |
+
+**PSP Filtering:**
+- Super Admin (PSP ID 0): Sees all alerts across all PSPs
+- PSP users: See only alerts for merchants belonging to their PSP
 
 **Response (200 OK):**
 ```json
@@ -702,9 +707,16 @@ Retrieve list of transactions with filtering.
             "createdAt": "2026-01-09T10:35:00"
         }
     ],
-    "totalElements": 50
+    "totalElements": 50,
+    "totalPages": 2,
+    "number": 0,
+    "size": 25
 }
 ```
+
+**Error Responses:**
+- `401 Unauthorized`: Not authenticated
+- `403 Forbidden`: Insufficient permissions
 
 ---
 
@@ -829,13 +841,49 @@ Get alert disposition statistics with optional time filtering.
 
 **Endpoint:** `GET /api/v1/compliance/cases`
 
+**Authentication:** Required (session-based)
+
+**Required Permissions:** `VIEW_CASES`
+
 **Query Parameters:**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| status | String | NEW, ASSIGNED, INVESTIGATING, etc. |
-| assignedTo | Long | Analyst user ID |
-| priority | String | LOW, MEDIUM, HIGH |
+| status | String | Optional. Filter by case status (NEW, ASSIGNED, INVESTIGATING, etc.) |
+| page | int | Page number (default: 0) |
+| size | int | Page size (default: 10, max: 100) |
+
+**PSP Filtering:**
+- Super Admin: Sees all cases across all PSPs
+- PSP users: See only cases belonging to their PSP
+
+**Response (200 OK):**
+```json
+{
+    "content": [
+        {
+            "id": 500,
+            "caseNumber": "CASE-2026-0001",
+            "type": "SANCTIONS_MATCH",
+            "status": "INVESTIGATING",
+            "priority": "HIGH",
+            "assignedTo": {
+                "id": 10,
+                "name": "John Analyst"
+            },
+            "createdAt": "2026-01-08T14:00:00"
+        }
+    ],
+    "totalElements": 150,
+    "totalPages": 15,
+    "number": 0,
+    "size": 10
+}
+```
+
+**Error Responses:**
+- `401 Unauthorized`: Not authenticated
+- `403 Forbidden`: Insufficient permissions
 
 ---
 
@@ -999,7 +1047,20 @@ Delete a compliance case by ID with PSP access validation.
 
 **Endpoint:** `GET /api/v1/merchants`
 
-**Response:**
+**Authentication:** Required (session-based)
+
+**Query Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| page | int | Page number (default: 0) |
+| size | int | Page size (default: 25, max: 100) |
+
+**PSP Filtering:**
+- Super Admin (PSP ID 0): Sees all merchants across all PSPs
+- PSP users: See only merchants belonging to their PSP
+
+**Response (200 OK):**
 ```json
 {
     "content": [
@@ -1016,9 +1077,17 @@ Delete a compliance case by ID with PSP access validation.
             "cra": 60.0,
             "createdAt": "2025-06-01T00:00:00"
         }
-    ]
+    ],
+    "totalElements": 150,
+    "totalPages": 6,
+    "number": 0,
+    "size": 25
 }
 ```
+
+**Error Responses:**
+- `401 Unauthorized`: Not authenticated
+- `403 Forbidden`: Insufficient permissions
 
 ---
 
@@ -1076,7 +1145,23 @@ Full merchant onboarding with KYC.
 
 **Endpoint:** `GET /api/v1/users`
 
-**Response:**
+**Authentication:** Required (session-based)
+
+**Required Permissions:** `MANAGE_USERS` or `SUPER_ADMIN`
+
+**Query Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| page | int | Page number (default: 0) |
+| size | int | Page size (default: 25, max: 100) |
+| pspId | Long | Optional. Filter by PSP ID (Super Admin only) |
+
+**PSP Filtering:**
+- Super Admin: Can see all users or filter by specific PSP ID
+- PSP Admin/User: Can only see users from their own PSP
+
+**Response (200 OK):**
 ```json
 {
     "content": [
@@ -1089,9 +1174,17 @@ Full merchant onboarding with KYC.
             "active": true,
             "lastLogin": "2026-01-09T08:00:00"
         }
-    ]
+    ],
+    "totalElements": 45,
+    "totalPages": 2,
+    "number": 0,
+    "size": 25
 }
 ```
+
+**Error Responses:**
+- `401 Unauthorized`: Not authenticated
+- `403 Forbidden`: Insufficient permissions
 
 ---
 

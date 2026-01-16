@@ -12,6 +12,7 @@ import {
   Button,
   TablePagination,
   CircularProgress,
+  Tooltip,
 } from "@mui/material";
 import { useState } from "react";
 import { useMerchants } from "../../features/api/queries";
@@ -36,9 +37,11 @@ export default function MerchantsPage() {
         <Typography variant="h4" sx={{ color: "text.primary", fontWeight: 600 }}>
           Merchants
         </Typography>
-        <Button variant="contained" sx={{ backgroundColor: "#a93226", "&:hover": { backgroundColor: "#922b21" } }}>
-          Add Merchant
-        </Button>
+        <Tooltip title="Create and onboard a new merchant to the system. This opens a form where you can enter merchant business details, KYC information, risk assessment data, and configure transaction limits. The merchant will go through the onboarding workflow after submission." arrow enterDelay={2000}>
+          <Button variant="contained" sx={{ backgroundColor: "#a93226", "&:hover": { backgroundColor: "#922b21" } }}>
+            Add Merchant
+          </Button>
+        </Tooltip>
       </Box>
 
       <TableContainer component={Paper} sx={{ backgroundColor: "background.paper", border: "1px solid rgba(0,0,0,0.1)" }}>
@@ -91,9 +94,11 @@ export default function MerchantsPage() {
                     {merchant.contractStatus || "N/A"}
                   </TableCell>
                   <TableCell>
-                    <Button size="small" sx={{ color: "#a93226" }}>
-                      View
-                    </Button>
+                    <Tooltip title="View complete merchant profile including business information, KYC status, risk scores (KRS and CRA), transaction history, compliance status, contract details, and all associated alerts and cases. Opens a detailed merchant dashboard." arrow enterDelay={2000}>
+                      <Button size="small" sx={{ color: "#a93226" }}>
+                        View
+                      </Button>
+                    </Tooltip>
                   </TableCell>
                 </TableRow>
               ))

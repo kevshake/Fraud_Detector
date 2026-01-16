@@ -195,7 +195,7 @@ export default function UsersTab() {
     return (
         <Box>
             <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 3 }}>
-                <Tooltip title="Create a new user account with specified role and permissions" arrow>
+                <Tooltip title="Create a new user account in the system. Opens a form where you can specify the username, email, password, assign a role (which determines permissions), optionally assign to a Payment Service Provider (PSP), and set the account status. The new user will be able to log in immediately if enabled." arrow enterDelay={2000}>
                     <Button
                         variant="contained"
                         startIcon={<AddIcon />}
@@ -264,12 +264,12 @@ export default function UsersTab() {
                                     </TableCell>
                                     <TableCell>
                                         <Box sx={{ display: "flex", gap: 0.5 }}>
-                                            <Tooltip title="Edit user details and permissions" arrow>
+                                            <Tooltip title="Edit this user's account details including name, email, role assignment, PSP assignment, and account status. Opens the user edit dialog with pre-filled information. Note: Username cannot be changed after account creation." arrow enterDelay={2000}>
                                                 <IconButton size="small" onClick={() => handleOpenDialog(user)} sx={{ color: "#8B4049" }}>
                                                     <EditIcon fontSize="small" />
                                                 </IconButton>
                                             </Tooltip>
-                                            <Tooltip title={user.enabled ? "Disable this user account" : "Enable this user account"} arrow>
+                                            <Tooltip title={user.enabled ? "Disable this user account to prevent login access. The user will not be able to authenticate until the account is re-enabled. Useful for temporary access suspension or security measures." : "Enable this user account to restore login access. The user will be able to authenticate and access the system based on their assigned role and permissions."} arrow enterDelay={2000}>
                                                 <IconButton
                                                     size="small"
                                                     onClick={() => handleToggleEnabled(user.id, user.enabled)}
@@ -278,7 +278,7 @@ export default function UsersTab() {
                                                     {user.enabled ? <DisableIcon fontSize="small" /> : <EnableIcon fontSize="small" />}
                                                 </IconButton>
                                             </Tooltip>
-                                            <Tooltip title="Permanently delete this user account" arrow>
+                                            <Tooltip title="Permanently delete this user account from the system. This action cannot be undone and will remove all user data, access permissions, and account history. Use with caution. Ensure you have proper authorization before deleting user accounts." arrow enterDelay={2000}>
                                                 <IconButton size="small" onClick={() => handleDelete(user.id)} sx={{ color: "#e74c3c" }}>
                                                     <DeleteIcon fontSize="small" />
                                                 </IconButton>
@@ -316,7 +316,7 @@ export default function UsersTab() {
                             <Alert severity="error">Failed to save user. Please try again.</Alert>
                         )}
 
-                        <Tooltip title="Enter a unique username for login. Cannot be changed after creation." arrow placement="top">
+                        <Tooltip title="Enter a unique username that will be used for login authentication. This username must be unique across the system and cannot be changed after the user account is created. Choose a username that follows your organization's naming convention (e.g., firstname.lastname or employee ID)." arrow placement="top" enterDelay={2000}>
                             <TextField
                                 label="Username"
                                 value={formData.username}
@@ -328,7 +328,7 @@ export default function UsersTab() {
                         </Tooltip>
 
                         <Box sx={{ display: "flex", gap: 2 }}>
-                            <Tooltip title="Enter the user's first name" arrow placement="top">
+                            <Tooltip title="Enter the user's legal first name as it should appear in the system. This name will be displayed in user lists, audit logs, and case assignments. Use the person's official first name for consistency." arrow placement="top" enterDelay={2000}>
                                 <TextField
                                     label="First Name"
                                     value={formData.firstName}
@@ -337,7 +337,7 @@ export default function UsersTab() {
                                     required
                                 />
                             </Tooltip>
-                            <Tooltip title="Enter the user's last name" arrow placement="top">
+                            <Tooltip title="Enter the user's legal last name (surname) as it should appear in the system. This name will be displayed alongside the first name in user lists, audit logs, and case assignments. Use the person's official last name for consistency." arrow placement="top" enterDelay={2000}>
                                 <TextField
                                     label="Last Name"
                                     value={formData.lastName}
@@ -348,7 +348,7 @@ export default function UsersTab() {
                             </Tooltip>
                         </Box>
 
-                        <Tooltip title="Enter a valid email address for notifications and account recovery" arrow placement="top">
+                        <Tooltip title="Enter a valid email address for this user. This email will be used for system notifications, password reset requests, account recovery, and important alerts. The email must be unique in the system and follow standard email format (e.g., user@example.com)." arrow placement="top" enterDelay={2000}>
                             <TextField
                                 label="Email"
                                 type="email"
@@ -359,7 +359,7 @@ export default function UsersTab() {
                             />
                         </Tooltip>
 
-                        <Tooltip title={editingUser ? "Enter a new password to change it, or leave blank to keep the current password" : "Enter a secure password for the user account"} arrow placement="top">
+                        <Tooltip title={editingUser ? "Enter a new password to change the user's current password, or leave this field blank to keep the existing password unchanged. The new password should meet security requirements (minimum length, complexity)." : "Enter a secure password for the new user account. The password should be strong (minimum 8 characters, include uppercase, lowercase, numbers, and special characters) to ensure account security. The user will use this password to log in."} arrow placement="top" enterDelay={2000}>
                             <TextField
                                 label={editingUser ? "New Password (leave blank to keep current)" : "Password"}
                                 type="password"
@@ -370,7 +370,7 @@ export default function UsersTab() {
                             />
                         </Tooltip>
 
-                        <Tooltip title="Select the role that determines user permissions and access levels" arrow placement="top">
+                        <Tooltip title="Select the role that determines this user's permissions and access levels in the system. Roles define what actions the user can perform (e.g., view cases, create alerts, manage users). System roles apply globally, while PSP-specific roles are scoped to a particular Payment Service Provider. Choose the role that matches the user's responsibilities." arrow placement="top" enterDelay={2000}>
                             <FormControl fullWidth required>
                                 <InputLabel>Role</InputLabel>
                                 <Select
@@ -387,7 +387,7 @@ export default function UsersTab() {
                             </FormControl>
                         </Tooltip>
 
-                        <Tooltip title="Optionally assign this user to a specific Payment Service Provider (PSP). Leave empty for system-wide access." arrow placement="top">
+                        <Tooltip title="Optionally assign this user to a specific Payment Service Provider (PSP) to restrict their access to that PSP's data only. Leave empty for system-wide access (Super Admin). PSP users can only view and manage data belonging to their assigned PSP, ensuring data isolation and multi-tenancy compliance. System users (no PSP) have access to all data across all PSPs." arrow placement="top" enterDelay={2000}>
                             <FormControl fullWidth>
                                 <InputLabel>PSP (Optional)</InputLabel>
                                 <Select
@@ -405,7 +405,7 @@ export default function UsersTab() {
                             </FormControl>
                         </Tooltip>
 
-                        <Tooltip title="Enable or disable this user account. Disabled users cannot log in." arrow placement="top">
+                        <Tooltip title="Enable or disable this user account. When enabled, the user can log in and access the system based on their assigned role and permissions. When disabled, the user cannot authenticate or access the system, but their account data is preserved. Useful for temporary access suspension or when an employee leaves the organization." arrow placement="top" enterDelay={2000}>
                             <FormControlLabel
                                 control={
                                     <Switch
@@ -419,10 +419,10 @@ export default function UsersTab() {
                     </Box>
                 </DialogContent>
                 <DialogActions>
-                    <Tooltip title="Cancel and discard all changes" arrow>
+                    <Tooltip title="Cancel the user creation or editing process and discard all changes made in this dialog. Returns to the user list without saving any modifications." arrow enterDelay={2000}>
                         <Button onClick={handleCloseDialog}>Cancel</Button>
                     </Tooltip>
-                    <Tooltip title="Save user information and apply changes" arrow>
+                    <Tooltip title="Save the user information and apply all changes. For new users, this creates the account with the specified details. For existing users, this updates their information including name, email, role, PSP assignment, and account status. The user will be able to log in immediately after creation (if enabled)." arrow enterDelay={2000}>
                         <span>
                             <Button
                                 onClick={handleSave}

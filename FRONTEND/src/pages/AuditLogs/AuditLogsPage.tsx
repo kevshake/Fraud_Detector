@@ -66,7 +66,7 @@ export default function AuditLogsPage() {
       <Paper sx={{ p: 2, mb: 3, backgroundColor: "background.paper", border: "1px solid rgba(0,0,0,0.1)" }}>
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} md={isSuperAdmin ? 2 : 3}>
-            <Tooltip title="Filter by start date" arrow>
+            <Tooltip title="Select the start date for the audit log search range. Only audit log entries created on or after this date will be displayed. Use this to narrow down the time period you want to review." arrow enterDelay={2000}>
               <TextField
                 label="Start Date"
                 type="date"
@@ -79,7 +79,7 @@ export default function AuditLogsPage() {
             </Tooltip>
           </Grid>
           <Grid item xs={12} md={isSuperAdmin ? 2 : 3}>
-            <Tooltip title="Filter by end date" arrow>
+            <Tooltip title="Select the end date for the audit log search range. Only audit log entries created on or before this date will be displayed. Combined with start date, this creates a date range filter for the audit trail." arrow enterDelay={2000}>
               <TextField
                 label="End Date"
                 type="date"
@@ -92,7 +92,7 @@ export default function AuditLogsPage() {
             </Tooltip>
           </Grid>
           <Grid item xs={12} md={isSuperAdmin ? 2 : 3}>
-            <Tooltip title="Filter by action type" arrow>
+            <Tooltip title="Filter audit logs by the type of action performed. Options include: LOGIN (user authentication), LOGOUT (session termination), CREATE (new record creation), UPDATE (data modifications), DELETE (record removal), VIEW (data access), EXPORT (data export), and OVERRIDE (permission overrides). Select 'All Actions' to show all action types." arrow enterDelay={2000}>
               <TextField
                 select
                 label="Action"
@@ -111,7 +111,7 @@ export default function AuditLogsPage() {
             </Tooltip>
           </Grid>
           <Grid item xs={12} md={isSuperAdmin ? 2 : 3}>
-            <Tooltip title="Search by username" arrow>
+            <Tooltip title="Search for audit log entries by the username of the user who performed the action. Enter a partial or complete username to filter the audit trail to show only actions performed by that specific user. This helps track individual user activity." arrow enterDelay={2000}>
               <TextField
                 label="Username"
                 value={filters.username}
@@ -127,7 +127,7 @@ export default function AuditLogsPage() {
 
           {isSuperAdmin && (
             <Grid item xs={12} md={2}>
-              <Tooltip title="Filter by Payment Service Provider" arrow>
+              <Tooltip title="Filter audit logs by Payment Service Provider (PSP). This allows Super Admins to view audit trail entries specific to a particular PSP's activities. Select a PSP from the dropdown to see only audit logs related to that PSP's users, merchants, and transactions. Select 'All PSPs' to view system-wide audit logs." arrow enterDelay={2000}>
                 <TextField
                   select
                   label="PSP"
@@ -240,4 +240,5 @@ export default function AuditLogsPage() {
         />
       </TableContainer>
     </Box>
+  );
 }

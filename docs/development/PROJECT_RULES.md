@@ -8,7 +8,7 @@ This document defines the project-specific rules and standards for the AML Fraud
 
 ### API Documentation Rule
 > [!CRITICAL]
-> **All API endpoints MUST be documented in `docs/05-API-Reference.md` immediately upon creation or modification.**
+> **All API endpoints MUST be documented in `docs/SDLC/05-API-Reference.md` immediately upon creation or modification.**
 
 This is a strict rule to ensure the frontend and external consumers always have up-to-date integration details.
 
@@ -29,7 +29,7 @@ This is a strict rule to ensure the frontend and external consumers always have 
 
 ### Code Component Documentation Rule
 > [!IMPORTANT]
-> **All new service classes, filters, and significant components MUST be documented in `docs/04-Software-Design-Document.md`.**
+> **All new service classes, filters, and significant components MUST be documented in `docs/SDLC/04-Software-Design-Document.md`.**
 
 **Requirements:**
 - Add component to package structure diagram
@@ -41,7 +41,7 @@ This is a strict rule to ensure the frontend and external consumers always have 
 
 ### Architecture Documentation Rule
 > [!IMPORTANT]
-> **Significant architectural changes MUST be documented in `docs/01-Technical-Architecture.md`.**
+> **Significant architectural changes MUST be documented in `docs/SDLC/01-Technical-Architecture.md`.**
 
 This includes:
 - New technology stack components
@@ -49,6 +49,98 @@ This includes:
 - New integration patterns
 - Performance optimization strategies
 - Security enhancements
+
+### Documentation Organization Rule
+> [!IMPORTANT]
+> **All documentation MUST be organized into appropriate folders within the `docs/` directory for better management and navigation.**
+
+**Folder Structure:**
+```
+docs/
+├── SDLC/                    # Software Development Life Cycle documents
+│   ├── 01-Technical-Architecture.md
+│   ├── 02-Functional-Specification.md
+│   ├── 03-Software-Requirements-Specification.md
+│   ├── 04-Software-Design-Document.md
+│   ├── 05-API-Reference.md
+│   ├── 06-Database-Design.md
+│   ├── 07-User-Guide.md
+│   └── 08-Deployment-Guide.md
+│
+├── guides/                  # User and operational guides
+│   ├── BUSINESS_USER_GUIDE.md
+│   ├── PARTNER_INTEGRATION_GUIDE.md
+│   ├── REPORTING_AND_UI_GUIDE.md
+│   └── ...
+│
+├── architecture/            # Architecture and design documents
+│   ├── ARCHITECTURE_OVERVIEW.md
+│   ├── TECH_STACK.md
+│   ├── CACHING_STRATEGY.md
+│   └── ...
+│
+├── development/             # Development standards and rules
+│   ├── DEVELOPMENT_RULES.md
+│   ├── PROJECT_RULES.md
+│   ├── DOCUMENTATION_QUICK_REFERENCE.md
+│   └── ENV_VARIABLES.md
+│
+├── infrastructure/          # Infrastructure setup and configuration
+│   ├── AEROSPIKE_CONNECTION_SETUP.md
+│   ├── GRAFANA_DASHBOARD_ACCESS_GUIDE.md
+│   ├── PROMETHEUS_GRAFANA_SETUP.md
+│   └── ...
+│
+├── implementation/          # Implementation reports and summaries
+│   ├── IMPLEMENTATION_DOCUMENTATION.md
+│   ├── DOCUMENTATION_UPDATE_2026-01-16.md
+│   └── ...
+│
+├── security/                # Security audits and PSP isolation
+│   ├── PSP_ISOLATION_SECURITY_AUDIT.md
+│   ├── SECURITY_AUDIT_REPORT.md
+│   ├── SESSION_MANAGEMENT_COMPLETE.md
+│   └── ...
+│
+├── performance/             # Performance optimization documents
+│   ├── HIGH_THROUGHPUT_OPTIMIZATIONS.md
+│   ├── ULTRA_HIGH_THROUGHPUT_30K_OPTIMIZATION.md
+│   └── ...
+│
+├── features/                # Feature-specific documentation
+│   ├── CASE_MANAGEMENT_IMPLEMENTATION_RESEARCH.md
+│   ├── SCORING_PROCESS_DOCUMENTATION.md
+│   ├── ROLL_YOUR_OWN_SANCTIONS_SCREENING.md
+│   └── ...
+│
+└── archive/                 # Historical/legacy documents
+    ├── PROGRESS.md
+    ├── TODO_IMPLEMENTATION_LIST.md
+    └── ...
+```
+
+**Rules:**
+- **SDLC documents** (numbered 01-08) go in `SDLC/` folder
+- **User guides** go in `guides/` folder
+- **Development rules and standards** go in `development/` folder
+- **Infrastructure setup docs** go in `infrastructure/` folder
+- **Implementation summaries** go in `implementation/` folder
+- **Security-related docs** go in `security/` folder
+- **Performance docs** go in `performance/` folder
+- **Feature-specific docs** go in `features/` folder
+- **Historical/completed task docs** go in `archive/` folder
+
+**When Creating New Documentation:**
+1. Determine the appropriate folder based on document type
+2. Place the document in that folder
+3. Update README.md links if necessary
+4. Use relative paths when linking between documents
+
+**Benefits:**
+- Easier navigation and discovery
+- Logical grouping of related documents
+- Reduced clutter in root docs directory
+- Better scalability as documentation grows
 
 ## Code Organization Standards
 

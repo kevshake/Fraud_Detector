@@ -244,7 +244,7 @@ export default function SettingsPage() {
           {/* PSP Selection */}
           <Grid container spacing={3} sx={{ mb: 3 }}>
             <Grid item xs={12} md={6}>
-              <Tooltip title="Select a PSP to customize its theme and branding" arrow>
+              <Tooltip title="Select a Payment Service Provider (PSP) from the dropdown to customize its theme and branding settings. Once selected, you can modify colors, fonts, logo, button styles, and navigation layout. Each PSP can have a unique visual identity that is automatically applied when users from that PSP log into the system." arrow enterDelay={2000}>
                 <FormControl fullWidth>
                   <InputLabel>Select PSP</InputLabel>
                   <Select
@@ -277,7 +277,7 @@ export default function SettingsPage() {
                 </Typography>
                 <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
                   {BRAND_THEMES.map((preset) => (
-                    <Tooltip key={preset.id} title={preset.name} arrow>
+                    <Tooltip key={preset.id} title={`Apply the ${preset.name} theme preset. This will automatically populate all color fields and styling options with predefined values that match this brand's visual identity. You can further customize individual settings after applying a preset.`} arrow enterDelay={2000}>
                       <Chip
                         label={preset.name}
                         onClick={() => handlePresetSelect(preset.id)}
@@ -300,7 +300,7 @@ export default function SettingsPage() {
               {/* Color Customization */}
               <Grid container spacing={3} sx={{ mb: 3 }}>
                 <Grid item xs={12} md={4}>
-                  <Tooltip title="Main brand color used for primary buttons and highlights" arrow>
+                  <Tooltip title="Set the primary brand color used throughout the application for primary buttons, links, highlights, and key interactive elements. This is the main color that represents the PSP's brand identity. Choose a color that aligns with the PSP's corporate branding guidelines. The color picker allows you to select any color value." arrow enterDelay={2000}>
                     <TextField
                       fullWidth
                       label="Primary Color"
@@ -312,7 +312,7 @@ export default function SettingsPage() {
                   </Tooltip>
                 </Grid>
                 <Grid item xs={12} md={4}>
-                  <Tooltip title="Secondary brand color used for accents and secondary elements" arrow>
+                  <Tooltip title="Set the secondary brand color used for secondary buttons, accents, borders, and supporting UI elements. This color complements the primary color and provides visual hierarchy. Typically, this is a lighter or complementary shade of the primary color that maintains brand consistency while providing contrast." arrow enterDelay={2000}>
                     <TextField
                       fullWidth
                       label="Secondary Color"
@@ -324,7 +324,7 @@ export default function SettingsPage() {
                   </Tooltip>
                 </Grid>
                 <Grid item xs={12} md={4}>
-                  <Tooltip title="Accent color used for error states and emphasis" arrow>
+                  <Tooltip title="Set the accent color used for error states, warnings, emphasis, and attention-grabbing elements. This color is typically used for error messages, danger actions, and critical notifications. Choose a color that stands out (often red or orange tones) to ensure important alerts are clearly visible to users." arrow enterDelay={2000}>
                     <TextField
                       fullWidth
                       label="Accent Color"
@@ -336,7 +336,7 @@ export default function SettingsPage() {
                   </Tooltip>
                 </Grid>
                 <Grid item xs={12} md={6}>
-                  <Tooltip title="URL to the PSP's logo image (PNG, SVG, or JPG format)" arrow>
+                  <Tooltip title="Enter the full URL (web address) to the PSP's logo image file. Supported formats include PNG, SVG, or JPG. The logo will be displayed in the application header and branding areas. Ensure the URL is publicly accessible and the image is optimized for web display. Example: https://example.com/logo.png" arrow enterDelay={2000}>
                     <TextField
                       fullWidth
                       label="Logo URL"
@@ -347,7 +347,7 @@ export default function SettingsPage() {
                   </Tooltip>
                 </Grid>
                 <Grid item xs={12} md={6}>
-                  <Tooltip title="Font family for the entire application (e.g., 'Inter', 'Outfit', sans-serif)" arrow>
+                  <Tooltip title="Specify the font family (typeface) used throughout the entire application interface. Enter CSS font-family values such as 'Inter', 'Outfit', 'Roboto', or a font stack like 'Arial, sans-serif'. The font should be web-safe or loaded via web fonts. This affects all text elements including headings, body text, buttons, and form labels to create a consistent typographic identity." arrow enterDelay={2000}>
                     <TextField
                       fullWidth
                       label="Font Family"
@@ -358,7 +358,7 @@ export default function SettingsPage() {
                   </Tooltip>
                 </Grid>
                 <Grid item xs={12} md={6}>
-                  <Tooltip title="Base font size for the application (e.g., 14px or 1rem)" arrow>
+                  <Tooltip title="Set the base font size for the application interface. Enter a CSS size value such as '14px', '1rem', or '16px'. This base size is used as the default for body text, and other text elements (headings, buttons) scale relative to this value. Common values are 14px-16px for optimal readability. Use 'rem' units for better accessibility as it respects user browser font size preferences." arrow enterDelay={2000}>
                     <TextField
                       fullWidth
                       label="Font Size"
@@ -369,7 +369,7 @@ export default function SettingsPage() {
                   </Tooltip>
                 </Grid>
                 <Grid item xs={12} md={6}>
-                  <Tooltip title="Border radius for buttons (e.g., 12px or 0.5rem)" arrow>
+                  <Tooltip title="Set the border radius (rounded corners) for all buttons in the application. Enter a CSS value like '12px', '0.5rem', or '8px'. Higher values create more rounded buttons (softer appearance), while lower values create sharper, more angular buttons. This affects the visual style and modern feel of the interface." arrow enterDelay={2000}>
                     <TextField
                       fullWidth
                       label="Button Border Radius"
@@ -380,7 +380,7 @@ export default function SettingsPage() {
                   </Tooltip>
                 </Grid>
                 <Grid item xs={12} md={6}>
-                  <Tooltip title="Visual style for buttons: Flat (minimal), Raised (elevated), or Outlined (border only)" arrow>
+                  <Tooltip title="Choose the visual style for all buttons in the application. Options: Flat (minimal design with no shadow or border, modern and clean), Raised (elevated appearance with shadow, creates depth), or Outlined (border-only style with transparent fill, subtle appearance). This affects the overall button aesthetic and user interface feel." arrow enterDelay={2000}>
                     <FormControl fullWidth>
                       <InputLabel>Button Style</InputLabel>
                       <Select
@@ -396,7 +396,7 @@ export default function SettingsPage() {
                   </Tooltip>
                 </Grid>
                 <Grid item xs={12} md={6}>
-                  <Tooltip title="Navigation layout style: Drawer (side panel) or Top Bar (horizontal menu)" arrow>
+                  <Tooltip title="Select the navigation layout style for the application. Drawer (side panel) displays a collapsible sidebar menu on the left side, ideal for applications with many menu items. Top Bar (horizontal menu) displays navigation links in a horizontal bar at the top, better for applications with fewer menu items. This affects the overall layout and user navigation experience." arrow enterDelay={2000}>
                     <FormControl fullWidth>
                       <InputLabel>Navigation Style</InputLabel>
                       <Select
@@ -413,12 +413,12 @@ export default function SettingsPage() {
               </Grid>
 
               <Box sx={{ display: "flex", gap: 2, justifyContent: "flex-end" }}>
-                <Tooltip title="Reset theme to the last saved configuration" arrow>
+                <Tooltip title="Reset all theme settings to the last saved configuration, discarding any unsaved changes made in this session. This restores colors, fonts, logo, and styling options to their previously saved state. Useful if you want to undo recent modifications without saving." arrow enterDelay={2000}>
                   <Button variant="outlined" onClick={() => setThemeData(currentTheme || null)}>
                     Reset
                   </Button>
                 </Tooltip>
-                <Tooltip title="Save the current theme configuration for this PSP" arrow>
+                <Tooltip title="Save the current theme configuration for this PSP. All color settings, fonts, logo URL, button styles, and navigation preferences will be persisted and automatically applied when users from this PSP log into the system. The theme takes effect immediately after saving." arrow enterDelay={2000}>
                   <Button
                     variant="contained"
                     onClick={handleSaveTheme}
@@ -457,7 +457,7 @@ export default function SettingsPage() {
                   <Grid item xs={12} md={6}>
                     <Typography variant="subtitle2" sx={{ mb: 1 }}>System Status</Typography>
                     <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                      <Tooltip title="Enable maintenance mode to restrict access for system updates" arrow>
+                      <Tooltip title="Enable maintenance mode to temporarily restrict user access during system updates, deployments, or scheduled maintenance windows. When enabled, users will see a maintenance message and cannot access the system. Disable after maintenance is complete to restore normal access. Use this feature to prevent data inconsistencies during system changes." arrow enterDelay={2000}>
                         <TextField
                           select
                           label="Maintenance Mode"
@@ -470,7 +470,7 @@ export default function SettingsPage() {
                           <MenuItem value="false">Disabled</MenuItem>
                         </TextField>
                       </Tooltip>
-                      <Tooltip title="Enable debug logging for detailed system diagnostics" arrow>
+                      <Tooltip title="Enable debug logging to capture detailed system diagnostics, error traces, and performance metrics. When enabled, the system logs extensive information useful for troubleshooting issues, performance analysis, and development. Disable in production to reduce log volume and improve performance. Debug logs may contain sensitive information." arrow enterDelay={2000}>
                         <TextField
                           select
                           label="Debug Logging"
@@ -489,7 +489,7 @@ export default function SettingsPage() {
               <Grid item xs={12} md={6}>
                 <Typography variant="subtitle2" sx={{ mb: 1 }}>Risk & Compliance</Typography>
                 <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                  <Tooltip title="Risk score threshold (0-100) above which transactions are considered high risk" arrow>
+                  <Tooltip title="Set the risk score threshold (0-100) above which transactions are automatically classified as high risk. Transactions with risk scores at or above this value will trigger high-risk alerts, require manual review, or be automatically declined based on your risk management rules. Lower values mean more transactions are flagged as high risk (stricter)." arrow enterDelay={2000}>
                     <TextField
                       label="High Risk Score Threshold"
                       type="number"
@@ -499,7 +499,7 @@ export default function SettingsPage() {
                       disabled={updateSystemSettingsMutation.isPending}
                     />
                   </Tooltip>
-                  <Tooltip title="Risk score threshold (0-100) above which transactions are considered medium risk" arrow>
+                  <Tooltip title="Set the risk score threshold (0-100) above which transactions are classified as medium risk. Transactions with scores between this value and the high risk threshold require additional scrutiny but may be approved with review. This threshold helps categorize risk levels for appropriate handling workflows." arrow enterDelay={2000}>
                     <TextField
                       label="Medium Risk Score Threshold"
                       type="number"
@@ -515,7 +515,7 @@ export default function SettingsPage() {
               <Grid item xs={12} md={6}>
                 <Typography variant="subtitle2" sx={{ mb: 1 }}>Data Policies</Typography>
                 <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                  <Tooltip title="Number of days to retain audit logs before automatic deletion" arrow>
+                  <Tooltip title="Set the number of days to retain audit logs in the system before automatic deletion. Audit logs older than this retention period will be automatically purged to manage database storage. Consider regulatory requirements (e.g., 7 years for financial compliance) when setting this value. Higher values require more storage capacity but provide longer audit trail history." arrow enterDelay={2000}>
                     <TextField
                       label="Audit Log Retention (Days)"
                       type="number"
@@ -531,7 +531,7 @@ export default function SettingsPage() {
               <Grid item xs={12}>
                 <Divider sx={{ my: 2 }} />
                 <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-                  <Tooltip title="Save all system configuration settings" arrow>
+                  <Tooltip title="Save all system configuration settings including maintenance mode, debug logging, risk thresholds, and audit retention policies. These settings apply globally across the entire system and affect all users and PSPs. Changes take effect immediately after saving. Ensure you have proper authorization before modifying system-wide settings." arrow enterDelay={2000}>
                     <Button 
                       variant="contained" 
                       color="primary" 

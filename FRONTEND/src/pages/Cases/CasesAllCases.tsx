@@ -51,7 +51,7 @@ export default function CasesAllCases() {
         <Box>
             <Box sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center", mb: 3 }}>
                 <Box sx={{ display: "flex", gap: 2 }}>
-                    <Tooltip title="Filter cases by their current status (New, Assigned, Investigating, etc.)" arrow placement="top">
+                    <Tooltip title="Filter the cases list by their current workflow status. Options include: New (recently created), Assigned (assigned to an analyst), Investigating (under active review), Pending Review (awaiting supervisor approval), Resolved (completed), and Escalated (requires higher-level attention). Select 'All' to show cases in all statuses." arrow placement="top" enterDelay={2000}>
                         <FormControl size="small" sx={{ minWidth: 200 }}>
                             <InputLabel sx={{ color: "text.secondary" }}>Filter by Status</InputLabel>
                             <Select
@@ -75,7 +75,7 @@ export default function CasesAllCases() {
                             </Select>
                         </FormControl>
                     </Tooltip>
-                    <Tooltip title="Create a new case for investigation" arrow placement="top">
+                    <Tooltip title="Create a new compliance case for investigation. This opens a case creation form where you can specify the case type (sanctions match, suspicious activity, etc.), assign it to an analyst, set priority level, link related transactions and alerts, and add initial notes. The case will be tracked through its complete investigation workflow." arrow placement="top" enterDelay={2000}>
                         <Button variant="contained" sx={{ backgroundColor: "#8B4049", "&:hover": { backgroundColor: "#6B3037" } }}>
                             Create Case
                         </Button>
@@ -145,7 +145,7 @@ export default function CasesAllCases() {
                                         {new Date(caseItem.createdAt).toLocaleDateString()}
                                     </TableCell>
                                     <TableCell>
-                                        <Tooltip title="View detailed information about this case" arrow>
+                                        <Tooltip title="View the complete case details including case timeline, all related transactions and alerts, investigation notes, assigned analyst information, priority and status history, evidence attachments, and case resolution details. Opens the full case management interface." arrow enterDelay={2000}>
                                             <Button size="small" sx={{ color: "#8B4049" }}>
                                                 View
                                             </Button>

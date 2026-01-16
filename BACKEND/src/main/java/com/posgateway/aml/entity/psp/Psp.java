@@ -120,6 +120,7 @@ public class Psp {
 
     // Relationships
     @OneToMany(mappedBy = "psp", cascade = CascadeType.ALL)
+    @com.fasterxml.jackson.annotation.JsonManagedReference("psp-users")
     private List<com.posgateway.aml.entity.User> users = new ArrayList<>();
 
     public Psp() {

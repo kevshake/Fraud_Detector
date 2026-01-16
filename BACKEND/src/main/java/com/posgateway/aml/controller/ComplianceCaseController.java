@@ -47,8 +47,16 @@ public class ComplianceCaseController {
     }
 
     /**
-     * Get all compliance cases
-     * GET /api/v1/compliance/cases
+     * Get all compliance cases with pagination
+     * GET /compliance/cases
+     * 
+     * Security: PSP users can only see cases from their PSP.
+     * Super Admin can see all cases.
+     * 
+     * @param status Optional status filter
+     * @param page Page number (default: 0)
+     * @param size Page size (default: 25, max: 100)
+     * @return Paginated list of compliance cases
      */
     @GetMapping
     @PreAuthorize("hasAuthority('VIEW_CASES')")
@@ -105,7 +113,7 @@ public class ComplianceCaseController {
 
     /**
      * Get case by ID
-     * GET /api/v1/compliance/cases/{id}
+     * GET /compliance/cases/{id}
      */
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('VIEW_CASES')")
@@ -122,8 +130,8 @@ public class ComplianceCaseController {
     }
 
     /**
-     * Get statistics
-     * GET /api/v1/compliance/cases/stats
+     * Get case statistics
+     * GET /compliance/cases/stats
      */
     @GetMapping("/stats")
     public ResponseEntity<CaseStats> getStats() {
@@ -169,7 +177,7 @@ public class ComplianceCaseController {
 
     /**
      * Get total count of all cases
-     * GET /api/v1/compliance/cases/count
+     * GET /compliance/cases/count
      */
     @GetMapping("/count")
     public ResponseEntity<Map<String, Long>> getCaseCount() {
@@ -196,7 +204,7 @@ public class ComplianceCaseController {
 
     /**
      * Delete case
-     * DELETE /api/v1/compliance/cases/{id}
+     * DELETE /compliance/cases/{id}
      */
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER')")

@@ -584,43 +584,107 @@ When modifying a class:
 
 ## 📖 Documentation
 
-### Core Documentation
+### Documentation Structure
+
+All documentation is organized into logical folders for better management and navigation:
+
+```
+docs/
+├── SDLC/                    # Software Development Life Cycle
+├── guides/                  # User and operational guides
+├── architecture/            # Architecture and design
+├── development/             # Development standards
+├── infrastructure/          # Infrastructure setup
+├── implementation/          # Implementation reports
+├── security/                # Security audits
+├── performance/             # Performance optimization
+├── features/                # Feature-specific docs
+└── archive/                 # Historical documents
+```
+
+### Core SDLC Documentation
 
 | Document | Description |
 |----------|-------------|
-| [01-Technical-Architecture.md](docs/01-Technical-Architecture.md) | Complete system architecture |
-| [02-Functional-Specification.md](docs/02-Functional-Specification.md) | Feature specifications |
-| [03-Software-Requirements-Specification.md](docs/03-Software-Requirements-Specification.md) | System requirements |
-| [04-Software-Design-Document.md](docs/04-Software-Design-Document.md) | Component design details |
-| [05-API-Reference.md](docs/05-API-Reference.md) | **Complete API documentation** |
-| [06-Database-Design.md](docs/06-Database-Design.md) | Database schema and design |
-| [07-User-Guide.md](docs/07-User-Guide.md) | End-user guide |
-| [08-Deployment-Guide.md](docs/08-Deployment-Guide.md) | Deployment instructions |
+| [01-Technical-Architecture.md](docs/SDLC/01-Technical-Architecture.md) | Complete system architecture |
+| [02-Functional-Specification.md](docs/SDLC/02-Functional-Specification.md) | Feature specifications |
+| [03-Software-Requirements-Specification.md](docs/SDLC/03-Software-Requirements-Specification.md) | System requirements |
+| [04-Software-Design-Document.md](docs/SDLC/04-Software-Design-Document.md) | Component design details |
+| [05-API-Reference.md](docs/SDLC/05-API-Reference.md) | **Complete API documentation** |
+| [06-Database-Design.md](docs/SDLC/06-Database-Design.md) | Database schema and design |
+| [07-User-Guide.md](docs/SDLC/07-User-Guide.md) | End-user guide |
+| [08-Deployment-Guide.md](docs/SDLC/08-Deployment-Guide.md) | Deployment instructions |
+
+### User & Operational Guides
+
+| Document | Description |
+|----------|-------------|
+| [BUSINESS_USER_GUIDE.md](docs/guides/BUSINESS_USER_GUIDE.md) | Business user guide |
+| [PARTNER_INTEGRATION_GUIDE.md](docs/guides/PARTNER_INTEGRATION_GUIDE.md) | Partner integration guide |
+| [REPORTING_AND_UI_GUIDE.md](docs/guides/REPORTING_AND_UI_GUIDE.md) | Reporting and UI guide |
+| [REVENUE_DASHBOARD_GUIDE.md](docs/guides/REVENUE_DASHBOARD_GUIDE.md) | Revenue dashboard guide |
+| [DEPLOYMENT_GUIDE.md](docs/guides/DEPLOYMENT_GUIDE.md) | Deployment guide |
 
 ### Development Documentation
 
 | Document | Description |
 |----------|-------------|
-| [DEVELOPMENT_RULES.md](docs/DEVELOPMENT_RULES.md) | **Development standards** |
-| [PROJECT_RULES.md](docs/PROJECT_RULES.md) | **Project-specific rules** |
-| [DOCUMENTATION_QUICK_REFERENCE.md](docs/DOCUMENTATION_QUICK_REFERENCE.md) | **Quick doc guide** |
-| [SCORING_PROCESS_DOCUMENTATION.md](docs/SCORING_PROCESS_DOCUMENTATION.md) | Scoring formulas |
-| [PSP_ISOLATION_SECURITY_AUDIT.md](docs/PSP_ISOLATION_SECURITY_AUDIT.md) | PSP security audit |
+| [DEVELOPMENT_RULES.md](docs/development/DEVELOPMENT_RULES.md) | **Development standards** |
+| [PROJECT_RULES.md](docs/development/PROJECT_RULES.md) | **Project-specific rules** |
+| [DOCUMENTATION_QUICK_REFERENCE.md](docs/development/DOCUMENTATION_QUICK_REFERENCE.md) | **Quick doc guide** |
+| [ENV_VARIABLES.md](docs/development/ENV_VARIABLES.md) | Environment variables |
 
-### Operational Documentation
-
-| Document | Description |
-|----------|-------------|
-| [GRAFANA_DASHBOARD_ACCESS_GUIDE.md](docs/GRAFANA_DASHBOARD_ACCESS_GUIDE.md) | Grafana setup |
-| [PROMETHEUS_GRAFANA_SETUP.md](docs/PROMETHEUS_GRAFANA_SETUP.md) | Monitoring setup |
-| [AEROSPIKE_CONNECTION_SETUP.md](docs/AEROSPIKE_CONNECTION_SETUP.md) | Aerospike setup |
-| [ENV_VARIABLES.md](docs/ENV_VARIABLES.md) | Environment variables |
-
-### Recent Updates
+### Architecture Documentation
 
 | Document | Description |
 |----------|-------------|
-| [DOCUMENTATION_UPDATE_2026-01-16.md](docs/DOCUMENTATION_UPDATE_2026-01-16.md) | Latest doc updates |
+| [ARCHITECTURE_OVERVIEW.md](docs/architecture/ARCHITECTURE_OVERVIEW.md) | Architecture overview |
+| [TECH_STACK.md](docs/architecture/TECH_STACK.md) | Technology stack details |
+| [CACHING_STRATEGY.md](docs/architecture/CACHING_STRATEGY.md) | Caching strategy |
+| [DATABASE_QUERY_OPTIMIZATION.md](docs/architecture/DATABASE_QUERY_OPTIMIZATION.md) | Query optimization |
+| [FINAL_STRUCTURE.md](docs/architecture/FINAL_STRUCTURE.md) | Final project structure |
+
+### Infrastructure Documentation
+
+| Document | Description |
+|----------|-------------|
+| [AEROSPIKE_CONNECTION_SETUP.md](docs/infrastructure/AEROSPIKE_CONNECTION_SETUP.md) | Aerospike setup |
+| [GRAFANA_DASHBOARD_ACCESS_GUIDE.md](docs/infrastructure/GRAFANA_DASHBOARD_ACCESS_GUIDE.md) | Grafana setup |
+| [PROMETHEUS_GRAFANA_SETUP.md](docs/infrastructure/PROMETHEUS_GRAFANA_SETUP.md) | Monitoring setup |
+| [SWAGGER_OPENAPI_SETUP.md](docs/infrastructure/SWAGGER_OPENAPI_SETUP.md) | Swagger/OpenAPI setup |
+
+### Security Documentation
+
+| Document | Description |
+|----------|-------------|
+| [PSP_ISOLATION_SECURITY_AUDIT.md](docs/security/PSP_ISOLATION_SECURITY_AUDIT.md) | PSP security audit |
+| [SECURITY_AUDIT_REPORT.md](docs/security/SECURITY_AUDIT_REPORT.md) | Security audit report |
+| [SESSION_MANAGEMENT_COMPLETE.md](docs/security/SESSION_MANAGEMENT_COMPLETE.md) | Session management |
+| [PSP_ID_SECURITY_IMPLEMENTATION.md](docs/security/PSP_ID_SECURITY_IMPLEMENTATION.md) | PSP ID security |
+
+### Performance Documentation
+
+| Document | Description |
+|----------|-------------|
+| [HIGH_THROUGHPUT_OPTIMIZATIONS.md](docs/performance/HIGH_THROUGHPUT_OPTIMIZATIONS.md) | High throughput optimizations |
+| [ULTRA_HIGH_THROUGHPUT_30K_OPTIMIZATION.md](docs/performance/ULTRA_HIGH_THROUGHPUT_30K_OPTIMIZATION.md) | 30K TPS optimization |
+| [CONNECTION_MANAGEMENT_30K.md](docs/performance/CONNECTION_MANAGEMENT_30K.md) | Connection management |
+
+### Feature Documentation
+
+| Document | Description |
+|----------|-------------|
+| [CASE_MANAGEMENT_IMPLEMENTATION_RESEARCH.md](docs/features/CASE_MANAGEMENT_IMPLEMENTATION_RESEARCH.md) | Case management research |
+| [SCORING_PROCESS_DOCUMENTATION.md](docs/features/SCORING_PROCESS_DOCUMENTATION.md) | Scoring formulas |
+| [ROLL_YOUR_OWN_SANCTIONS_SCREENING.md](docs/features/ROLL_YOUR_OWN_SANCTIONS_SCREENING.md) | Sanctions screening |
+| [REGULATORY_REPORTING_AND_RULES_ENGINE.md](docs/features/REGULATORY_REPORTING_AND_RULES_ENGINE.md) | Regulatory reporting |
+
+### Implementation Reports
+
+| Document | Description |
+|----------|-------------|
+| [IMPLEMENTATION_DOCUMENTATION.md](docs/implementation/IMPLEMENTATION_DOCUMENTATION.md) | Implementation docs |
+| [DOCUMENTATION_UPDATE_2026-01-16.md](docs/implementation/DOCUMENTATION_UPDATE_2026-01-16.md) | Latest doc updates |
 
 ---
 
@@ -787,12 +851,12 @@ Proprietary - All rights reserved
 
 ## 🎯 Quick Links
 
-- [Complete API Documentation](docs/05-API-Reference.md)
-- [Development Rules](docs/DEVELOPMENT_RULES.md)
-- [Project Rules](docs/PROJECT_RULES.md)
-- [Documentation Quick Reference](docs/DOCUMENTATION_QUICK_REFERENCE.md)
-- [Architecture Overview](docs/01-Technical-Architecture.md)
-- [Deployment Guide](docs/08-Deployment-Guide.md)
+- [Complete API Documentation](docs/SDLC/05-API-Reference.md)
+- [Development Rules](docs/development/DEVELOPMENT_RULES.md)
+- [Project Rules](docs/development/PROJECT_RULES.md)
+- [Documentation Quick Reference](docs/development/DOCUMENTATION_QUICK_REFERENCE.md)
+- [Architecture Overview](docs/SDLC/01-Technical-Architecture.md)
+- [Deployment Guide](docs/SDLC/08-Deployment-Guide.md)
 
 ---
 

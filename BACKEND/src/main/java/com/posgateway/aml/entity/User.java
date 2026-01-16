@@ -36,10 +36,12 @@ public class User implements UserDetails {
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "role_id", nullable = false)
+    @com.fasterxml.jackson.annotation.JsonBackReference("role-users")
     private Role role;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "psp_id", nullable = false)
+    @com.fasterxml.jackson.annotation.JsonBackReference("psp-users")
     private com.posgateway.aml.entity.psp.Psp psp; // Required - PSP ID 0 for Super Admin, >0 for PSP users
 
     private boolean enabled = true;

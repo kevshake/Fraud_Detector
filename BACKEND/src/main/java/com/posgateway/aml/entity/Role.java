@@ -27,6 +27,7 @@ public class Role {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "psp_id")
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private Psp psp; // NULL = System global role, NOT NULL = PSP specific role
 
     @ElementCollection(targetClass = Permission.class, fetch = FetchType.EAGER)

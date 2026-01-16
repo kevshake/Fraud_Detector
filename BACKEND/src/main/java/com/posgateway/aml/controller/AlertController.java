@@ -44,9 +44,14 @@ public class AlertController {
     }
 
     /**
-     * Get all alerts filtered by PSP ID
-     * GET /api/v1/alerts
+     * Get all alerts filtered by PSP ID with pagination
+     * GET /alerts
      * Super Admin (PSP ID 0) can see all alerts, PSP users see only their PSP's alerts
+     * 
+     * @param page Page number (default: 0)
+     * @param size Page size (default: 25, max: 100)
+     * @param status Optional status filter (OPEN, INVESTIGATING, RESOLVED)
+     * @return Paginated list of alerts
      */
     @GetMapping
     public ResponseEntity<org.springframework.data.domain.Page<Alert>> getAllAlerts(
@@ -103,7 +108,7 @@ public class AlertController {
 
     /**
      * Get alert by ID with PSP access validation
-     * GET /api/v1/alerts/{id}
+     * GET /alerts/{id}
      */
     @GetMapping("/{id}")
     @SuppressWarnings("null")
@@ -138,7 +143,7 @@ public class AlertController {
 
     /**
      * Get count of active alerts filtered by PSP ID
-     * GET /api/v1/alerts/count/active
+     * GET /alerts/count/active
      * Super Admin (PSP ID 0) sees all alerts, PSP users see only their PSP's alerts
      */
     @GetMapping("/count/active")
@@ -162,7 +167,7 @@ public class AlertController {
 
     /**
      * Resolve an alert
-     * PUT /api/v1/alerts/{id}/resolve
+     * PUT /alerts/{id}/resolve
      */
     @PutMapping("/{id}/resolve")
     @PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'INVESTIGATOR')")
@@ -252,7 +257,7 @@ public class AlertController {
 
     /**
      * Delete an alert
-     * DELETE /api/v1/alerts/{id}
+     * DELETE /alerts/{id}
      */
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER')")
@@ -280,7 +285,7 @@ public class AlertController {
 
     /**
      * Get alert disposition statistics
-     * GET /api/v1/alerts/disposition-stats
+     * GET /alerts/disposition-stats
      */
     @GetMapping("/disposition-stats")
     public ResponseEntity<Map<String, Object>> getDispositionStats(

@@ -31,6 +31,19 @@ public class UserController {
         this.userRepository = userRepository;
     }
 
+    /**
+     * List users with pagination
+     * GET /users
+     * 
+     * Security: PSP users can only see users from their PSP.
+     * Super Admin can see all users or filter by specific PSP.
+     * 
+     * @param currentUser Authenticated user
+     * @param pspId Optional PSP ID filter (Super Admin only)
+     * @param page Page number (default: 0)
+     * @param size Page size (default: 25, max: 100)
+     * @return Paginated list of users
+     */
     @GetMapping
     public ResponseEntity<org.springframework.data.domain.Page<User>> listUsers(
             @AuthenticationPrincipal User currentUser,
@@ -82,7 +95,7 @@ public class UserController {
 
     /**
      * Get user by ID
-     * GET /api/v1/users/{id}
+     * GET /users/{id}
      */
     @GetMapping("/{id}")
     public ResponseEntity<User> getUserById(@PathVariable Long id, @AuthenticationPrincipal User currentUser) {
@@ -182,7 +195,7 @@ public class UserController {
 
     /**
      * Get current user profile
-     * GET /api/v1/users/me
+     * GET /users/me
      */
     @GetMapping("/me")
     public ResponseEntity<User> getCurrentUser(@AuthenticationPrincipal User currentUser) {

@@ -11,6 +11,7 @@ import com.posgateway.aml.repository.PspRepository;
 import com.posgateway.aml.service.merchant.MerchantOnboardingService;
 import com.posgateway.aml.service.merchant.MerchantUpdateService;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
@@ -53,7 +54,7 @@ public class MerchantController {
 
     /**
      * Onboard new merchant
-     * POST /api/v1/merchants/onboard
+     * POST /merchants/onboard
      */
     @PostMapping("/onboard")
     @PreAuthorize("hasAuthority('ONBOARD_MERCHANT')")
@@ -81,7 +82,7 @@ public class MerchantController {
 
     /**
      * Create simplified merchant (Quick Add)
-     * POST /api/v1/merchants
+     * POST /merchants
      */
     @PostMapping
     public ResponseEntity<Merchant> createMerchant(@RequestBody java.util.Map<String, Object> data) {
@@ -118,11 +119,15 @@ public class MerchantController {
     }
 
     /**
-     * Get all merchants
-     * GET /api/v1/merchants
+     * Get all merchants with pagination
+     * GET /merchants
      * 
      * Security: PSP users can only see merchants from their PSP.
      * Platform Administrators can see all merchants.
+     * 
+     * @param page Page number (default: 0)
+     * @param size Page size (default: 25, max: 100)
+     * @return Paginated list of merchants
      */
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'SCREENING_ANALYST', 'PSP_ADMIN', 'PSP_ANALYST', 'VIEWER')")
@@ -204,7 +209,7 @@ public class MerchantController {
 
     /**
      * Get merchant by ID
-     * GET /api/v1/merchants/{id}
+     * GET /merchants/{id}
      */
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'SCREENING_ANALYST', 'PSP_ADMIN', 'PSP_ANALYST', 'PSP_USER')")
@@ -233,7 +238,7 @@ public class MerchantController {
 
     /**
      * Update merchant
-     * PUT /api/v1/merchants/{id}
+     * PUT /merchants/{id}
      */
     @PutMapping("/{id}")
     public ResponseEntity<Merchant> updateMerchant(@PathVariable Long id,
@@ -253,7 +258,7 @@ public class MerchantController {
 
     /**
      * Delete merchant
-     * DELETE /api/v1/merchants/{id}
+     * DELETE /merchants/{id}
      */
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
@@ -272,7 +277,7 @@ public class MerchantController {
 
     /**
      * Health check
-     * GET /api/v1/merchants/health
+     * GET /merchants/health
      */
     @GetMapping("/health")
     public ResponseEntity<String> health() {
