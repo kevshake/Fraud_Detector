@@ -1,6 +1,7 @@
 package com.posgateway.aml.exception;
 
 import com.posgateway.aml.dto.ErrorResponse;
+import com.posgateway.aml.service.admin.RuntimeErrorService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,6 +31,12 @@ import java.util.UUID;
 public class GlobalExceptionHandler {
 
     private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    private final RuntimeErrorService runtimeErrorService;
+
+    public GlobalExceptionHandler(RuntimeErrorService runtimeErrorService) {
+        this.runtimeErrorService = runtimeErrorService;
+    }
 
     /**
      * Handle validation errors
@@ -311,6 +318,7 @@ public class GlobalExceptionHandler {
         } else {
             logger.error("[TraceId: {}] Runtime exception on {} {}: {}", traceId, 
                     request.getMethod(), request.getRequestURI(), ex.getMessage(), ex);
+            persistRuntimeError(errorCode, ex.getMessage(), ex);
         }
         return ResponseEntity.status(status).body(errorResponse);
     }
@@ -336,7 +344,16 @@ public class GlobalExceptionHandler {
 
         logger.error("[TraceId: {}] Unexpected error on {} {}: {}", traceId, 
                 request.getMethod(), request.getRequestURI(), ex.getMessage(), ex);
+        persistRuntimeError("ERR_UNEXPECTED_001", ex.getMessage(), ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+    }
+
+    private void persistRuntimeError(String errorCode, String message, Throwable cause) {
+        try {
+            runtimeErrorService.record(errorCode, message, cause);
+        } catch (Exception persistenceFailure) {
+            logger.warn("Failed to persist runtime error: {}", persistenceFailure.getMessage());
+        }
     }
 
     private void logNonPspError(Exception ex, jakarta.servlet.http.HttpServletRequest request, String functionName) {

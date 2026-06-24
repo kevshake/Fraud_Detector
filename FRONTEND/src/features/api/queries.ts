@@ -464,6 +464,51 @@ export const useChargebackDisputes = (merchantId?: number) => {
   });
 };
 
+export interface MonitoringAlertRow {
+  alertId: number;
+  merchantId?: number;
+  alertType: string;
+  alertSeverity: string;
+  alertDetails?: Record<string, unknown>;
+  acknowledged?: boolean;
+  createdAt?: string;
+}
+
+export const useMonitoringAlerts = (page = 0, size = 25) => {
+  return useQuery({
+    queryKey: ["monitoring", "alerts", page, size],
+    queryFn: () =>
+      apiClient
+        .get<{ content: MonitoringAlertRow[]; totalElements: number }>(
+          `monitoring/alerts?page=${page}&size=${size}`
+        )
+        .catch(() => ({ content: [], totalElements: 0 })),
+    refetchInterval: 60_000,
+  });
+};
+
+export interface SanctionsListVersion {
+  listId: number;
+  listName: string;
+  listSource: string;
+  version?: string;
+  downloadedAt?: string;
+  recordCount?: number;
+}
+
+export const useSanctionsListVersions = (listName?: string) => {
+  return useQuery({
+    queryKey: ["sanctions", "lists", listName ?? "all"],
+    queryFn: () =>
+      apiClient
+        .get<SanctionsListVersion[]>(
+          `sanctions/lists${listName ? `?listName=${encodeURIComponent(listName)}` : ""}`
+        )
+        .catch(() => []),
+    staleTime: 5 * 60_000,
+  });
+};
+
 export const useVelocityRules = () => {
   return useQuery({
     queryKey: ["rules", "velocity"],

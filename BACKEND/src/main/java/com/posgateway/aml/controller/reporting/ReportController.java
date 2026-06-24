@@ -64,7 +64,7 @@ public class ReportController {
      * POST /api/reports/preview
      */
     @PostMapping("/preview")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN', 'ANALYST')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN', 'ANALYST')")
     public ResponseEntity<ReportPreviewDTO> previewReport(@RequestBody ReportGenerateRequest request) {
         logger.info("Preview report request: {}", request.getReportType());
         
@@ -84,7 +84,7 @@ public class ReportController {
      * POST /api/reports/generate
      */
     @PostMapping("/generate")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
     public ResponseEntity<ReportExecutionDTO> generateReport(@RequestBody ReportGenerateRequest request,
                                                                Authentication authentication) {
         logger.info("Generate report request: {}", request.getReportType());

@@ -3,6 +3,8 @@ package com.posgateway.aml.service.download;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.posgateway.aml.client.aml.AmlMicroserviceProperties;
+import com.posgateway.aml.entity.sanctions.SanctionsList;
+import com.posgateway.aml.repository.sanctions.SanctionsListRepository;
 import com.posgateway.aml.service.sanctions.WatchlistUpdateTrackingService;
 import io.github.resilience4j.retry.annotation.Retry;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,16 +49,19 @@ public class SanctionsListDownloadService {
     private final RestTemplate restTemplate;
     private final WatchlistUpdateTrackingService watchlistUpdateTrackingService;
     private final AmlMicroserviceProperties amlMicroserviceProperties;
+    private final SanctionsListRepository sanctionsListRepository;
 
     @Autowired
     public SanctionsListDownloadService(ObjectMapper objectMapper,
                                         RestTemplate restTemplate,
                                         WatchlistUpdateTrackingService watchlistUpdateTrackingService,
-                                        AmlMicroserviceProperties amlMicroserviceProperties) {
+                                        AmlMicroserviceProperties amlMicroserviceProperties,
+                                        SanctionsListRepository sanctionsListRepository) {
         this.objectMapper = objectMapper;
         this.restTemplate = restTemplate;
         this.watchlistUpdateTrackingService = watchlistUpdateTrackingService;
         this.amlMicroserviceProperties = amlMicroserviceProperties;
+        this.sanctionsListRepository = sanctionsListRepository;
     }
 
     @Value("${sanctions.download.enabled:false}")
@@ -138,6 +143,8 @@ public class SanctionsListDownloadService {
                 log.warn("Failed to record watchlist update: {}", e.getMessage());
             }
 
+            recordSanctionsListMetadata(currentVersion, recordsProcessed);
+
             Files.deleteIfExists(downloadedFile);
             log.info("Cleaned up temporary file");
 
@@ -165,6 +172,28 @@ public class SanctionsListDownloadService {
     }
 
     // ---------------- internals ----------------
+
+    private void recordSanctionsListMetadata(String version, int recordsProcessed) {
+        try {
+            if (sanctionsListRepository.findByListNameAndVersion("OPENSANCTIONS_ALL", version).isPresent()) {
+                log.debug("Sanctions list version {} already recorded", version);
+                return;
+            }
+            SanctionsList row = new SanctionsList();
+            row.setListName("OPENSANCTIONS_ALL");
+            row.setListSource("OpenSanctions");
+            row.setVersion(version);
+            row.setRecordCount(recordsProcessed);
+            row.setDownloadedAt(LocalDateTime.now());
+            Map<String, Object> meta = new HashMap<>();
+            meta.put("sourceUrl", opensanctionsUrl);
+            meta.put("ingestTarget", "aml-microservice");
+            row.setMetadata(meta);
+            sanctionsListRepository.save(row);
+        } catch (Exception e) {
+            log.warn("Failed to persist sanctions_lists metadata: {}", e.getMessage());
+        }
+    }
 
     private String checkMetadataVersion() {
         try {

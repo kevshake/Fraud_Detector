@@ -30,7 +30,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
  * <p>If the microservice is disabled or its circuit breaker is open, we return
  * {@code status=UNAVAILABLE} with HTTP 200 — graceful degradation, not 5xx.
  */
-@PreAuthorize("hasAnyRole('ADMIN','COMPLIANCE_OFFICER','PSP_ADMIN','PSP_USER')")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','COMPLIANCE_OFFICER','INVESTIGATOR','ANALYST','PSP_ADMIN','PSP_USER')")
 @RestController
 @RequestMapping("/sanctions")
 public class SanctionsScreeningController {

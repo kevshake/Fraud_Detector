@@ -7,6 +7,7 @@ import com.posgateway.aml.repository.AlertRepository;
 import com.posgateway.aml.repository.MerchantRepository;
 import com.posgateway.aml.repository.MerchantScreeningResultRepository;
 import com.posgateway.aml.service.aml.AmlScreeningOrchestrator;
+import com.posgateway.aml.service.monitoring.MonitoringAlertService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -32,6 +33,9 @@ public class PeriodicRescreeningService {
 
     @Autowired
     private AlertRepository alertRepository;
+
+    @Autowired
+    private MonitoringAlertService monitoringAlertService;
 
     @Autowired
     private AmlScreeningOrchestrator screeningOrchestrator;
@@ -158,6 +162,7 @@ public class PeriodicRescreeningService {
                 "). Matches found: " + result.getMatchCount());
 
         alertRepository.save(alert);
+        monitoringAlertService.recordRiskChange(merchant, result);
     }
 
     /**

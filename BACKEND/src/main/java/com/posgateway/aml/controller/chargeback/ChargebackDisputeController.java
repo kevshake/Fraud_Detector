@@ -14,7 +14,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/chargeback/disputes")
-@PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'PSP_ADMIN', 'PSP_USER')")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'COMPLIANCE_OFFICER', 'INVESTIGATOR', 'ANALYST', 'PSP_ADMIN', 'PSP_USER')")
 public class ChargebackDisputeController {
 
     private final ChargebackDisputeRepository disputeRepository;
