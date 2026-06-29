@@ -38,19 +38,22 @@ public class AlertController {
     private final MerchantRepository merchantRepository;
     private final RuleEffectivenessService ruleEffectivenessService;
         private final com.posgateway.aml.service.case_management.AlertToCaseService alertToCaseService;
+    private final com.posgateway.aml.service.case_management.AlertFraudIncidentBridge alertFraudBridge;
 
         @Autowired
         public AlertController(AlertRepository alertRepository, AlertDispositionService alertDispositionService,
                                PspIsolationService pspIsolationService, MerchantRepository merchantRepository,
                                RuleEffectivenessService ruleEffectivenessService,
-                               com.posgateway.aml.service.case_management.AlertToCaseService alertToCaseService) {
+                                                              com.posgateway.aml.service.case_management.AlertToCaseService alertToCaseService,
+                                                              com.posgateway.aml.service.case_management.AlertFraudIncidentBridge alertFraudBridge) {
         this.alertRepository = alertRepository;
         this.alertDispositionService = alertDispositionService;
         this.pspIsolationService = pspIsolationService;
         this.merchantRepository = merchantRepository;
         this.ruleEffectivenessService = ruleEffectivenessService;
                 this.alertToCaseService = alertToCaseService;
-            }
+                                this.alertFraudBridge = alertFraudBridge;
+                            }
 
     /**
      * Get all alerts filtered by PSP ID with pagination
@@ -256,6 +259,10 @@ public class AlertController {
                                     disposingUser = u;
                                                                 }
                                                                 alertToCaseService.resolveAlertToCase(
+                                                                        alert.getAlertId(), request.getDisposition(),
+                                                                        request.getNotes(), disposingUser);
+                                                                // AUTO-CREATE FRAUD INCIDENT: if true-positive → CBK GDI #7 record
+                                                                alertFraudBridge.createFraudIncidentFromAlert(
                                                                         alert.getAlertId(), request.getDisposition(),
                                                                         request.getNotes(), disposingUser);
                                                             } catch (Exception caseEx) {
