@@ -13,6 +13,7 @@ import com.posgateway.aml.service.cache.FeatureCacheService;
 import com.posgateway.aml.service.enrichment.IpGeoService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -32,11 +33,10 @@ public class FraudDetectionService {
 
     /**
      * FATF / OFAC high-risk country codes (ISO 3166-1 alpha-2).
-     * Compile-time fallback used when HighRiskCountryRepository is unavailable.
+     * Configurable fallback when HighRiskCountryRepository is unavailable.
+     * Set via {@code fraud.fallback-high-risk-countries} in config/env.
      */
-    private static final Set<String> FATF_HIGH_RISK_COUNTRIES = Set.of(
-            "KP", "IR", "MM", "SY", "YE", "SD", "LY", "SO", "CF", "SS", "VE", "AF", "IQ", "ML", "BF"
-    );
+    private final Set<String> fallbackHighRiskCountries;
 
     /**
      * Well-known cloud / data-centre IPv4 /8 prefixes commonly associated with
@@ -80,12 +80,13 @@ public class FraudDetectionService {
     private final com.posgateway.aml.client.aml.AmlMicroserviceClient amlMicroserviceClient;
 
     public FraudDetectionService(FraudProperties fraudProperties,
-                                 TransactionRepository transactionRepository,
-                                 FeatureCacheService featureCacheService,
-                                 HighRiskCountryRepository highRiskCountryRepository,
-                                 VelocityRuleRepository velocityRuleRepository,
-                                 IpGeoService ipGeoService,
-                                 com.posgateway.aml.client.aml.AmlMicroserviceClient amlMicroserviceClient) {
+                                     TransactionRepository transactionRepository,
+                                     FeatureCacheService featureCacheService,
+                                     HighRiskCountryRepository highRiskCountryRepository,
+                                     VelocityRuleRepository velocityRuleRepository,
+                                     IpGeoService ipGeoService,
+                                     com.posgateway.aml.client.aml.AmlMicroserviceClient amlMicroserviceClient,
+                                     @Value("${fraud.fallback-high-risk-countries:KP,IR,MM,SY,YE,SD,LY,SO,CF,SS,VE,AF,IQ,ML,BF}") String fallbackCsv) {
         this.fraudProperties = fraudProperties;
         this.transactionRepository = transactionRepository;
         this.featureCacheService = featureCacheService;
@@ -93,7 +94,8 @@ public class FraudDetectionService {
         this.velocityRuleRepository = velocityRuleRepository;
         this.ipGeoService = ipGeoService;
         this.amlMicroserviceClient = amlMicroserviceClient;
-    }
+                this.fallbackHighRiskCountries = parseCsv(fallbackCsv);
+            }
 
     // =========================================================================
     // Public API
@@ -453,11 +455,19 @@ public class FraudDetectionService {
         } catch (Exception ex) {
             logger.warn("high_risk_countries lookup failed for {}: {}; using static FATF list",
                     countryCode, ex.getMessage());
-            return FATF_HIGH_RISK_COUNTRIES.contains(countryCode);
-        }
-    }
+            return fallbackHighRiskCountries.contains(countryCode);
+                    }
+                }
 
-    private int velocityScoreForLevel(String riskLevel) {
+                private static Set<String> parseCsv(String csv) {
+                    if (csv == null || csv.isBlank()) return Set.of();
+                    return java.util.Arrays.stream(csv.split(","))
+                            .map(String::trim)
+                            .filter(s -> !s.isEmpty())
+                            .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
+                }
+
+                private int velocityScoreForLevel(String riskLevel) {
         if (riskLevel == null) return SCORE_VELOCITY_LOW;
         return switch (riskLevel.toUpperCase()) {
             case "CRITICAL" -> SCORE_VELOCITY_CRITICAL;

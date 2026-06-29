@@ -67,19 +67,9 @@ public class RiskScoringService {
     private static final int ALERT_LOOKBACK_DAYS  = 90;
 
     // ── Industry risk fallback (until mcc_risk table exists) ─────────────────
-    private static final Map<String, Double> MCC_RISK = new HashMap<>();
-    static {
-        MCC_RISK.put("5411", 10.0); // grocery
-        MCC_RISK.put("5812", 20.0); // restaurants
-        MCC_RISK.put("5999", 50.0); // misc retail
-        MCC_RISK.put("6051", 75.0); // crypto / quasi-cash
-        MCC_RISK.put("6211", 65.0); // securities brokers
-        MCC_RISK.put("7273", 70.0); // dating
-        MCC_RISK.put("7995", 90.0); // gambling
-        MCC_RISK.put("9223", 85.0); // bail bonds
-    }
+        private final com.posgateway.aml.service.risk.MccRiskConfig mccRiskConfig;
 
-    private static final double NEUTRAL_RISK = 50.0;
+        private static final double NEUTRAL_RISK = 50.0;
 
     // ── Dependencies ─────────────────────────────────────────────────────────
     private final MeterRegistry meterRegistry;
@@ -94,15 +84,16 @@ public class RiskScoringService {
     private final AmlMicroserviceClient amlMicroserviceClient;
 
     public RiskScoringService(MeterRegistry meterRegistry,
-                              RulesExecutionService rulesExecutionService,
-                              CountryRiskRepository countryRiskRepository,
-                              MerchantRepository merchantRepository,
-                              HighRiskCountryRepository highRiskCountryRepository,
-                              BeneficialOwnerRepository beneficialOwnerRepository,
-                              TransactionRepository transactionRepository,
-                              AlertRepository alertRepository,
-                              MerchantRiskScoreRepository merchantRiskScoreRepository,
-                              AmlMicroserviceClient amlMicroserviceClient) {
+                                  RulesExecutionService rulesExecutionService,
+                                  CountryRiskRepository countryRiskRepository,
+                                  MerchantRepository merchantRepository,
+                                  HighRiskCountryRepository highRiskCountryRepository,
+                                  BeneficialOwnerRepository beneficialOwnerRepository,
+                                  TransactionRepository transactionRepository,
+                                  AlertRepository alertRepository,
+                                  MerchantRiskScoreRepository merchantRiskScoreRepository,
+                                  AmlMicroserviceClient amlMicroserviceClient,
+                                  MccRiskConfig mccRiskConfig) {
         this.meterRegistry = meterRegistry;
         this.rulesExecutionService = rulesExecutionService;
         this.countryRiskRepository = countryRiskRepository;
@@ -113,7 +104,8 @@ public class RiskScoringService {
         this.alertRepository = alertRepository;
         this.merchantRiskScoreRepository = merchantRiskScoreRepository;
         this.amlMicroserviceClient = amlMicroserviceClient;
-    }
+                this.mccRiskConfig = mccRiskConfig;
+            }
 
     // ─────────────────────────────────────────────────────────────────────────
     // KRS — KYC Risk Score (per merchant)
@@ -366,9 +358,9 @@ public class RiskScoringService {
     }
 
     private double scoreMccRisk(String mcc) {
-        if (mcc == null || mcc.isBlank()) return NEUTRAL_RISK;
-        return MCC_RISK.getOrDefault(mcc, NEUTRAL_RISK);
-    }
+            if (mcc == null || mcc.isBlank()) return NEUTRAL_RISK;
+            return mccRiskConfig.getRiskForMcc(mcc);
+        }
 
     /** Compares 30-day actual volume against expected monthly volume. */
     private double scoreVolume(Merchant merchant) {

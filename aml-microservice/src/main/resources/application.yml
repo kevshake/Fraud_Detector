@@ -20,6 +20,14 @@ sanctions:
       # Lower bound for emitting a match. Status FLAGGED at >=0.95, REVIEW in [threshold, 0.95).
       threshold: ${SANCTIONS_SIMILARITY_THRESHOLD:0.8}
 
+aml:
+  risk:
+    # Comma-separated ISO country codes at each risk tier.
+    # Managed in DB for BACKEND; this configuration drives the microservice's
+    # lightweight rule-based scoring. Empty values = no countries at that tier.
+    high-risk-countries: ${AML_HIGH_RISK_COUNTRIES:IR,KP,SY,CU,SD}
+    medium-risk-countries: ${AML_MEDIUM_RISK_COUNTRIES:NG,RU,CN,VE}
+
 management:
   endpoints:
     web:

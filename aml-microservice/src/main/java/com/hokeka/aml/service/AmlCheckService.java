@@ -11,6 +11,7 @@ import com.hokeka.aml.model.TransactionRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -20,8 +21,11 @@ import java.util.Set;
 public class AmlCheckService {
     private static final Logger log = LoggerFactory.getLogger(AmlCheckService.class);
 
-    private static final Set<String> HIGH_RISK_COUNTRIES = Set.of("IR", "KP", "SY", "CU", "SD");
-    private static final Set<String> MEDIUM_RISK_COUNTRIES = Set.of("NG", "RU", "CN", "VE");
+    /** High-risk country codes loaded from configuration — managed in application.yml / env. */
+    private final Set<String> highRiskCountries;
+
+    /** Medium-risk country codes loaded from configuration. */
+    private final Set<String> mediumRiskCountries;
 
     private static final String NAMESPACE = "aml_cache";
         private static final String SET_NAME = "risk_profile";
@@ -35,7 +39,22 @@ public class AmlCheckService {
     private AerospikeClient aerospikeClient;
 
     @Autowired(required = false)
-    private SanctionsService sanctionsService;
+        private SanctionsService sanctionsService;
+
+        public AmlCheckService(
+                @Value("${aml.risk.high-risk-countries:IR,KP,SY,CU,SD}") String highCsv,
+                @Value("${aml.risk.medium-risk-countries:NG,RU,CN,VE}") String mediumCsv) {
+            this.highRiskCountries = parseCsv(highCsv);
+            this.mediumRiskCountries = parseCsv(mediumCsv);
+        }
+
+        private static Set<String> parseCsv(String csv) {
+            if (csv == null || csv.isBlank()) return Set.of();
+            return java.util.Arrays.stream(csv.split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
+        }
 
     public boolean isAerospikeConnected() {
         return aerospikeClient != null && aerospikeClient.isConnected();
@@ -128,8 +147,8 @@ public class AmlCheckService {
 
         String country = request.getCountry();
         if (country != null) {
-            if (HIGH_RISK_COUNTRIES.contains(country)) score += 0.4;
-                        else if (MEDIUM_RISK_COUNTRIES.contains(country)) score += 0.1;
+            if (highRiskCountries.contains(country)) score += 0.4;
+            else if (mediumRiskCountries.contains(country)) score += 0.1;
         }
 
         String txnType = request.getTransactionType();

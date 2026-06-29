@@ -8,6 +8,7 @@ import com.posgateway.aml.repository.risk.HighRiskCountryRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -23,7 +24,7 @@ import java.util.Set;
  */
 @Service
 public class AmlService {
-
+    
     private static final Logger logger = LoggerFactory.getLogger(AmlService.class);
     
     // Cache BigDecimal thresholds to avoid repeated object creation
@@ -31,26 +32,26 @@ public class AmlService {
     private static final BigDecimal VERY_LARGE_AMOUNT_THRESHOLD = new BigDecimal("50000");
 
     /**
-     * FATF high-risk / blacklisted country codes (ISO 3166-1 alpha-2).
-     * Used as a compile-time fallback when the high_risk_countries table is
-     * unavailable (e.g. cold start before Flyway migration, test context).
+     * FATF high-risk country fallback — used when high_risk_countries DB table
+     * is unavailable. Configurable via {@code aml.fallback-high-risk-countries}
+     * environment / config; default covers current FATF blacklist.
      */
-    private static final Set<String> FATF_HIGH_RISK_COUNTRIES = Set.of(
-            "KP", "IR", "MM", "SY", "YE", "SD", "LY", "SO", "CF", "SS", "VE", "AF", "IQ", "ML", "BF"
-    );
+    private final Set<String> fallbackHighRiskCountries;
 
     private final AmlProperties amlProperties;
     private final TransactionStatisticsService statisticsService;
     private final HighRiskCountryRepository highRiskCountryRepository;
 
     @Autowired
-    public AmlService(AmlProperties amlProperties,
-                      TransactionStatisticsService statisticsService,
-                      HighRiskCountryRepository highRiskCountryRepository) {
-        this.amlProperties = amlProperties;
-        this.statisticsService = statisticsService;
-        this.highRiskCountryRepository = highRiskCountryRepository;
-    }
+        public AmlService(AmlProperties amlProperties,
+                          TransactionStatisticsService statisticsService,
+                          HighRiskCountryRepository highRiskCountryRepository,
+                          @Value("${aml.fallback-high-risk-countries:KP,IR,MM,SY,YE,SD,LY,SO,CF,SS,VE,AF,IQ,ML,BF}") String fallbackCsv) {
+            this.amlProperties = amlProperties;
+            this.statisticsService = statisticsService;
+            this.highRiskCountryRepository = highRiskCountryRepository;
+            this.fallbackHighRiskCountries = parseCsv(fallbackCsv);
+        }
 
     /**
      * Assess AML risk for a transaction
@@ -95,6 +96,14 @@ public class AmlService {
             transaction.getTransactionId(), riskScore, riskLevel);
 
         return assessment;
+    }
+
+    private static Set<String> parseCsv(String csv) {
+        if (csv == null || csv.isBlank()) return Set.of();
+        return java.util.Arrays.stream(csv.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
     }
 
     private int assessAmountRisk(Transaction transaction, List<String> riskFactors) {
@@ -212,7 +221,7 @@ public class AmlService {
             } catch (Exception ex) {
                 logger.warn("high_risk_countries lookup failed for {}: {}; using static FATF list",
                         normalised, ex.getMessage());
-                highRisk = FATF_HIGH_RISK_COUNTRIES.contains(normalised);
+                highRisk = fallbackHighRiskCountries.contains(normalised);
             }
             if (highRisk) {
                 score += 40;
