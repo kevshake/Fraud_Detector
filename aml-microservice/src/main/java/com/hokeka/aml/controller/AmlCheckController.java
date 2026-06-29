@@ -37,11 +37,10 @@ public class AmlCheckController {
      * Full path: GET /internal/v1/aml/health
      */
     @GetMapping("/health")
-    public ResponseEntity<Map<String, Object>> health() {
-        Map<String, Object> body = new HashMap<>();
-        body.put("status", "UP");
-        body.put("aerospike", amlCheckService.isAerospikeConnected());
-        body.put("service", "aml-microservice");
-        return ResponseEntity.ok(body);
+        public ResponseEntity<Map<String, Object>> health() {
+            Map<String, Object> body = new HashMap<>();
+            body.put("status", "UP");
+            body.put("aerospike", amlCheckService.isAerospikeConnected());
+            return ResponseEntity.ok(body);
+        }
     }
-}

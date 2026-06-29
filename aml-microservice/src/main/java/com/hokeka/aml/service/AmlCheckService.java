@@ -14,12 +14,19 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.util.Set;
 
 @Service
 public class AmlCheckService {
     private static final Logger log = LoggerFactory.getLogger(AmlCheckService.class);
-    private static final String NAMESPACE = "test";
-    private static final String SET_NAME = "aml_transactions";
+
+    private static final Set<String> HIGH_RISK_COUNTRIES = Set.of("IR", "KP", "SY", "CU", "SD");
+    private static final Set<String> MEDIUM_RISK_COUNTRIES = Set.of("NG", "RU", "CN", "VE");
+
+    private static final String NAMESPACE = "aml_cache";
+        private static final String SET_NAME = "risk_profile";
+        // Also write a reference in the transaction set for cross-service traceability.
+        private static final String SET_TXN = "transactions";
 
     public static final String CACHE_LAYER_AEROSPIKE = "L1_AEROSPIKE";
     public static final String CACHE_LAYER_COMPUTED = "COMPUTED";
@@ -121,8 +128,8 @@ public class AmlCheckService {
 
         String country = request.getCountry();
         if (country != null) {
-            if ("IR,KP,SY,CU,SD".contains(country)) score += 0.4;
-            else if ("NG,RU,CN,VE".contains(country)) score += 0.1;
+            if (HIGH_RISK_COUNTRIES.contains(country)) score += 0.4;
+                        else if (MEDIUM_RISK_COUNTRIES.contains(country)) score += 0.1;
         }
 
         String txnType = request.getTransactionType();

@@ -26,6 +26,7 @@ public class ScoringService {
     private final RedisTemplate<String, Object> redisTemplate;
     private final com.posgateway.aml.service.rules.DroolsRulesService droolsRulesService;
     private final com.posgateway.aml.service.deeplearning.DL4JAnomalyService dl4jAnomalyService;
+    private final com.posgateway.aml.client.aml.AmlMicroserviceClient amlMicroserviceClient;
 
     @Value("${scoring.service.enabled:true}")
     private boolean scoringEnabled;
@@ -44,12 +45,14 @@ public class ScoringService {
             com.posgateway.aml.service.risk.SchemeSimulatorService schemeSimulatorService,
             RedisTemplate<String, Object> redisTemplate,
             @org.springframework.beans.factory.annotation.Autowired(required = false) com.posgateway.aml.service.rules.DroolsRulesService droolsRulesService,
-            @org.springframework.beans.factory.annotation.Autowired(required = false) com.posgateway.aml.service.deeplearning.DL4JAnomalyService dl4jAnomalyService) {
+            @org.springframework.beans.factory.annotation.Autowired(required = false) com.posgateway.aml.service.deeplearning.DL4JAnomalyService dl4jAnomalyService,
+            com.posgateway.aml.client.aml.AmlMicroserviceClient amlMicroserviceClient) {
         this.restClientService = restClientService;
         this.schemeSimulatorService = schemeSimulatorService;
         this.redisTemplate = redisTemplate;
         this.droolsRulesService = droolsRulesService;
         this.dl4jAnomalyService = dl4jAnomalyService;
+        this.amlMicroserviceClient = amlMicroserviceClient;
     }
 
     /**
@@ -61,7 +64,48 @@ public class ScoringService {
      * @return Scoring result with score and latency
      */
     public ScoringResult scoreTransaction(Long txnId, Map<String, Object> features) {
-        // 0. Check Redis cache first for ultra-fast response (5 min TTL on writes below)
+        // 0. L1 Cache: Check AML Microservice (Aerospike) first for sub-ms cache hits
+        // This is the fastest path — returns cached risk score from Aerospike when available.
+        if (amlMicroserviceClient != null) {
+            String merchantId = (String) features.getOrDefault("merchant_id",
+                    features.getOrDefault("merchantId", ""));
+            String customerId = (String) features.getOrDefault("customer_id",
+                    features.getOrDefault("customerId", ""));
+            try {
+                var req = new com.posgateway.aml.client.aml.AmlScoreRequest(
+                        txnId != null ? "TXN-" + txnId : null,
+                        null, // pspId — resolved at controller level
+                        merchantId,
+                        null, // amount — not needed for cache check
+                        null, null, null, null, customerId, null);
+                var resp = amlMicroserviceClient.score(req);
+                if (resp != null && resp.cacheLayer() != null
+                        && "L1_AEROSPIKE".equals(resp.cacheLayer())) {
+                    logger.debug("Aerospike L1 cache HIT for txn {} — score={}, indicators={}",
+                            txnId, resp.riskScore(), resp.indicators());
+                    Map<String, Object> riskDetails = new HashMap<>();
+                    riskDetails.put("ml_score", resp.riskScore());
+                    riskDetails.put("cache_layer", resp.cacheLayer());
+                    riskDetails.put("source", resp.source());
+                    if (resp.indicators() != null && !resp.indicators().isEmpty()) {
+                        riskDetails.put("microservice_indicators", resp.indicators());
+                        for (String ind : resp.indicators()) {
+                            if ("SANCTIONS_FLAGGED".equals(ind)) {
+                                riskDetails.put("sanctions_block", true);
+                            } else if ("SANCTIONS_REVIEW".equals(ind)) {
+                                riskDetails.put("sanctions_review", true);
+                            }
+                        }
+                    }
+                    return new ScoringResult(txnId, resp.riskScore(), resp.processingTimeMs(), riskDetails);
+                }
+            } catch (Exception e) {
+                logger.debug("Aerospike L1 cache check failed for txn {}: {} — falling through",
+                        txnId, e.getMessage());
+            }
+        }
+
+        // 1. L2 Cache: Check Redis cache second
         if (cacheEnabled) {
             Object raw = redisTemplate.opsForValue().get("graph:xgboost:" + txnId);
             if (raw instanceof Map) {

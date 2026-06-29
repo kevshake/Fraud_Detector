@@ -92,7 +92,94 @@ public class AmlMicroserviceClient {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Aerospike risk-profile cache (P3-A)
+        // READ SIDE — Aerospike cache reads for hot-path sub-millisecond access
+        // GET /internal/v1/cache/{type}/{key}
+        // Returns the cached profile/map or null when not in cache.
+        // ─────────────────────────────────────────────────────────────────────────
+
+        @CircuitBreaker(name = CB_NAME, fallbackMethod = "getCacheFallback")
+        public java.util.Map<String, Object> getRiskProfile(Long customerId) {
+            if (!properties.isEnabled() || customerId == null) return null;
+            try {
+                return webClient.get()
+                        .uri("/internal/v1/cache/risk-profile/{customerId}", customerId)
+                        .retrieve()
+                        .bodyToMono(new org.springframework.core.ParameterizedTypeReference<java.util.Map<String, Object>>() {})
+                        .block(Duration.ofMillis(properties.getReadTimeoutMs() + 100L));
+            } catch (org.springframework.web.reactive.function.client.WebClientResponseException.NotFound e) {
+                return null; // not cached yet
+            } catch (Exception e) {
+                log.warn("Aerospike risk-profile read failed for customerId={}: {}", customerId, e.getMessage());
+                return null;
+            }
+        }
+
+        @CircuitBreaker(name = CB_NAME, fallbackMethod = "getCacheFallback")
+        public java.util.Map<String, Object> getVelocity(String customerId) {
+            if (!properties.isEnabled() || customerId == null || customerId.isBlank()) return null;
+            try {
+                return webClient.get()
+                        .uri("/internal/v1/cache/velocity/{customerId}", customerId)
+                        .retrieve()
+                        .bodyToMono(new org.springframework.core.ParameterizedTypeReference<java.util.Map<String, Object>>() {})
+                        .block(Duration.ofMillis(properties.getReadTimeoutMs() + 100L));
+            } catch (org.springframework.web.reactive.function.client.WebClientResponseException.NotFound e) {
+                return null;
+            } catch (Exception e) {
+                log.warn("Aerospike velocity read failed for customerId={}: {}", customerId, e.getMessage());
+                return null;
+            }
+        }
+
+        @CircuitBreaker(name = CB_NAME, fallbackMethod = "getCacheFallback")
+        public java.util.Map<String, Object> getDevice(String fingerprint) {
+            if (!properties.isEnabled() || fingerprint == null || fingerprint.isBlank()) return null;
+            try {
+                return webClient.get()
+                        .uri("/internal/v1/cache/device/{fp}", fingerprint)
+                        .retrieve()
+                        .bodyToMono(new org.springframework.core.ParameterizedTypeReference<java.util.Map<String, Object>>() {})
+                        .block(Duration.ofMillis(properties.getReadTimeoutMs() + 100L));
+            } catch (org.springframework.web.reactive.function.client.WebClientResponseException.NotFound e) {
+                return null;
+            } catch (Exception e) {
+                log.warn("Aerospike device read failed for fp={}: {}", fingerprint, e.getMessage());
+                return null;
+            }
+        }
+
+        @CircuitBreaker(name = CB_NAME, fallbackMethod = "getCacheFallback")
+        public java.util.Map<String, Object> getIpReputation(String ip) {
+            if (!properties.isEnabled() || ip == null || ip.isBlank()) return null;
+            try {
+                return webClient.get()
+                        .uri("/internal/v1/cache/ip-reputation/{ip}", ip)
+                        .retrieve()
+                        .bodyToMono(new org.springframework.core.ParameterizedTypeReference<java.util.Map<String, Object>>() {})
+                        .block(Duration.ofMillis(properties.getReadTimeoutMs() + 100L));
+            } catch (org.springframework.web.reactive.function.client.WebClientResponseException.NotFound e) {
+                return null;
+            } catch (Exception e) {
+                log.warn("Aerospike IP reputation read failed for ip={}: {}", ip, e.getMessage());
+                return null;
+            }
+        }
+
+        @SuppressWarnings("unused")
+        private java.util.Map<String, Object> getCacheFallback(String key, Throwable t) {
+            log.debug("AML microservice cache read fallback (key={}, reason={})", key, t.getMessage());
+            return null;
+        }
+
+        @SuppressWarnings("unused")
+        private java.util.Map<String, Object> getCacheFallback(Long customerId, Throwable t) {
+            log.debug("AML microservice cache read fallback (customerId={}, reason={})", customerId, t.getMessage());
+            return null;
+        }
+
+        // ─────────────────────────────────────────────────────────────────────────
+        // OLD WRITE-SIDE methods (unchanged)
+        // ─────────────────────────────────────────────────────────────────────────
     //
     // Fire-and-forget PUT to /internal/v1/cache/risk-profile/{customerId}. The
     // microservice owns the Aerospike client; BACKEND just emits the write so
