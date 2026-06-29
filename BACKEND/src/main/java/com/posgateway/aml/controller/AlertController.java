@@ -1,6 +1,7 @@
 package com.posgateway.aml.controller;
 
 import com.posgateway.aml.entity.Alert;
+import com.posgateway.aml.entity.User;
 import com.posgateway.aml.model.AlertDisposition;
 import com.posgateway.aml.repository.AlertRepository;
 import com.posgateway.aml.repository.MerchantRepository;
@@ -36,17 +37,20 @@ public class AlertController {
     private final PspIsolationService pspIsolationService;
     private final MerchantRepository merchantRepository;
     private final RuleEffectivenessService ruleEffectivenessService;
+        private final com.posgateway.aml.service.case_management.AlertToCaseService alertToCaseService;
 
-    @Autowired
-    public AlertController(AlertRepository alertRepository, AlertDispositionService alertDispositionService,
-                           PspIsolationService pspIsolationService, MerchantRepository merchantRepository,
-                           RuleEffectivenessService ruleEffectivenessService) {
+        @Autowired
+        public AlertController(AlertRepository alertRepository, AlertDispositionService alertDispositionService,
+                               PspIsolationService pspIsolationService, MerchantRepository merchantRepository,
+                               RuleEffectivenessService ruleEffectivenessService,
+                               com.posgateway.aml.service.case_management.AlertToCaseService alertToCaseService) {
         this.alertRepository = alertRepository;
         this.alertDispositionService = alertDispositionService;
         this.pspIsolationService = pspIsolationService;
         this.merchantRepository = merchantRepository;
         this.ruleEffectivenessService = ruleEffectivenessService;
-    }
+                this.alertToCaseService = alertToCaseService;
+            }
 
     /**
      * Get all alerts filtered by PSP ID with pagination
@@ -240,9 +244,27 @@ public class AlertController {
                                 : d.isFalsePositive() ? "FALSE_POSITIVE"
                                 : "UNKNOWN";
                         ruleEffectivenessService.recordDisposition(String.valueOf(saved.getTxnId()), bucket);
-                    }
+                        }
 
-                    return ResponseEntity.ok(saved);
+                        // AUTO-CREATE CASE: if disposition warrants it, bridge to case management
+                        if (request != null && request.getDisposition() != null) {
+                            try {
+                                org.springframework.security.core.Authentication auth2 =
+                                    org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+                                User disposingUser = null;
+                                if (auth2 != null && auth2.getPrincipal() instanceof User u) {
+                                    disposingUser = u;
+                                                                }
+                                                                alertToCaseService.resolveAlertToCase(
+                                                                        alert.getAlertId(), request.getDisposition(),
+                                                                        request.getNotes(), disposingUser);
+                                                            } catch (Exception caseEx) {
+                                                                org.slf4j.LoggerFactory.getLogger(AlertController.class)
+                                                                    .warn("Alert \u2192 Case bridge failed for alert {}: {}", id, caseEx.getMessage());
+                            }
+                        }
+
+                        return ResponseEntity.ok(saved);
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
