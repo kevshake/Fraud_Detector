@@ -134,16 +134,28 @@ public class DecisionEngine {
         // These would be implemented with actual blacklist tables
 
         // Real-time sanctions screening (highest priority)
-        DecisionResult sanctionsResult = checkSanctionsScreening(transaction);
-        if (sanctionsResult != null) {
-            return sanctionsResult;
-        }
+                DecisionResult sanctionsResult = checkSanctionsScreening(transaction);
+                if (sanctionsResult != null) {
+                    return sanctionsResult;
+                }
 
-        return null; // No hard rule triggered
+                // Cross-PSP fraud intelligence — check if this merchant/PAN/terminal
+                // has been flagged by other PSPs
+                if (crossPspFraudService != null) {
+                    DecisionResult crossPspResult = checkCrossPspFraud(transaction);
+                    if (crossPspResult != null) {
+                        return crossPspResult;
+                    }
+                }
+
+                return null; // No hard rule triggered
     }
 
     @Autowired(required = false)
-    private com.posgateway.aml.service.sanctions.RealTimeTransactionScreeningService realTimeScreeningService;
+        private com.posgateway.aml.service.sanctions.RealTimeTransactionScreeningService realTimeScreeningService;
+
+        @Autowired(required = false)
+        private com.posgateway.aml.service.fraud.CrossPspFraudIntelligenceService crossPspFraudService;
 
     private DecisionResult checkSanctionsScreening(TransactionEntity transaction) {
         if (realTimeScreeningService == null) {
@@ -178,7 +190,39 @@ public class DecisionEngine {
         return null;
     }
 
-    private void checkAmlRules(TransactionEntity transaction, Map<String, Object> features, 
+    /**
+     * Check transaction against cross-PSP fraud intelligence database.
+     * If the merchant, PAN, or terminal has been flagged by another PSP,
+     * the transaction is BLOCKED with appropriate reasons.
+     */
+    private DecisionResult checkCrossPspFraud(TransactionEntity transaction) {
+        try {
+            var result = crossPspFraudService.screenTransaction(transaction);
+            if (result.hasMatch()) {
+                List<String> reasons = new ArrayList<>();
+                reasons.add("CROSS_PSP_FRAUD: Matched " + result.getMatchedEntities().size()
+                        + " entity(ies) flagged by other PSPs");
+                reasons.addAll(result.getMatchedEntities().stream()
+                        .map(e -> "Cross-PSP match: " + e)
+                        .toList());
+                reasons.add("Total PSP flags: " + result.getTotalFlagCount());
+                reasons.add("Highest risk: " + result.getHighestRiskLevel());
+
+                // BLOCK if high risk or multiple PSPs flagged; otherwise FLAG
+                String action = result.isHigh() || result.getTotalFlagCount() > 1 ? "BLOCK" : "HOLD";
+
+                logger.warn("Transaction {} {} due to cross-PSP fraud match: {}",
+                        transaction.getTxnId(), action, reasons);
+                return new DecisionResult(action, 0.9, reasons);
+            }
+        } catch (Exception e) {
+            logger.error("Cross-PSP fraud check failed for transaction {}: {}",
+                    transaction.getTxnId(), e.getMessage());
+        }
+        return null;
+    }
+
+    private void checkAmlRules(TransactionEntity transaction, Map<String, Object> features,
                                DecisionResult decision, List<String> reasons) {
         Long amlThreshold = configService.getAmlHighValueThreshold();
         

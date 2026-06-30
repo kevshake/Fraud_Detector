@@ -30,13 +30,16 @@ public class AlertFraudIncidentBridge {
     private final AlertRepository alertRepository;
     private final MerchantRepository merchantRepository;
     private final PspFraudIncidentRepository fraudIncidentRepository;
+    private final com.posgateway.aml.service.fraud.CrossPspFraudIntelligenceService crossPspFraudService;
 
     public AlertFraudIncidentBridge(AlertRepository alertRepository,
                                      MerchantRepository merchantRepository,
-                                     PspFraudIncidentRepository fraudIncidentRepository) {
+                                     PspFraudIncidentRepository fraudIncidentRepository,
+                                     com.posgateway.aml.service.fraud.CrossPspFraudIntelligenceService crossPspFraudService) {
         this.alertRepository = alertRepository;
         this.merchantRepository = merchantRepository;
         this.fraudIncidentRepository = fraudIncidentRepository;
+        this.crossPspFraudService = crossPspFraudService;
     }
 
     /**
@@ -94,6 +97,13 @@ public class AlertFraudIncidentBridge {
         PspFraudIncident saved = fraudIncidentRepository.save(incident);
         log.info("Created fraud incident #{} from alert #{}: type={}, pspId={}",
                 saved.getId(), alertId, fraudCategoryFlag, pspId);
+
+        // Auto-populate cross-PSP fraud intelligence
+        try {
+            crossPspFraudService.flagEntitiesFromAlert(alertId, pspId, disposition);
+        } catch (Exception e) {
+            log.warn("Cross-PSP flagging failed for alert {}: {}", alertId, e.getMessage());
+        }
 
         return Optional.of(saved);
     }
