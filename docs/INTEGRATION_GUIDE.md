@@ -172,6 +172,28 @@ The API uses standard HTTP status codes.
 
 ---
 
-**Last Updated:** May 2026
+**Last Updated:** June 2026
 
-*This documentation is designed to make integration as smooth as possible for technical teams.*
+---
+
+## 📘 PSP API Integration Guide
+
+For a **comprehensive, PSP-focused integration guide** with detailed
+endpoint examples, billing information, authentication flows, webhook
+documentation, and SDK examples in multiple languages, see:
+
+➡️ **[PSP API Guide](PSP_API_GUIDE.md)**
+
+This guide covers:
+- Multi-tenant SaaS model and onboarding flow
+- JWT authentication with role-based access
+- All API endpoint groups with real-world examples
+- Billing and usage tracking per transaction
+- Transaction monitoring end-to-end
+- CBK (Central Bank of Kenya) regulatory reporting
+- Webhook subscriptions for real-time events
+- Integration code in Python, JavaScript, Java, and cURL
+- Error handling, rate limits, and troubleshooting
+
+*This document replaces the integration-guide.md as the primary reference
+for PSP technical teams.*

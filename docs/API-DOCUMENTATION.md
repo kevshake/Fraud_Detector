@@ -67,7 +67,11 @@ mvn spring-boot:run -Dspring-boot.run.profiles=dev
 
 ## Current Status
 
-As of May 2026, the OpenAPI configuration is present but most controllers still lack detailed operation-level documentation. Full annotation coverage is in progress.
+Full API groups documented. For comprehensive PSP integration guide
+with authentication, billing, webhooks, and code examples in Python,
+JavaScript, Java, and cURL, see:
+
+➡️ **[PSP API Guide](PSP_API_GUIDE.md)**
 
 ## Related Files
 
