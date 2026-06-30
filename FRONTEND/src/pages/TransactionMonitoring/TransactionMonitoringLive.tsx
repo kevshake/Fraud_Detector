@@ -5,9 +5,11 @@ import {
   useMonitoringDashboardStats,
   useMonitoringRecentActivity,
 } from "../../features/api/queries";
+import { useResponsivePagination } from "../../hooks/useResponsivePagination";
 
 export default function TransactionMonitoringLive() {
-  const [page, setPage] = useState({ index: 0, size: 25 });
+  const [defaultRows] = useResponsivePagination();
+  const [page, setPage] = useState({ index: 0, size: defaultRows });
   
   const { data: transactions, isLoading: transactionsLoading } = useMonitoringTransactions({
     page: page.index,

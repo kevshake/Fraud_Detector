@@ -28,6 +28,7 @@ import {
 import { useState } from "react";
 import { useAlerts } from "../../features/api/queries";
 import { useUpdateAlertStatus } from "../../features/api/mutations";
+import { useResponsivePagination } from "../../hooks/useResponsivePagination";
 import type { ApiError } from "../../lib/apiClient";
 import type { Alert, Priority } from "../../types";
 import HokekaPageShell from "../../components/Layout/HokekaPageShell";
@@ -46,7 +47,8 @@ const statusColors: Record<string, string> = {
 };
 
 export default function AlertsPage() {
-  const [page, setPage] = useState({ index: 0, size: 25 });
+  const [defaultRows] = useResponsivePagination();
+  const [page, setPage] = useState({ index: 0, size: defaultRows });
   const [viewAlert, setViewAlert] = useState<Alert | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [bulkMenuAnchor, setBulkMenuAnchor] = useState<null | HTMLElement>(null);
