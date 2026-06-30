@@ -28,7 +28,13 @@ Most endpoints require JWT Bearer token authentication.
 | PSP                  | Payment Service Provider Management      | `/psps/**`                 |
 | Billing              | SaaS Billing & Invoicing                 | `/billing/**`              |
 | Compliance           | SAR, KYC, Regulatory Reporting           | `/compliance/**`           |
-| Analytics            | Dashboards, Risk Analytics, Metrics      | `/analytics/**`            |
+|| Analytics            | Dashboards, Risk Analytics, Metrics      | `/analytics/**`            |
+|| Risk Management      | Country Risk, High-Risk Countries        | `/risk/**`                 |
+|| Monitoring           | Transaction Monitoring, Reports          | `/monitoring/**`           |
+|| Fraud Intelligence   | Cross-PSP Fraud Sharing                  | `/fraud-intelligence/**`   |
+|| Subscriptions        | PSP Subscription & Tier Management        | `/subscriptions/**`        |
+|| Payments             | M-Pesa & Bank Transfer Payments          | `/billing/payments/**`     |
+|| CBK Compliance       | Central Bank of Kenya GDI Reporting      | `/compliance/cbk/**`       |
 
 ## Running the Application
 

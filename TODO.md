@@ -1,5 +1,69 @@
 # TODO — Full Platform Completion (no stubs, no mocks, no placeholders)
-_Last updated: 2026-06-06_
+_Last updated: 2026-06-29_
+
+---
+
+## Wave 13 — End-to-End Wiring Completion (this session) ✅
+
+### W13-A: Usage Tracking → Billing Pipeline (CRITICAL GAP FIX) ✅
+
+- [x] **UsageTrackingFilter** — Created `UsageTrackingFilter.java` (OncePerRequestFilter) intercepts every `/api/v1/*` request.
+- [x] Resolves service type from URL pattern (12 mappings: TRANSACTION_PROCESSING, SANCTIONS_SCREENING, AML_CHECK, MERCHANT_ONBOARDING, REPORT_GENERATION, CASE_MANAGEMENT, ALERT_MANAGEMENT, SAR_FILING, CBK_REPORTING, BILLING_OPERATIONS, etc.).
+- [x] Extracts PSP ID from SecurityContext and fires `ApiUsageTrackingService.logRequest()` asynchronously.
+- [x] **Critical fix**: `ApiUsageTrackingService.logRequest()` was NEVER called from anywhere — billing pipeline was completely dormant. The filter fixes this.
+- [x] Cost per transaction calculated in real-time via `BillingService.calculateUsageCost(pspId, serviceType, 1)`.
+- [x] PSP consumption now flows: API → UsageTrackingFilter → ApiUsageLog → Invoice Generation.
+
+### W13-B: Hardcoded Country/MCC Risk Lists → Config-Driven ✅
+
+- [x] **AmlCheckService (microservice)** — `HIGH_RISK_COUNTRIES`/`MEDIUM_RISK_COUNTRIES` static Set.of() replaced with `@Value`-injected fields from `application.yml`.
+- [x] **FraudDetectionService** — FATF_HIGH_RISK_COUNTRIES static Set replaced with `@Value`-injected `fallbackHighRiskCountries` (configurable per env).
+- [x] **AmlService** — Same treatment via `aml.fallback-high-risk-countries`.
+- [x] **RiskScoringService** — MCC_RISK static HashMap replaced with `MccRiskConfig @ConfigurationProperties(prefix="risk.mcc")` class.
+- [x] All defaults preserve existing FATF/MCC values.
+
+### W13-C: DB-Backed Country Risk Management Controllers ✅
+
+- [x] **HighRiskCountryController** (`/api/v1/risk/high-risk-countries`) — Full CRUD (GET list, GET/{id}, POST, PUT/{id}, DELETE/{id}). DB-backed `high_risk_countries` table. Access: ADMIN/COMPLIANCE_OFFICER manage, all authenticated read.
+- [x] **CountryRiskScoreController** (`/api/v1/risk/country-scores`) — Full CRUD for `country_risk_scores` table (numeric scores, FATF tiers, blacklist/greylist status).
+- [x] Primary data source for `FraudDetectionService.isHighRiskCountry()`, `AmlService.assessGeographicRisk()`, `RiskScoringService.getCountryRisk()`.
+
+### W13-D: Alert → Case Escalation Bridge ✅
+
+- [x] **AlertToCaseService** — Auto-creates `ComplianceCase` when alerts resolved with case-worthy dispositions (ESCALATED, TRUE_POSITIVE_* , MERGED_WITH_CASE, PENDING_INFORMATION, ONGOING_MONITORING).
+- [x] **Escalation Matrix**:
+  - Score ≥0.9 → CRITICAL (4h SLA) → immediate escalation to MLRO
+  - Score ≥0.7 → HIGH (24h SLA) → escalate to COMPLIANCE_OFFICER
+  - Score ≥0.4 → MEDIUM (3d SLA) → assign to ANALYST
+  - ELSE → LOW (7d SLA) → assign to ANALYST
+- [x] Decision outcomes: APPROVE→CLOSED_CLEARED, REJECT→CLOSED_BLOCKED, FILE_SAR→CLOSED_SAR_FILED.
+- [x] Auto-assign via `WorkflowAutomationService` (workload balance).
+- [x] Auto-escalation check via `CaseEscalationService.checkAutomaticEscalation()`.
+- [x] Wired into `AlertController.resolveAlert()`.
+
+### W13-E: CBK Reporting — Full Real-Data Audit + Fraud Incident Auto-Population ✅
+
+- [x] **AlertFraudIncidentBridge** — Auto-creates `PspFraudIncident` when alert disposed TRUE_POSITIVE (BLOCKED/SAR_FILED/REPORTED). Feeds daily CBK GDI FRAUD_INCIDENTS endpoint from real alert data.
+- [x] **Verified all 17 CBK GDI endpoints use real DB data**:
+  - Annual (4): SENIOR_MANAGEMENT, DIRECTORS, TRUSTEES, SHAREHOLDERS → Psp*Repository
+  - Monthly (5): CUSTOMER_COMPLAINTS, PRODUCTS_INFO, CARD_BRANDS, TRANSACTION_DETAILS, TRANSACTION_TARIFFS → Psp*Repository + TransactionRepository
+  - Daily (8): CYBER_INCIDENT, FRAUD_INCIDENTS, SYSTEM_STABILITY, SYSTEM_ACTIVITY, TRUST_ACCOUNT, BILLING_TEMPLATE, MERCHANT_TRANSACTIONS, FAILED_TRANSACTIONS → Psp*Repository + TransactionRepository
+
+### W13-F: Cross-PSP Fraud Intelligence ✅
+
+- [x] **CrossPspFraudFlag entity** + Flyway V146 migration (`cross_psp_fraud_flags` table). Tracks MERCHANT_ID, PAN_HASH, TERMINAL, and NAME flags.
+- [x] **CrossPspFraudIntelligenceService**:
+  - WRITE: Auto-populated from TRUE_POSITIVE alerts via `AlertFraudIncidentBridge`. Flags merchant ID, PAN hash, terminal, merchant trading name. Uses `NameMatchingService` (DoubleMetaphone + Levenshtein) for fuzzy name matching (≥80% similarity). Escalates risk level on repeat cross-PSP flags.
+  - READ: `screenTransaction(txn)` — exact match + fuzzy name match against flagged entities. BLOCK if high risk or multi-PSP; HOLD otherwise.
+- [x] **DecisionEngine integration**: 2nd hard rule (after sanctions, before ML scoring).
+
+### W13-G: Dashboard Analytics Refresh Scheduler ✅
+
+- [x] **DashboardAnalyticsRefresher** + **DashboardCache** — Recalculates live dashboard KPIs every 4 minutes (`0 */4 * * * *`). Conditionally disabled via `dashboard.analytics.refresh.enabled=false`.
+
+### W13-H: Report Export Verification ✅
+
+- [x] **All exports verified real**: ReportExportService (PDF/CSV/XML), ReportGenerationService (native SQL), DashboardController (real aggregates), RiskAnalyticsController, TransactionMonitoringController.
 
 ---
 
@@ -29,96 +93,53 @@ Pixel-match the Hokeka AML mockup; full migration off MUI to Tailwind + Shadcn +
 
 ## Wave 11 — Frontend cleanup (Task #68) ✅
 
-- [x] **#68** Deleted orphaned `RolesPage.tsx` + `pages/Roles/` dir; added `/limits-aml` sidebar nav link ("Transaction Limits", `Tune` icon, placed right after rules-generation); removed 7 empty page dirs (Crypto, Entities, Network, PepManagement, Rules, SarReports, Transactions); `npm run typecheck` passes clean.
+- [x] **#68** Deleted orphaned `RolesPage.tsx` + `pages/Roles/` dir; added `/limits-aml` sidebar nav link; removed 7 empty page dirs; `npm run typecheck` passes clean.
 
 ---
 
 ## Wave 10 — Stub fixes (Task #67) ✅
 
-- [x] **#67A** CBK controllers hardened: all 11 PSP CBK controllers + `CbkReportController` rewritten — `getCurrentUser()` now rejects null/unauthenticated/anonymous principals and returns null cleanly; new `getCurrentPspId()` helper added; `canAccess()` and `isPspAdminForThisPsp()` are NPE-safe with try/catch on `UserRole.valueOf`. FQN `com.posgateway.aml.entity.User` references replaced with proper imports + `User` shorthand.
-- [x] **#67B** `PeriodicSanctionsScreeningService` — placeholder TransactionEntity wrapper removed; new `CaseCreationService.triggerCaseFromSanctionsForMerchant(merchantId, pspId, matchDetails, hitListName)` overload returns persisted `ComplianceCase`, forces HIGH priority, NEW status if fresh, "Sanctions hit on merchant: …" description; UBO and merchant hits both route through the new method.
-- [x] **#67C** `SarContentGenerationService` — `MerchantRepository` injected; `customer_country` resolved via Merchant.country → first txn's `merchantCountry` → `KE` fallback; `currency` derived from most-common txn currency → `KES` fallback (no hardcoded USD); `@SuppressWarnings("unused")` removed and `sarRepository` now actively queries `countByComplianceCase_Id` to expose `{{related_sar_count}}` placeholder; new repo methods `findByComplianceCase_Id` + `countByComplianceCase_Id` added.
-- [x] **#67D** `mvn clean compile` BUILD SUCCESS — 648 sources compile, no new warnings introduced.
-
-> **Goal:** Zero stubs, zero mock data, zero coming-soon pages, full Aerospike integration for caching/speed.
-> **Skills source:** https://www.skills.sh/ — install relevant skills via `npx skillsadd <owner/repo>` as needed per domain.
-
----
-
-## Wave 1 — Security ✅
-
-- [x] **#32** Fix `PricingController` — added `@PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN')")` at class level
-- [x] **#33** Fix `ClientController` (→ ADMIN) + `TransactionController` per-method RBAC (ingest=PSP roles, read=all roles, admin=SUPER_ADMIN/ADMIN)
-
----
-
-## Wave 2 — Backend stub completions ✅
-
-- [x] **#34** `FrcReportingService` — real goAML 4.x XML for STR (alerts+transactions), CTR (full transaction block), Annual (live DB counts, `ANNREP` format). Commons-lang3 XML escaping, `@Value`-injected entity ID/name.
-- [x] **#35** `AmlService` — geographic risk check: DB-first via `HighRiskCountryRepository`, fallback to 15-country FATF static set. +20 risk score on hit.
-- [x] **#36** `ComplianceDashboardService` — team workload was already implemented; removed stale placeholder comment.
-- [x] **#37** `CaseEnrichmentService` — `MerchantRepository` injected; KYC enrichment wired: fetches merchant by ID, extracts legalName/riskLevel/kycStatus, calls Sumsub screening.
-- [x] **#38** `MonitoringMetricsService` — `computeAverageLatency()` from `scoredAt − createdAt` across feature batch; `computeAUC()` real trapezoidal ROC from labeled transactions, DB fallback to `ModelMetrics.auc`, never hardcoded.
-- [x] **#39** `RiskScoringService` — `CountryRiskRepository` injected; DB-first lookup with static COUNTRY_RISK map fallback in all 3 overloads.
-- [x] **#40** `CaseEscalationService` — 3-component composite score: alert base (0–50) + txn amount log-scale (0–30) + entity risk tier (0–20), capped 0–100.
-
----
-
-## Wave 3 — Pagination / Data integrity ✅
-
-- [x] **#41** `AuditLogRepository` + `AuditLogController` — byEntity/byUser/byRange → `Page<AuditLog>` with page/size params (default 20, capped 100), DESC timestamp sort. `LimitsManagementController` → `Page<MerchantTransactionLimit>`. DashboardController was already capped.
-
----
-
-## Wave 4 — Frontend completions ✅
-
-- [x] **#42** `/limits-aml` route added to `App.tsx`. `SettingsPage.tsx` already wired to `/settings/system` — confirmed.
-- [x] **#43** `CasesTimeline.tsx` built — real chronological view of 50 most-recent cases, color-coded status icons, PSP filter, "View Case" button. Replaces placeholder in `CasesPage.tsx`.
-- [x] **#44** `CasesNetworkGraph.tsx` built — SVG force-directed graph, case selector panel, node detail side panel, drag/zoom, color-coded by entity type (CASE/MERCHANT/TRANSACTION/SAR/USER). Replaces placeholder in `CasesPage.tsx`.
-
----
-
-## Wave 5 — Aerospike + Settings persistence ✅
-
-- [x] **#45** Caffeine L2 cache wired in BACKEND (Aerospike was removed from BACKEND — Caffeine already on classpath). `CacheConfig.java` rewritten: 9 named caches with individual TTLs (psps=15m, users=5m, sanctions=10m, dashboard-kpis=60s, cbk-config=30m). `@Cacheable` on PspService.getPsp, CustomUserDetailsService.loadUserByUsername, AerospikeSanctionsScreeningService.screenName. `@CacheEvict` on all mutating methods.
-- [x] **#46** `V133__user_settings.sql` + `UserSettings` entity + `UserSettingsRepository` + `SettingsController` wired — per-user theme/notifications/refresh/timezone/dateFormat/itemsPerPage persisted to DB. Class auth relaxed to `isAuthenticated()`; admin sub-endpoints explicitly re-locked to SUPER_ADMIN/ADMIN.
+- [x] **#67A** CBK controllers hardened: all 11 PSP CBK controllers + `CbkReportController` rewritten — NPE-safe `getCurrentUser()`/`getCurrentPspId()`.
+- [x] **#67B** `PeriodicSanctionsScreeningService` — placeholder removed; new `CaseCreationService.triggerCaseFromSanctionsForMerchant()`.
+- [x] **#67C** `SarContentGenerationService` — `MerchantRepository` injected; placeholder fallbacks removed.
+- [x] **#67D** `mvn clean compile` BUILD SUCCESS — 648 sources compile.
 
 ---
 
 ## Wave 9 — Reports, Analytics, Data Output + DB Indexes ✅
 
-- [x] **#59** `DashboardController` sanctions status + fraud metrics — replaced all hardcoded literals with real DB queries: `MerchantScreeningResultRepository` (lastRun, merchantsProcessed, hitsFound today), `ModelMetricsRepository` (AUC, precisionAt100, drift, latency), `AlertRepository` (precision/recall/F1/FPR computed from true/false positive alert dispositions).
-- [x] **#60** `ReportExportService` — complete rewrite: real OpenPDF PDF (branded A4, alternating rows, page-N-of-M footer) returning `byte[]`; real RFC-compliant UTF-8-BOM CSV `byte[]`; no file-system writes. `ReportController` download endpoint serves `application/pdf` or `text/csv` with `Content-Disposition`. New `GET /reports/chart/export` endpoint flattens chart data to CSV/PDF bytes. BOM and wildcard-import compile errors fixed.
-- [x] **#61** `RegulatoryReportingService` — deleted `SimpleTransactionFetcher()` (was calling `findAll()` and filtering in memory); replaced with indexed `findByPspIdAndTxnTsBetween()` + pageable overload added to `TransactionRepository`. New `GET /reports/transactions/stats` endpoint returns 10 aggregated metrics (counts by decision/risk, total+avg amount, fraud alerts) — PSP-scoped. `TransactionMonitoringReports.tsx` replaced hardcoded `size=1000` with `useTransactionStats()` hook against the new endpoint.
-- [x] **#62** `AnalyticsPage.tsx` — native Recharts analytics (4 tabs: Transaction Overview, Risk Analytics, Alert Trends, Model Performance) shown by default; Grafana tab only appears when `VITE_GRAFANA_URL` is set. 4 new query hooks in `queries.ts` (`useFraudMetrics`, `useModelMetricsLatest`, `useModelMetricsRange`, `useAlertTrends`). `ReportSchedulingService` quarterly calculation bug fixed (explicit Q-boundary if/else, `withDayOfMonth(1)` applied correctly).
-- [x] **#63** `V135__production_performance_indexes.sql` — 26 new composite/partial indexes across 13 tables: transactions (psp+decision+time, psp+risk+time, device+time, ip+time, direction+decision+time, country+time), api_usage_logs (psp+service+time, psp+billable+time, endpoint+time), alerts (merchant+status+time), invoices (psp+status+due, paid+date), payment_attempts (psp+status+created, invoice+status), SARs (psp+status+created), CBK submissions (psp+status+submitted), audit_logs (action+entity+time, failed-only partial), merchants (next_screening, psp+status+risk, country+mcc), compliance_cases (psp+assignee+status), billing_calculations (psp+period), subscriptions (psp+status), merchant_screening (status+score partial). All `IF NOT EXISTS`, verified against existing migrations.
+- [x] **#59** `DashboardController` sanctions status + fraud metrics — all real DB queries.
+- [x] **#60** `ReportExportService` — complete rewrite: real OpenPDF PDF, real CSV, no file-system writes.
+- [x] **#61** `RegulatoryReportingService` — indexed queries, PSP-scoped stats endpoint.
+- [x] **#62** `AnalyticsPage.tsx` — native Recharts analytics (4 tabs), Grafana fallback.
+- [x] **#63** `V135__production_performance_indexes.sql` — 26 new composite/partial indexes.
 
 ---
 
-## Wave 8 — Zero Stubs: Fraud Scoring, Risk, Kafka Pipeline, Compliance Reporting ✅
+## Wave 8 — Zero Stubs: Fraud Scoring, Risk, Kafka, Compliance ✅
 
-- [x] **#53** `FraudDetectionService` — replaced 3 hardcoded-0 stubs: `assessDeviceRisk` (device fingerprint velocity + fraud-alert cross-join), `assessIpRisk` (IP velocity + HighRiskCountry DB + FATF fallback), `assessBehavioralRisk` (amount vs 30-day avg, unusual hours). `TransactionMonitoringService` `getDeviceRisk`/`isVpnDetected` now delegate to real scoring; VPN detection uses RFC-1918 exclusion + cloud-prefix heuristic. `TransactionRepository` +4 JPQL queries.
-- [x] **#54** `RiskScoringService.calculateCra()` — 5-dimension weighted CRA (amount risk 20pts + KRS 25pts + TRS 25pts + geographic 15pts + velocity 15pts). `ReportController /chart` — real data: PIE/ALERTSTATUS from AlertRepository, LINE/BAR from daily TransactionRepository aggregation with PSP scoping and configurable date window.
-- [x] **#55** `FeatureExtractionService.parseCvmMethod()` — proper EMV CVMR 3-byte parsing (PIN/Signature/No-CVM/unknown). `MonitoringMetricsService` baseline — 30-day rolling average AUC from `ModelMetricsRepository.findAverageAucSince()` (new query), never hardcoded. `CaseCreationService` rule version — live lookup from `RuleDefinitionRepository` yielding `"v<year>.<month>"`, fallback `"v0.0"`.
-- [x] **#56** `ComplianceReportingService.generateFincenXml()` — full goAML-pattern SAR XML (entity header, sar_details block, filing_officer, reason narrative, per-transaction blocks, commons-lang3 escaping). `SarContentGenerationService` — fixed `getFullName()` NoSuchMethodError, added 8 missing substitution keys, post-substitution `{{...}}` validation replaces unfilled tokens with `[NOT PROVIDED]`. `SchemeMonitoringReportGenerator` — stale mock comment removed (implementation was already real).
-- [x] **#57** `UserService` — replaced hardcoded `"super.admin@aml.com"` with `findFirstByRole_NameOrderByIdAsc("SUPER_ADMIN")` (new repo method). `WorkflowAutomationService` — real case-closure loop via `complianceCaseRepository.findByMerchantId()`. `PrometheusMetricsService` — HikariCP-backed gauges for `system.active.connections`, pool size, pool active (instanceof check, `0.0` fallback). `PasswordResetService` — real HTML email via new `EmailNotificationService.sendPasswordResetEmail()`.
-- [x] **#58** Kafka expanded 3→8 topics: +`transactions.raw` (12 partitions, 7d), `transactions.enriched` (12p, 3d), `features.updates` (6p, 1d), `transactions.audit` (6p, 30d), `alerts.generated` (6p, 7d). `TransactionIngestionService` publishes to `transactions.raw` after save. `DecisionEngine` publishes to `alerts.generated` after alert save. `AuditLogService` mirrors CREATE/UPDATE/DELETE to `transactions.audit`. `FeatureEngineService` consumer: `transactions.raw` → pre-computes CustomerFeatures via `FeatureCacheService`, publishes enriched event to `transactions.enriched`. `EnhancedAuditService` constructor updated for new KafkaTemplate param.
+- [x] **#53** `FraudDetectionService` — replaced 3 hardcoded-0 stubs (device/IP/behavioral risk).
+- [x] **#54** `RiskScoringService.calculateCra()` — 5-dimension weighted CRA.
+- [x] **#55** `FeatureExtractionService` — proper EMV CVMR 3-byte parsing.
+- [x] **#56** `ComplianceReportingService.generateFincenXml()` — full goAML-pattern SAR XML.
+- [x] **#57** UserService, WorkflowAutomationService, PrometheusMetricsService — all real DB/connections.
+- [x] **#58** Kafka expanded 3→8 topics, ingestion pipeline end-to-end.
 
 ---
 
 ## Wave 7 — PSP Self-Serve Billing + Payments ✅
 
-- [x] **#51** `SettingsPage.tsx` — PSP users (`pspId > 0`) now see ONLY a "Billing" tab (page title shows their PSP name). Platform admins still see Theme + System Settings. `BillingTab` rendered with `user.pspId` — no navigation to `/psps/:id/configure` required.
-- [x] **#52** Payment capability end-to-end: `V134__payment_attempts.sql`, `PaymentAttempt` entity/repo, `MpesaProperties` + `MpesaService` (Daraja OAuth2 token cache, STK Push, callback processing, invoice auto-marked PAID on ResultCode=0), `PaymentController` (`POST /billing/payments/initiate`, `POST /billing/payments/mpesa/callback` [public], `GET /billing/payments/{invoiceId}`, `GET /billing/bank-details`). Security config: M-Pesa callback URL permit-all. `BillingTab.tsx`: "Pay" button on SENT/OVERDUE invoices → payment dialog (M-Pesa phone input + STK push OR Bank Transfer details display + reference submission). `mpesa.*` + `billing.bank.*` env-overridable properties.
+- [x] **#51** `SettingsPage.tsx` — PSP users see billing tab; platform admins see Theme + System Settings.
+- [x] **#52** M-Pesa payment capability end-to-end (Daraja STK Push, callback, invoice auto-mark PAID).
 
 ---
 
 ## Wave 6 — SaaS Billing (full end-to-end) ✅
 
-- [x] **#47** Expanded `BillingController` (+7 endpoints: invoice detail, status update, overdue list, PDF download, usage by month, current usage, revenue summary) + new `SubscriptionController` (7 CRUD endpoints). DTOs: `InvoiceStatusUpdateRequest`, `UsageSummaryResponse`, `RevenueSummaryResponse`, `SubscriptionRequest`, `SubscriptionResponse`. New repo queries: `sumPaidAmountForPeriod`, `sumExpectedAmountForPeriod`, `sumOverdueAmount`, `countAllByPspAndPeriod`. Full PSP-scoped isolation (PSP_ADMIN sees only own data).
-- [x] **#48** `InvoicePdfService` (OpenPDF A4 branded PDF — header, bill-to, line items, totals, payment info, footer). `BillingEmailService` (async, fail-soft: invoice email with PDF attachment, dunning reminder, escalation). `DunningScheduler` (daily 09:00 overdue sweep + Monday escalation). OpenPDF `Spacer`/`LineSeparator` compat fixed. Properties wired under `billing.*`.
-- [x] **#49** `BillingPage.tsx` (admin, 4 tabs): Revenue Dashboard (KPI cards + bar chart + overdue alert table), Subscriptions (CRUD dialog — PSP/tier/cycle/currency/dates/discount), Invoices (filter by PSP+status, mark-paid dialog, PDF download), Usage (PSP selector + month picker + breakdown table). `types/billing.ts` with 8 interfaces. 10 query hooks + 4 mutation hooks added to `queries.ts`/`mutations.ts`. `/billing` route in `App.tsx`. Sidebar nav item (ADMIN/SUPER_ADMIN only).
-- [x] **#50** `BillingTab.tsx` added to `PspConfigPage` (tab #9): Current Plan card (tier badge, fees, contract dates, trial warning), Current Month Usage (KPI cards + breakdown, auto-refresh 60s), Invoice History (table with PDF download via `fetch`+`createObjectURL`).
+- [x] **#47** Expanded `BillingController` (+7 endpoints) + `SubscriptionController` (7 CRUD endpoints).
+- [x] **#48** `InvoicePdfService` (OpenPDF A4 branded PDF), `BillingEmailService`, `DunningScheduler`.
+- [x] **#49** `BillingPage.tsx` (admin, 4 tabs): Revenue Dashboard, Subscriptions, Invoices, Usage.
+- [x] **#50** `BillingTab.tsx` added to `PspConfigPage` (tab #9): plan, usage, invoice history.
 
 ---
 
