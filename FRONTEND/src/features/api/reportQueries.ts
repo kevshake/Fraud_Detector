@@ -10,8 +10,9 @@ import type {
   ScheduleConfig,
   ExportFormat,
   ReportDefinition,
+  ReportDefinitionDTO,
 } from "../../types/reports/reportDefinitions";
-import { REPORT_CATEGORIES } from "../../types/reports/reportDefinitions";
+import { REPORT_CATEGORIES, mapDtoToReportDefinition } from "../../types/reports/reportDefinitions";
 
 // Report Generation Request
 export interface GenerateReportRequest {
@@ -109,11 +110,13 @@ export const useReportDefinitions = (options?: Partial<UseQueryOptions<ReportDef
     queryKey: ["reports", "definitions"],
     queryFn: async () => {
       try {
-        // Backend returns a Spring Page<ReportDefinitionDTO>; unwrap content
-        const page = await apiClient.get<{ content?: ReportDefinition[] } | ReportDefinition[]>(
+        // Backend returns a Spring Page<ReportDefinitionDTO>; unwrap content and map
+        // each DTO onto the ReportDefinition shape this UI renders.
+        const page = await apiClient.get<{ content?: ReportDefinitionDTO[] } | ReportDefinitionDTO[]>(
           "reports/definitions?size=200"
         );
-        return Array.isArray(page) ? page : page.content ?? [];
+        const dtos = Array.isArray(page) ? page : page.content ?? [];
+        return dtos.map(mapDtoToReportDefinition);
       } catch (error) {
         return handleApiError(error);
       }

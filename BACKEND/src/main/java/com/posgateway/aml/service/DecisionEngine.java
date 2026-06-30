@@ -234,11 +234,15 @@ public class DecisionEngine {
         
         // Cache threshold calculation
         final long thresholdValue = amlThreshold != null ? amlThreshold : Long.MAX_VALUE;
-        
+        // Capture the action BEFORE any AML escalation. BLOCK/HOLD paths have
+        // already persisted an alert in take{Block,Hold}Action; only an ALLOW
+        // entry action means no alert exists yet for this transaction.
+        final String entryAction = decision.getAction();
+
         // Check single transaction amount
         if (amountCents >= thresholdValue) {
             reasons.add(String.format("AML: Amount %d >= threshold %d", amountCents, thresholdValue));
-            
+
             // Escalate to compliance - use equals for string comparison
             String currentAction = decision.getAction();
             if (!"BLOCK".equals(currentAction)) {
@@ -247,21 +251,25 @@ public class DecisionEngine {
             }
         }
 
-        // Check cumulative amounts (from features) - optimize with early return
+        // Check cumulative amounts (from features)
         Object cumulativeDebits = features.get("cumulative_debits_30d");
-        if (cumulativeDebits == null) {
-            return; // No cumulative data to check
-        }
-        
-        // Optimize type check and calculation
         if (cumulativeDebits instanceof Number) {
             double cumulative = ((Number) cumulativeDebits).doubleValue();
             long cumulativeThreshold = thresholdValue * 10L; // 10x single transaction threshold
             if (cumulative >= cumulativeThreshold) {
-                reasons.add(String.format("AML: Cumulative 30d amount %.2f >= threshold %d", 
+                reasons.add(String.format("AML: Cumulative 30d amount %.2f >= threshold %d",
                     cumulative, cumulativeThreshold));
                 decision.setAction("ALERT");
             }
+        }
+
+        // An AML escalation on an otherwise-ALLOW transaction must still raise an
+        // alert for compliance review. Previously the action flipped to "ALERT"
+        // but no Alert row was ever written (createAlert was only reachable from
+        // the BLOCK/HOLD paths), so high-value transactions silently produced no
+        // alert. Fill that gap here without double-creating for BLOCK/HOLD.
+        if ("ALERT".equals(decision.getAction()) && "ALLOW".equals(entryAction)) {
+            createAlert(transaction, decision.getScore(), "ALERT", String.join("; ", reasons));
         }
     }
 

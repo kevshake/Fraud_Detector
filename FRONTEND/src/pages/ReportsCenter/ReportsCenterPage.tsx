@@ -47,13 +47,9 @@ import {
   AccountBalance,
 } from "@mui/icons-material";
 import type { ReportDefinition, ExportFormat } from "../../types/reports/reportDefinitions";
+import { REPORT_CATEGORIES } from "../../types/reports/reportDefinitions";
 import {
-  REPORT_CATEGORIES,
-  REPORT_DEFINITIONS,
-  getReportsByCategory,
-  searchReports,
-} from "../../types/reports/reportDefinitions";
-import {
+  useReportDefinitions,
   useReportHistory,
   useGenerateReport,
   useScheduleReport,
@@ -107,6 +103,14 @@ export default function ReportsCenterPage() {
   const { toast, showSuccess, showError, hideToast } = useToast();
 
   // API hooks with error handling
+  // Live report catalog from the DB `reports` table (no hardcoded mock catalog).
+  const {
+    data: reportCatalog,
+    isLoading: catalogLoading,
+    error: catalogError,
+    refetch: refetchCatalog,
+  } = useReportDefinitions();
+
   const {
     data: historyData,
     isLoading: historyLoading,
@@ -124,16 +128,26 @@ export default function ReportsCenterPage() {
     enabled: !!generatingReportId,
   });
 
-  // Filter reports based on search and category
+  // All reports from the fetched catalog (stable reference for the memos below).
+  const allReports = useMemo<ReportDefinition[]>(() => reportCatalog ?? [], [reportCatalog]);
+
+  // Filter reports based on search and category — derived from the fetched catalog.
   const filteredReports = useMemo(() => {
     if (searchQuery) {
-      return searchReports(searchQuery);
+      const q = searchQuery.toLowerCase();
+      return allReports.filter(
+        (r) =>
+          r.name.toLowerCase().includes(q) ||
+          r.code.toLowerCase().includes(q) ||
+          r.description.toLowerCase().includes(q) ||
+          r.tags.some((t) => t.toLowerCase().includes(q))
+      );
     }
     if (selectedCategory) {
-      return getReportsByCategory(selectedCategory);
+      return allReports.filter((r) => r.category === selectedCategory);
     }
-    return REPORT_DEFINITIONS;
-  }, [searchQuery, selectedCategory]);
+    return allReports;
+  }, [allReports, searchQuery, selectedCategory]);
 
   // Group reports by category for display
   const groupedReports = useMemo(() => {
@@ -168,7 +182,7 @@ export default function ReportsCenterPage() {
   const handleGenerateReport = useCallback(
     async (reportId: string, parameters: Record<string, unknown>, format: string) => {
       try {
-        const report = REPORT_DEFINITIONS.find((r) => r.id === reportId);
+        const report = allReports.find((r) => r.id === reportId || r.code === reportId);
         if (!report) {
           showError("Report not found");
           return;
@@ -183,7 +197,8 @@ export default function ReportsCenterPage() {
         }
 
         const result = await generateMutation.mutateAsync({
-          reportId,
+          // Send the DB report_code; useGenerateReport maps reportId -> reportType.
+          reportId: report.code,
           parameters,
           format: format as ExportFormat,
         });
@@ -198,7 +213,7 @@ export default function ReportsCenterPage() {
         showError(apiError.message || "Failed to generate report");
       }
     },
-    [generateMutation, showSuccess, showError, refetchHistory]
+    [allReports, generateMutation, showSuccess, showError, refetchHistory]
   );
 
   const handleScheduleReport = useCallback((report: ReportDefinition) => {
@@ -267,9 +282,10 @@ export default function ReportsCenterPage() {
     [deleteMutation, showSuccess, showError, refetchHistory]
   );
 
-  const getReportCount = useCallback((categoryId: string) => {
-    return REPORT_DEFINITIONS.filter((r) => r.category === categoryId).length;
-  }, []);
+  const getReportCount = useCallback(
+    (categoryId: string) => allReports.filter((r) => r.category === categoryId).length,
+    [allReports]
+  );
 
   // Handle report generation completion
   if (
@@ -318,6 +334,21 @@ export default function ReportsCenterPage() {
           </Alert>
         )}
 
+        {/* Catalog Error Alert */}
+        {catalogError && (
+          <Alert
+            severity="error"
+            sx={{ mb: 2, borderRadius: "12px" }}
+            action={
+              <Button color="inherit" size="small" onClick={() => refetchCatalog()}>
+                Retry
+              </Button>
+            }
+          >
+            Failed to load report catalog: {catalogError.message}
+          </Alert>
+        )}
+
         {/* Tabs */}
         <Box sx={{ mb: 2 }}>
           <Tabs
@@ -337,7 +368,7 @@ export default function ReportsCenterPage() {
                   <ReportsIcon fontSize="small" />
                   <span>All Reports</span>
                   <Chip
-                    label={REPORT_DEFINITIONS.length}
+                    label={allReports.length}
                     size="small"
                     sx={{
                       height: 20,
@@ -445,7 +476,7 @@ export default function ReportsCenterPage() {
                         }}
                       />
                       <Chip
-                        label={REPORT_DEFINITIONS.length}
+                        label={allReports.length}
                         size="small"
                         sx={{
                           height: 20,
@@ -519,6 +550,25 @@ export default function ReportsCenterPage() {
 
             {/* Main Content - Report Cards */}
             <Grid item xs={12} md={9} lg={9.5}>
+              {/* Catalog Loading State */}
+              {catalogLoading && (
+                <Box
+                  sx={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    py: 8,
+                    gap: 2,
+                  }}
+                >
+                  <CircularProgress sx={{ color: "#800020" }} />
+                  <Typography variant="body2" color="text.secondary">
+                    Loading report catalog...
+                  </Typography>
+                </Box>
+              )}
+
               {/* Loading State */}
               {generateMutation.isPending && (
                 <Box sx={{ mb: 2, display: "flex", alignItems: "center", gap: 1 }}>
@@ -529,7 +579,7 @@ export default function ReportsCenterPage() {
                 </Box>
               )}
 
-              {searchQuery && (
+              {!catalogLoading && searchQuery && (
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="body2" color="text.secondary">
                     Search results for "<strong>{searchQuery}</strong>" ({" "}
@@ -538,7 +588,8 @@ export default function ReportsCenterPage() {
                 </Box>
               )}
 
-              {Object.entries(groupedReports).map(([categoryId, reports]) => {
+              {!catalogLoading &&
+                Object.entries(groupedReports).map(([categoryId, reports]) => {
                 const category = REPORT_CATEGORIES.find((c) => c.id === categoryId);
                 if (!category) return null;
 
@@ -574,13 +625,23 @@ export default function ReportsCenterPage() {
                 );
               })}
 
-              {filteredReports.length === 0 && (
-                <EmptyState
-                  type={searchQuery ? "no-results" : "no-filter-results"}
-                  searchQuery={searchQuery}
-                  onClearSearch={clearSearch}
-                />
-              )}
+              {!catalogLoading &&
+                !catalogError &&
+                filteredReports.length === 0 &&
+                selectedCategory !== "cbk-reporting" &&
+                selectedCategory !== "chargeback-dispute" && (
+                  <EmptyState
+                    type={
+                      searchQuery
+                        ? "no-results"
+                        : allReports.length === 0
+                          ? "no-reports"
+                          : "no-filter-results"
+                    }
+                    searchQuery={searchQuery}
+                    onClearSearch={clearSearch}
+                  />
+                )}
 
               {selectedCategory === "cbk-reporting" && (
                 <Box sx={{ mt: 3 }}>

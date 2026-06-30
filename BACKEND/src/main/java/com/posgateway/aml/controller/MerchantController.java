@@ -57,7 +57,7 @@ public class MerchantController {
      * POST /merchants/onboard
      */
     @PostMapping("/onboard")
-    @PreAuthorize("hasAuthority('ONBOARD_MERCHANT')")
+    @PreAuthorize("hasAuthority('MERCHANT_EDIT')")
     public ResponseEntity<MerchantOnboardingResponse> onboardMerchant(
             @Valid @RequestBody MerchantOnboardingRequest request) {
         log.info("Received merchant onboarding request for: {}", request.getLegalName());

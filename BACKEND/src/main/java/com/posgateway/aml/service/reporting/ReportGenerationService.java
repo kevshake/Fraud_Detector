@@ -65,7 +65,11 @@ public class ReportGenerationService {
     /**
      * Generate a report asynchronously
      */
-    @Async("taskExecutor")
+    // backgroundTaskExecutor is the dedicated long-running pool defined in
+    // AsyncConfig. (The previous "taskExecutor" qualifier matched no bean — the
+    // high-throughput pool is registered as "amlTaskExecutor" — so every report
+    // generation request failed with NoSuchBeanDefinitionException.)
+    @Async("backgroundTaskExecutor")
     @Transactional
     public CompletableFuture<ReportExecutionDTO> generateReport(String executionId,
                                                                    String reportType,
