@@ -6,6 +6,7 @@ import com.posgateway.aml.entity.Alert;
 import com.posgateway.aml.entity.ModelMetrics;
 import com.posgateway.aml.entity.merchant.MerchantScreeningResult;
 import com.posgateway.aml.model.AlertDisposition;
+import com.posgateway.aml.model.CasePriority;
 import com.posgateway.aml.model.CaseStatus;
 import com.posgateway.aml.repository.AlertRepository;
 import com.posgateway.aml.repository.ComplianceCaseRepository;
@@ -122,7 +123,20 @@ public class DashboardController {
             Map<String, Long> caseCounts = rowsToMap(caseRepository.countAllGroupByStatus());
             stats.put("openCases", sumActiveCases(caseCounts));
         }
-        stats.put("urgentCases", 0L);
+        // Urgent cases: open CRITICAL-priority cases (demand immediate attention)
+        long urgentCaseCount;
+        if (pspId != null) {
+            urgentCaseCount = caseRepository.countByPspIdAndPriority(pspId, CasePriority.CRITICAL)
+                    - caseRepository.countByPspIdAndStatusAndPriority(pspId, CaseStatus.CLOSED_CLEARED, CasePriority.CRITICAL)
+                    - caseRepository.countByPspIdAndStatusAndPriority(pspId, CaseStatus.CLOSED_SAR_FILED, CasePriority.CRITICAL)
+                    - caseRepository.countByPspIdAndStatusAndPriority(pspId, CaseStatus.CLOSED_BLOCKED, CasePriority.CRITICAL);
+        } else {
+            urgentCaseCount = caseRepository.countByPriority(CasePriority.CRITICAL)
+                    - caseRepository.countByStatusAndPriority(CaseStatus.CLOSED_CLEARED, CasePriority.CRITICAL)
+                    - caseRepository.countByStatusAndPriority(CaseStatus.CLOSED_SAR_FILED, CasePriority.CRITICAL)
+                    - caseRepository.countByStatusAndPriority(CaseStatus.CLOSED_BLOCKED, CasePriority.CRITICAL);
+        }
+        stats.put("urgentCases", Math.max(0L, urgentCaseCount));
 
         // --- Extended KPI fields (Phase 4) ---------------------------------
         LocalDateTime now = LocalDateTime.now();
