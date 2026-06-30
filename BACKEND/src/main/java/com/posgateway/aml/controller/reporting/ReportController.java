@@ -38,7 +38,7 @@ public class ReportController {
 
     private static final Logger logger = LoggerFactory.getLogger(ReportController.class);
 
-    private final ReportGenerationService reportGenerationService;
+        private final ReportGenerationService reportGenerationService;
     private final ReportHistoryService reportHistoryService;
     private final ReportSchedulingService reportSchedulingService;
     private final PspIsolationService pspIsolationService;
