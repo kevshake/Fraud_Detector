@@ -1,30 +1,3 @@
-import {
-  Box,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Typography,
-  Chip,
-  Button,
-  Tooltip,
-  TablePagination,
-  CircularProgress,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Grid,
-  Divider,
-  Checkbox,
-  Menu,
-  MenuItem,
-  Snackbar,
-  Alert as MuiAlert,
-} from "@mui/material";
 import { useState } from "react";
 import { useAlerts } from "../../features/api/queries";
 import { useUpdateAlertStatus } from "../../features/api/mutations";
@@ -32,26 +5,42 @@ import { useResponsivePagination } from "../../hooks/useResponsivePagination";
 import type { ApiError } from "../../lib/apiClient";
 import type { Alert, Priority } from "../../types";
 import HokekaPageShell from "../../components/Layout/HokekaPageShell";
+import TwBadge from "../../components/Common/TwBadge";
+import TwPagination from "../../components/Common/TwPagination";
+import TwSnackbar from "../../components/Common/TwSnackbar";
+import {
+  CheckCheck,
+  ChevronDown,
+  Download,
+  Eye,
+  Loader2,
+  RotateCcw,
+  Search,
+  X,
+} from "lucide-react";
 
-const priorityColors: Record<Priority, string> = {
-  CRITICAL: "#e74c3c",
-  HIGH: "#e67e22",
-  MEDIUM: "#f39c12",
-  LOW: "#95a5a6",
+const priorityVariant = (p: Priority): "danger" | "warning" | "default" => {
+  if (p === "CRITICAL") return "danger";
+  if (p === "HIGH" || p === "MEDIUM") return "warning";
+  return "default";
 };
 
-const statusColors: Record<string, string> = {
-  OPEN: "#e74c3c",
-  INVESTIGATING: "#f39c12",
-  RESOLVED: "#2ecc71",
+const statusBadge: Record<string, "warning" | "danger" | "info" | "success"> = {
+  OPEN: "danger",
+  INVESTIGATING: "warning",
+  RESOLVED: "success",
 };
+
+function alertStatusVariant(status: string): "warning" | "danger" | "info" | "success" | "default" {
+  return statusBadge[status] || "default";
+}
 
 export default function AlertsPage() {
   const [defaultRows] = useResponsivePagination();
   const [page, setPage] = useState({ index: 0, size: defaultRows });
   const [viewAlert, setViewAlert] = useState<Alert | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
-  const [bulkMenuAnchor, setBulkMenuAnchor] = useState<null | HTMLElement>(null);
+  const [bulkOpen, setBulkOpen] = useState(false);
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: "success" | "error" }>({
     open: false, message: "", severity: "success",
   });
@@ -64,13 +53,12 @@ export default function AlertsPage() {
   const updateStatus = useUpdateAlertStatus();
 
   const content = alerts?.content || [];
+  const totalPages = alerts?.totalPages ?? 1;
+  const totalElements = alerts?.totalElements ?? 0;
 
   const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelected(new Set(content.map(a => a.id)));
-    } else {
-      setSelected(new Set());
-    }
+    if (checked) setSelected(new Set(content.map(a => a.id)));
+    else setSelected(new Set());
   };
 
   const handleSelectOne = (id: number, checked: boolean) => {
@@ -82,7 +70,7 @@ export default function AlertsPage() {
   };
 
   const handleBulkAction = async (status: string) => {
-    setBulkMenuAnchor(null);
+    setBulkOpen(false);
     const ids = Array.from(selected);
     if (!ids.length) return;
     try {
@@ -123,246 +111,229 @@ export default function AlertsPage() {
 
   return (
     <HokekaPageShell title="Alerts" subtitle="Review, triage, and resolve compliance alerts" noCard>
-    <Box>
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3, pb: 2, borderBottom: "1px solid", borderColor: "divider" }}>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-          <Button
-            size="small"
-            variant="outlined"
-            disabled={!content.length}
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-4">
+        <div className="flex items-center gap-3">
+          <button
             onClick={handleExportCSV}
-            sx={{ textTransform: "none", color: "text.secondary", borderColor: "rgba(0,0,0,0.2)", fontSize: "0.75rem" }}
+            disabled={!content.length}
+            className="flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-glass-muted transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-30"
           >
+            <Download size={14} />
             Export CSV
-          </Button>
+          </button>
           {selected.size > 0 && (
-            <Typography variant="caption" sx={{ color: "text.secondary" }}>
-              {selected.size} selected
-            </Typography>
+            <span className="text-xs text-glass-muted">{selected.size} selected</span>
           )}
-        </Box>
-        <Tooltip title={selected.size === 0 ? "Select alerts using checkboxes to perform bulk actions." : `Apply an action to ${selected.size} selected alert(s).`} arrow enterDelay={selected.size === 0 ? 2000 : 0}>
-          <span>
-            <Button
-              variant="contained"
-              disabled={selected.size === 0}
-              onClick={(e) => setBulkMenuAnchor(e.currentTarget)}
-              sx={{ backgroundColor: "#a93226", "&:hover": { backgroundColor: "#922b21" }, "&.Mui-disabled": { backgroundColor: "rgba(0,0,0,0.12)" } }}
-            >
-              Bulk Actions {selected.size > 0 ? `(${selected.size})` : ""}
-            </Button>
-          </span>
-        </Tooltip>
-        <Menu anchorEl={bulkMenuAnchor} open={!!bulkMenuAnchor} onClose={() => setBulkMenuAnchor(null)}>
-          <MenuItem onClick={() => handleBulkAction("INVESTIGATING")}>Mark as Investigating</MenuItem>
-          <MenuItem onClick={() => handleBulkAction("RESOLVED")}>Mark as Resolved</MenuItem>
-          <MenuItem onClick={() => handleBulkAction("OPEN")}>Reopen</MenuItem>
-        </Menu>
-      </Box>
+        </div>
 
-      <TableContainer component={Paper} sx={{ backgroundColor: "background.paper", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 2 }}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell padding="checkbox">
-                <Checkbox
-                  indeterminate={someSelected}
-                  checked={allSelected}
-                  onChange={(e) => handleSelectAll(e.target.checked)}
-                  disabled={!content.length}
-                />
-              </TableCell>
-              <TableCell sx={{ color: "text.secondary", width: 80 }}>ID</TableCell>
-              <TableCell sx={{ color: "text.secondary", width: 150 }}>Type</TableCell>
-              <TableCell sx={{ color: "text.secondary", width: 100 }}>Priority</TableCell>
-              <TableCell sx={{ color: "text.secondary", width: 100 }}>Status</TableCell>
-              <TableCell sx={{ color: "text.secondary" }}>Description</TableCell>
-              <TableCell sx={{ color: "text.secondary", width: 120 }}>Created</TableCell>
-              <TableCell sx={{ color: "text.secondary", width: 100 }}>Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={8} align="center" sx={{ color: "text.disabled", py: 2 }}>
-                  <CircularProgress size={24} />
-                </TableCell>
-              </TableRow>
-            ) : isError ? (
-              <TableRow>
-                <TableCell colSpan={8} align="center" sx={{ color: "#e74c3c", py: 2 }}>
-                  Error loading alerts:{" "}
-                  {error instanceof Error
-                    ? error.message
-                    : typeof error === "object" && error !== null && "message" in error
-                      ? `${(error as ApiError).status ?? ""} ${(error as ApiError).message}`.trim()
-                      : "Unknown error"}
-                </TableCell>
-              </TableRow>
-            ) : content.length > 0 ? (
-              content.map((alert) => (
-                <TableRow
-                  key={alert.id}
-                  hover
-                  selected={selected.has(alert.id)}
-                  sx={{ "&.Mui-selected": { backgroundColor: "rgba(169,50,38,0.04)" } }}
-                >
-                  <TableCell padding="checkbox">
-                    <Checkbox
-                      checked={selected.has(alert.id)}
-                      onChange={(e) => handleSelectOne(alert.id, e.target.checked)}
+        <div className="relative">
+          <button
+            disabled={selected.size === 0}
+            onClick={() => setBulkOpen(!bulkOpen)}
+            className="flex items-center gap-1.5 rounded-lg bg-burgundy-700 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-burgundy-800 disabled:cursor-not-allowed disabled:opacity-30"
+          >
+            <ChevronDown size={14} />
+            Bulk Actions {selected.size > 0 ? `(${selected.size})` : ""}
+          </button>
+          {bulkOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setBulkOpen(false)} />
+              <div className="absolute right-0 z-20 mt-1 w-52 rounded-lg border border-white/10 bg-[#0f1a2e] py-1 shadow-xl">
+                <button onClick={() => handleBulkAction("INVESTIGATING")} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-white transition-colors hover:bg-white/5">
+                  <Search size={14} /> Mark as Investigating
+                </button>
+                <button onClick={() => handleBulkAction("RESOLVED")} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-white transition-colors hover:bg-white/5">
+                  <CheckCheck size={14} /> Mark as Resolved
+                </button>
+                <button onClick={() => handleBulkAction("OPEN")} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-white transition-colors hover:bg-white/5">
+                  <RotateCcw size={14} /> Reopen
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="overflow-hidden rounded-lg border border-white/10 bg-[#0f1a2e]">
+        <div className="overflow-auto" style={{ maxHeight: "calc(100vh - 320px)" }}>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 size={24} className="animate-spin text-glass-muted" />
+            </div>
+          ) : isError ? (
+            <div className="px-4 py-8 text-center text-sm text-red-400">
+              Error loading alerts:{" "}
+              {error instanceof Error
+                ? error.message
+                : typeof error === "object" && error !== null && "message" in error
+                  ? `${(error as ApiError).status ?? ""} ${(error as ApiError).message}`.trim()
+                  : "Unknown error"}
+            </div>
+          ) : (
+            <table className="w-full border-collapse">
+              <thead className="sticky top-0 z-10">
+                <tr className="border-b border-white/10 bg-[#0f1a2e]">
+                  <th className="w-10 px-4 py-3 text-left">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      ref={(el) => { if (el) el.indeterminate = someSelected }}
+                      onChange={(e) => handleSelectAll(e.target.checked)}
+                      disabled={!content.length}
+                      className="rounded border-white/20 bg-white/5 text-burgundy-700 focus:ring-burgundy-700"
                     />
-                  </TableCell>
-                  <TableCell sx={{ color: "text.primary", py: 2 }}>#{alert.id}</TableCell>
-                  <TableCell sx={{ color: "text.primary", py: 2 }}>{alert.alertType}</TableCell>
-                  <TableCell sx={{ py: 2 }}>
-                    <Chip
-                      label={alert.priority}
-                      size="small"
-                      sx={{
-                        backgroundColor: priorityColors[alert.priority] + "20",
-                        color: priorityColors[alert.priority],
-                        border: `1px solid ${priorityColors[alert.priority]}`,
-                        fontWeight: 600,
-                      }}
-                    />
-                  </TableCell>
-                  <TableCell sx={{ py: 2 }}>
-                    <Chip
-                      label={alert.status}
-                      size="small"
-                      sx={{
-                        backgroundColor: statusColors[alert.status] + "20",
-                        color: statusColors[alert.status],
-                        border: `1px solid ${statusColors[alert.status]}`,
-                        fontWeight: 600,
-                      }}
-                    />
-                  </TableCell>
-                  <TableCell sx={{ color: "text.primary", py: 2 }}>
-                    {alert.description || "-"}
-                  </TableCell>
-                  <TableCell sx={{ color: "text.secondary", py: 2 }}>
-                    {new Date(alert.createdAt).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell sx={{ py: 2 }}>
-                    <Button size="small" sx={{ color: "#a93226", textTransform: "none" }} onClick={() => setViewAlert(alert)}>
-                      View
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={8} align="center" sx={{ color: "text.disabled", py: 2 }}>
-                  No alerts found
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-        <TablePagination
-          rowsPerPageOptions={[10, 25, 50, 100]}
-          component="div"
-          count={alerts?.totalElements || 0}
-          rowsPerPage={page.size}
+                  </th>
+                  <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">ID</th>
+                  <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">Type</th>
+                  <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">Priority</th>
+                  <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">Status</th>
+                  <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">Description</th>
+                  <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">Created</th>
+                  <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {content.map((alert) => (
+                  <tr
+                    key={alert.id}
+                    className={`transition-colors hover:bg-white/[0.02] ${
+                      selected.has(alert.id) ? "bg-burgundy-700/5" : ""
+                    }`}
+                  >
+                    <td className="px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={selected.has(alert.id)}
+                        onChange={(e) => handleSelectOne(alert.id, e.target.checked)}
+                        className="rounded border-white/20 bg-white/5 text-burgundy-700 focus:ring-burgundy-700"
+                      />
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-sm text-white">#{alert.id}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-sm text-white">{alert.alertType}</td>
+                    <td className="whitespace-nowrap px-4 py-3">
+                      <TwBadge variant={priorityVariant(alert.priority)}>{alert.priority}</TwBadge>
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3">
+                      <TwBadge variant={alertStatusVariant(alert.status)}>{alert.status}</TwBadge>
+                    </td>
+                    <td className="max-w-xs truncate px-4 py-3 text-sm text-white/80">
+                      {alert.description || <span className="text-glass-muted">-</span>}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-sm text-glass-muted">
+                      {new Date(alert.createdAt).toLocaleDateString()}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3">
+                      <button
+                        onClick={() => setViewAlert(alert)}
+                        className="flex items-center gap-1 text-xs text-burgundy-400 transition-colors hover:text-burgundy-300"
+                      >
+                        <Eye size={14} /> View
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {!content.length && (
+                  <tr>
+                    <td colSpan={8} className="px-4 py-8 text-center text-sm text-glass-muted">
+                      No alerts found
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        <TwPagination
           page={page.index}
-          onPageChange={(_, newPage) => { setPage(prev => ({ ...prev, index: newPage })); setSelected(new Set()); }}
-          onRowsPerPageChange={(e) => { setPage({ index: 0, size: parseInt(e.target.value, 10) }); setSelected(new Set()); }}
+          totalPages={totalPages}
+          totalCount={totalElements}
+          rowsPerPage={page.size}
+          onPageChange={(newPage) => { setPage(prev => ({ ...prev, index: newPage })); setSelected(new Set()); }}
+          onRowsPerPageChange={(newSize) => { setPage({ index: 0, size: newSize }); setSelected(new Set()); }}
         />
-      </TableContainer>
+      </div>
 
       {/* Alert Detail Modal */}
-      <Dialog open={!!viewAlert} onClose={() => setViewAlert(null)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <Box>
-            <Typography variant="h6">Alert #{viewAlert?.id}</Typography>
-            <Typography variant="caption" color="text.secondary">{viewAlert?.alertType}</Typography>
-          </Box>
-          <Box sx={{ display: "flex", gap: 1 }}>
-            {viewAlert && (
-              <Chip
-                label={viewAlert.priority}
-                size="small"
-                sx={{
-                  backgroundColor: priorityColors[viewAlert.priority] + "20",
-                  color: priorityColors[viewAlert.priority],
-                  fontWeight: 600,
-                }}
-              />
-            )}
-            {viewAlert && (
-              <Chip
-                label={viewAlert.status}
-                size="small"
-                sx={{
-                  backgroundColor: statusColors[viewAlert.status] + "20",
-                  color: statusColors[viewAlert.status],
-                  fontWeight: 600,
-                }}
-              />
-            )}
-          </Box>
-        </DialogTitle>
-        <Divider />
-        {viewAlert && (
-          <DialogContent sx={{ pt: 2 }}>
-            <Grid container spacing={2}>
-              <Grid item xs={12}>
-                <Typography variant="overline" color="text.secondary">Description</Typography>
-                <Typography variant="body2" sx={{ mt: 0.5, lineHeight: 1.6 }}>
-                  {viewAlert.description || "No description provided."}
-                </Typography>
-              </Grid>
-              {viewAlert.transactionId && (
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="overline" color="text.secondary">Transaction ID</Typography>
-                  <Typography variant="body2" sx={{ mt: 0.5, fontFamily: "monospace" }}>
-                    #{viewAlert.transactionId}
-                  </Typography>
-                </Grid>
-              )}
-              {viewAlert.caseId && (
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="overline" color="text.secondary">Linked Case</Typography>
-                  <Typography variant="body2" sx={{ mt: 0.5, fontFamily: "monospace" }}>
-                    Case #{viewAlert.caseId}
-                  </Typography>
-                </Grid>
-              )}
-              <Grid item xs={12} sm={6}>
-                <Typography variant="overline" color="text.secondary">Created</Typography>
-                <Typography variant="body2" sx={{ mt: 0.5 }}>
-                  {new Date(viewAlert.createdAt).toLocaleString()}
-                </Typography>
-              </Grid>
-              {viewAlert.resolvedAt && (
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="overline" color="text.secondary">Resolved</Typography>
-                  <Typography variant="body2" sx={{ mt: 0.5, color: "#2ecc71" }}>
-                    {new Date(viewAlert.resolvedAt).toLocaleString()}
-                  </Typography>
-                </Grid>
-              )}
-            </Grid>
-          </DialogContent>
-        )}
-        <DialogActions>
-          <Button onClick={() => setViewAlert(null)} sx={{ textTransform: "none" }}>Close</Button>
-        </DialogActions>
-      </Dialog>
+      {viewAlert && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={() => setViewAlert(null)} />
+          <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2">
+            <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0f1a2e] shadow-2xl">
+              {/* Header */}
+              <div className="flex items-start justify-between border-b border-white/10 px-6 py-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-white">Alert #{viewAlert.id}</h3>
+                  <p className="mt-0.5 text-xs text-glass-muted">{viewAlert.alertType}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <TwBadge variant={priorityVariant(viewAlert.priority)}>{viewAlert.priority}</TwBadge>
+                  <TwBadge variant={alertStatusVariant(viewAlert.status)}>{viewAlert.status}</TwBadge>
+                  <button
+                    onClick={() => setViewAlert(null)}
+                    className="rounded p-1 text-glass-muted transition-colors hover:bg-white/10 hover:text-white"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              </div>
 
-      <Snackbar
+              {/* Content */}
+              <div className="space-y-4 px-6 py-4">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-glass-muted">Description</p>
+                  <p className="mt-1 text-sm leading-relaxed text-white/80">
+                    {viewAlert.description || "No description provided."}
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  {viewAlert.transactionId && (
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-glass-muted">Transaction ID</p>
+                      <p className="mt-0.5 font-mono text-sm text-white">#{viewAlert.transactionId}</p>
+                    </div>
+                  )}
+                  {viewAlert.caseId && (
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-glass-muted">Linked Case</p>
+                      <p className="mt-0.5 font-mono text-sm text-white">Case #{viewAlert.caseId}</p>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-glass-muted">Created</p>
+                    <p className="mt-0.5 text-sm text-white/80">{new Date(viewAlert.createdAt).toLocaleString()}</p>
+                  </div>
+                  {viewAlert.resolvedAt && (
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-glass-muted">Resolved</p>
+                      <p className="mt-0.5 text-sm text-emerald-400">{new Date(viewAlert.resolvedAt).toLocaleString()}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="flex justify-end border-t border-white/10 px-6 py-3">
+                <button
+                  onClick={() => setViewAlert(null)}
+                  className="rounded-lg border border-white/10 px-4 py-1.5 text-xs text-white transition-colors hover:bg-white/5"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      <TwSnackbar
         open={snackbar.open}
-        autoHideDuration={6000}
+        message={snackbar.message}
+        severity={snackbar.severity}
         onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-      >
-        <MuiAlert severity={snackbar.severity} onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} sx={{ width: "100%" }}>
-          {snackbar.message}
-        </MuiAlert>
-      </Snackbar>
-    </Box>
+      />
     </HokekaPageShell>
   );
 }
