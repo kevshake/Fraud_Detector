@@ -1,19 +1,8 @@
-import {
-  Box,
-  Paper,
-  Typography,
-  List,
-  ListItemButton,
-  ListItemText,
-  Chip,
-  CircularProgress,
-  Alert,
-  Divider,
-} from "@mui/material";
-import { Mail as MailIcon } from "@mui/icons-material";
 import { apiClient } from "../../lib/apiClient";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import HokekaPageShell from "../../components/Layout/HokekaPageShell";
+import TwBadge from "../../components/Common/TwBadge";
+import { Loader2, Mail } from "lucide-react";
 
 interface Message {
   id: string;
@@ -29,11 +18,7 @@ interface Message {
 export default function MessagesPage() {
   const queryClient = useQueryClient();
 
-  const {
-    data: messages,
-    isLoading,
-    isError,
-  } = useQuery<Message[]>({
+  const { data: messages, isLoading, isError } = useQuery<Message[]>({
     queryKey: ["messages"],
     queryFn: () => apiClient.get<Message[]>("messages"),
   });
@@ -46,95 +31,59 @@ export default function MessagesPage() {
         prev ? prev.map((m) => (m.id === message.id ? { ...m, read: true } : m)) : prev
       );
       queryClient.invalidateQueries({ queryKey: ["messages", "unread-count"] });
-    } catch {
-      // best-effort mark-read; ignore errors silently
-    }
+    } catch { /* best-effort */ }
   };
 
   return (
     <HokekaPageShell title="Messages" subtitle="System notifications and team communications" noCard>
-    <Box>
-      <Paper sx={{ backgroundColor: "background.paper", border: "1px solid rgba(0,0,0,0.1)" }}>
+      <div className="overflow-hidden rounded-lg border border-white/10 bg-[#0f1a2e]">
         {isLoading ? (
-          <Box sx={{ p: 4, display: "flex", alignItems: "center", gap: 2 }}>
-            <CircularProgress size={20} />
-            <Typography sx={{ color: "text.secondary" }}>Loading messages…</Typography>
-          </Box>
+          <div className="flex items-center gap-2 p-4 text-sm text-glass-muted">
+            <Loader2 size={20} className="animate-spin" /> Loading messages...
+          </div>
         ) : isError ? (
-          <Box sx={{ p: 3 }}>
-            <Alert severity="error">Failed to load messages. Please try refreshing the page.</Alert>
-          </Box>
+          <div className="m-3 rounded-lg border border-red-700/30 bg-red-900/30 px-4 py-3 text-sm text-red-200">
+            Failed to load messages. Please try refreshing the page.
+          </div>
         ) : messages && messages.length > 0 ? (
-          <List disablePadding>
-            {messages.map((message, idx) => (
-              <Box key={message.id}>
-                {idx > 0 && <Divider />}
-                <ListItemButton
-                  onClick={() => handleMarkRead(message)}
-                  sx={{
-                    py: 2,
-                    px: 3,
-                    backgroundColor: message.read ? undefined : "rgba(25, 118, 210, 0.04)",
-                    "&:hover": { backgroundColor: "rgba(255,255,255,0.05)" },
-                  }}
-                >
-                  <ListItemText
-                    primary={
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                        <Typography
-                          variant="body1"
-                          sx={{
-                            color: "text.primary",
-                            fontWeight: message.read ? 400 : 600,
-                          }}
-                        >
-                          {message.subject || message.title || "(no subject)"}
-                        </Typography>
-                        {!message.read && <Chip label="New" color="primary" size="small" />}
-                      </Box>
-                    }
-                    secondary={
-                      <Box>
-                        <Typography
-                          variant="body2"
-                          sx={{ color: "text.secondary", mt: 0.5 }}
-                          noWrap
-                        >
-                          {message.body || message.content || ""}
-                        </Typography>
-                        {(message.createdAt || message.sentAt) && (
-                          <Typography variant="caption" sx={{ color: "text.disabled", mt: 0.5, display: "block" }}>
-                            {new Date(message.createdAt || message.sentAt!).toLocaleString()}
-                          </Typography>
-                        )}
-                      </Box>
-                    }
-                  />
-                </ListItemButton>
-              </Box>
+          <div>
+            {messages.map((message) => (
+              <button
+                key={message.id}
+                onClick={() => handleMarkRead(message)}
+                className={`w-full border-0 border-b border-white/5 px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-white/[0.02] ${
+                  message.read ? "" : "bg-burgundy-700/5"
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className={`text-sm ${message.read ? "text-white/80" : "font-semibold text-white"}`}>
+                        {message.subject || message.title || "(no subject)"}
+                      </p>
+                      {!message.read && <TwBadge variant="info">New</TwBadge>}
+                    </div>
+                    <p className="mt-0.5 truncate text-xs text-glass-muted">
+                      {message.body || message.content || ""}
+                    </p>
+                    {(message.createdAt || message.sentAt) && (
+                      <p className="mt-0.5 text-[11px] text-glass-muted/60">
+                        {new Date(message.createdAt || message.sentAt!).toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </button>
             ))}
-          </List>
+          </div>
         ) : (
-          <Box
-            sx={{
-              p: 6,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: 1.5,
-            }}
-          >
-            <MailIcon sx={{ fontSize: 48, color: "text.disabled" }} />
-            <Typography variant="body1" sx={{ color: "text.secondary", fontWeight: 500 }}>
-              No messages
-            </Typography>
-            <Typography variant="body2" sx={{ color: "text.disabled" }}>
-              System notifications and alerts will appear here.
-            </Typography>
-          </Box>
+          <div className="flex flex-col items-center gap-2 px-6 py-12">
+            <Mail size={48} className="text-glass-muted/40" />
+            <p className="text-sm font-medium text-glass-muted">No messages</p>
+            <p className="text-xs text-glass-muted/60">System notifications and alerts will appear here.</p>
+          </div>
         )}
-      </Paper>
-    </Box>
+      </div>
     </HokekaPageShell>
   );
 }
