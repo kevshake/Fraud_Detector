@@ -1,12 +1,10 @@
 import { useState } from "react";
-import {
-  Box, Paper, Typography, Button, List, ListItem, ListItemText, Chip,
-  Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem,
-  Divider, Snackbar, Alert, CircularProgress, Grid,
-} from "@mui/material";
 import { useUpcomingDeadlines, useOverdueDeadlines } from "../../features/api/queries";
 import { useCreateDeadline, type CreateDeadlineRequest } from "../../features/api/mutations";
 import HokekaPageShell from "../../components/Layout/HokekaPageShell";
+import TwBadge from "../../components/Common/TwBadge";
+import TwSnackbar from "../../components/Common/TwSnackbar";
+import { Plus, Loader2, X, Calendar } from "lucide-react";
 
 const deadlineTypes = ["REGULATORY", "FILING", "REVIEW", "AUDIT", "REPORTING", "OTHER"];
 
@@ -17,8 +15,7 @@ export default function ComplianceCalendarPage() {
 
   const [addOpen, setAddOpen] = useState(false);
   const [formData, setFormData] = useState<CreateDeadlineRequest>({
-    title: "",
-    description: "",
+    title: "", description: "",
     dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
     deadlineType: "",
   });
@@ -33,10 +30,11 @@ export default function ComplianceCalendarPage() {
       setAddOpen(false);
       setFormData({ title: "", description: "", dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0], deadlineType: "" });
       setSnackbar({ open: true, message: "Compliance deadline created.", severity: "success" });
-    } catch (err: any) {
-      setSnackbar({ open: true, message: err?.message || "Failed to create deadline.", severity: "error" });
-    }
+    } catch (err: any) { setSnackbar({ open: true, message: err?.message || "Failed to create deadline.", severity: "error" }); }
   };
+
+  const overdueList = overdue && Array.isArray(overdue) ? overdue : [];
+  const upcomingList = upcoming && Array.isArray(upcoming) ? upcoming : [];
 
   return (
     <HokekaPageShell
@@ -44,144 +42,110 @@ export default function ComplianceCalendarPage() {
       subtitle="Regulatory deadlines and filing schedules"
       noCard
       actions={
-        <Button
-          variant="contained"
-          onClick={() => setAddOpen(true)}
-          sx={{ backgroundColor: "#7B2332", "&:hover": { backgroundColor: "#5A1823" } }}
-        >
-          Create Deadline
-        </Button>
+        <button onClick={() => setAddOpen(true)} className="flex items-center gap-1.5 rounded-lg bg-burgundy-700 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-burgundy-800">
+          <Plus size={14} /> Create Deadline
+        </button>
       }
     >
-    <Box>
-      <Box sx={{ display: "flex", gap: 3 }}>
-        <Paper sx={{ flex: 1, p: 3, backgroundColor: "background.paper", border: "1px solid rgba(0,0,0,0.1)" }}>
-          <Typography variant="h6" sx={{ color: "#e74c3c", mb: 2 }}>
-            Overdue Deadlines
-          </Typography>
-          {overdue && Array.isArray(overdue) && overdue.length > 0 ? (
-            <List>
-              {overdue.map((deadline: any) => (
-                <ListItem key={deadline.id ?? deadline.title ?? deadline.dueDate} sx={{ borderBottom: "1px solid rgba(0,0,0,0.1)" }}>
-                  <ListItemText
-                    primary={deadline.title || deadline.description || "Deadline"}
-                    secondary={deadline.dueDate ? new Date(deadline.dueDate).toLocaleDateString() : ""}
-                    primaryTypographyProps={{ sx: { color: "text.primary" } }}
-                    secondaryTypographyProps={{ sx: { color: "text.secondary" } }}
-                  />
-                  <Chip label="Overdue" color="error" size="small" />
-                </ListItem>
+      <div className="flex flex-col gap-4 md:flex-row">
+        {/* Overdue */}
+        <div className="flex-1 rounded-lg border border-red-700/30 bg-[#0f1a2e] p-4">
+          <h3 className="mb-3 flex items-center gap-2 text-base font-semibold text-red-400">
+            <Calendar size={18} /> Overdue Deadlines
+          </h3>
+          {overdueList.length > 0 ? (
+            <div className="space-y-1">
+              {overdueList.map((deadline: any, idx: number) => (
+                <div key={deadline.id ?? idx} className="flex items-center justify-between border-b border-white/5 py-2">
+                  <div>
+                    <p className="text-sm text-white">{deadline.title || deadline.description || "Deadline"}</p>
+                    <p className="text-xs text-glass-muted">{deadline.dueDate ? new Date(deadline.dueDate).toLocaleDateString() : ""}</p>
+                  </div>
+                  <TwBadge variant="danger">Overdue</TwBadge>
+                </div>
               ))}
-            </List>
+            </div>
           ) : (
-            <Typography sx={{ color: "text.disabled" }}>No overdue deadlines</Typography>
+            <p className="text-sm text-glass-muted">No overdue deadlines</p>
           )}
-        </Paper>
+        </div>
 
-        <Paper sx={{ flex: 1, p: 3, backgroundColor: "background.paper", border: "1px solid rgba(0,0,0,0.1)" }}>
-          <Typography variant="h6" sx={{ color: "text.primary", mb: 2 }}>
-            Upcoming Deadlines (Next 30 Days)
-          </Typography>
-          {upcoming && Array.isArray(upcoming) && upcoming.length > 0 ? (
-            <List>
-              {upcoming.map((deadline: any) => (
-                <ListItem key={deadline.id ?? deadline.title ?? deadline.dueDate} sx={{ borderBottom: "1px solid rgba(0,0,0,0.1)" }}>
-                  <ListItemText
-                    primary={deadline.title || deadline.description || "Deadline"}
-                    secondary={deadline.dueDate ? new Date(deadline.dueDate).toLocaleDateString() : ""}
-                    primaryTypographyProps={{ sx: { color: "text.primary" } }}
-                    secondaryTypographyProps={{ sx: { color: "text.secondary" } }}
-                  />
-                  <Chip label="Upcoming" color="warning" size="small" />
-                </ListItem>
+        {/* Upcoming */}
+        <div className="flex-1 rounded-lg border border-white/10 bg-[#0f1a2e] p-4">
+          <h3 className="mb-3 flex items-center gap-2 text-base font-semibold text-white">
+            <Calendar size={18} /> Upcoming Deadlines (Next 30 Days)
+          </h3>
+          {upcomingList.length > 0 ? (
+            <div className="space-y-1">
+              {upcomingList.map((deadline: any, idx: number) => (
+                <div key={deadline.id ?? idx} className="flex items-center justify-between border-b border-white/5 py-2">
+                  <div>
+                    <p className="text-sm text-white">{deadline.title || deadline.description || "Deadline"}</p>
+                    <p className="text-xs text-glass-muted">{deadline.dueDate ? new Date(deadline.dueDate).toLocaleDateString() : ""}</p>
+                  </div>
+                  <TwBadge variant="warning">Upcoming</TwBadge>
+                </div>
               ))}
-            </List>
+            </div>
           ) : (
-            <Typography sx={{ color: "text.disabled" }}>No upcoming deadlines</Typography>
+            <p className="text-sm text-glass-muted">No upcoming deadlines</p>
           )}
-        </Paper>
-      </Box>
+        </div>
+      </div>
 
       {/* Create Deadline Dialog */}
-      <Dialog open={addOpen} onClose={() => setAddOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Create Compliance Deadline</DialogTitle>
-        <Divider />
-        <DialogContent sx={{ pt: 2 }}>
-          <Grid container spacing={2}>
-            <Grid item xs={12}>
-              <TextField
-                label="Title"
-                value={formData.title}
-                onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                fullWidth
-                size="small"
-                required
-                placeholder="e.g. Q2 SAR Filing Deadline"
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Due Date"
-                type="date"
-                value={formData.dueDate}
-                onChange={(e) => setFormData(prev => ({ ...prev, dueDate: e.target.value }))}
-                fullWidth
-                size="small"
-                required
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                select
-                label="Type"
-                value={formData.deadlineType}
-                onChange={(e) => setFormData(prev => ({ ...prev, deadlineType: e.target.value }))}
-                fullWidth
-                size="small"
-              >
-                <MenuItem value="">Select Type</MenuItem>
-                {deadlineTypes.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
-              </TextField>
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                label="Description"
-                value={formData.description}
-                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                fullWidth
-                size="small"
-                multiline
-                rows={3}
-                placeholder="Optional details about this compliance deadline..."
-              />
-            </Grid>
-          </Grid>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setAddOpen(false)} sx={{ textTransform: "none" }}>Cancel</Button>
-          <Button
-            variant="contained"
-            onClick={handleCreate}
-            disabled={!formData.title.trim() || !formData.dueDate || createDeadline.isPending}
-            sx={{ backgroundColor: "#a93226", "&:hover": { backgroundColor: "#922b21" }, textTransform: "none" }}
-          >
-            {createDeadline.isPending ? <CircularProgress size={18} sx={{ color: "white" }} /> : "Create Deadline"}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {addOpen && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={() => setAddOpen(false)} />
+          <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2">
+            <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0f1a2e] shadow-2xl">
+              <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+                <h3 className="text-lg font-semibold text-white">Create Compliance Deadline</h3>
+                <button onClick={() => setAddOpen(false)} className="rounded p-1 text-glass-muted hover:bg-white/10"><X size={18} /></button>
+              </div>
+              <div className="space-y-4 px-6 py-4">
+                <div>
+                  <label className="text-[11px] font-semibold uppercase tracking-wider text-glass-muted">Title</label>
+                  <input value={formData.title} onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                    placeholder="e.g. Q2 SAR Filing Deadline"
+                    className="mt-1 w-full rounded-lg border border-white/10 bg-[#1a2744] px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-burgundy-700" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] font-semibold uppercase tracking-wider text-glass-muted">Due Date</label>
+                    <input type="date" value={formData.dueDate} onChange={(e) => setFormData(prev => ({ ...prev, dueDate: e.target.value }))}
+                      className="mt-1 w-full rounded-lg border border-white/10 bg-[#1a2744] px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-burgundy-700" />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-semibold uppercase tracking-wider text-glass-muted">Type</label>
+                    <select value={formData.deadlineType} onChange={(e) => setFormData(prev => ({ ...prev, deadlineType: e.target.value }))}
+                      className="mt-1 w-full rounded-lg border border-white/10 bg-[#1a2744] px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-burgundy-700">
+                      <option value="">Select Type</option>
+                      {deadlineTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[11px] font-semibold uppercase tracking-wider text-glass-muted">Description</label>
+                  <textarea value={formData.description} onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                    rows={3} placeholder="Optional details about this compliance deadline..."
+                    className="mt-1 w-full rounded-lg border border-white/10 bg-[#1a2744] px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-burgundy-700" />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 border-t border-white/10 px-6 py-3">
+                <button onClick={() => setAddOpen(false)} className="rounded-lg border border-white/10 px-4 py-1.5 text-xs text-white transition-colors hover:bg-white/5">Cancel</button>
+                <button onClick={handleCreate} disabled={!formData.title.trim() || !formData.dueDate || createDeadline.isPending}
+                  className="flex items-center gap-1.5 rounded-lg bg-burgundy-700 px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-burgundy-800 disabled:opacity-30">
+                  {createDeadline.isPending ? <Loader2 size={14} className="animate-spin" /> : null}
+                  Create Deadline
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-      >
-        <Alert severity={snackbar.severity} onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} sx={{ width: "100%" }}>
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
-    </Box>
+      <TwSnackbar open={snackbar.open} message={snackbar.message} severity={snackbar.severity} onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} />
     </HokekaPageShell>
   );
 }

@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Box, Paper, Typography, TextField, Button, Grid, Snackbar, Alert, CircularProgress } from "@mui/material";
 import { useMutation } from "@tanstack/react-query";
 import { apiClient } from "../../lib/apiClient";
 import HokekaPageShell from "../../components/Layout/HokekaPageShell";
+import TwSnackbar from "../../components/Common/TwSnackbar";
+import { Loader2, Save, DollarSign } from "lucide-react";
 
 export default function LimitsAmlPage() {
   const [transactionLimit, setTransactionLimit] = useState("");
@@ -12,86 +13,45 @@ export default function LimitsAmlPage() {
   });
 
   const saveLimits = useMutation({
-    mutationFn: () =>
-      apiClient.post("limits/aml", {
-        transactionLimit: transactionLimit ? parseFloat(transactionLimit) : undefined,
-        dailyLimit: dailyLimit ? parseFloat(dailyLimit) : undefined,
-      }),
-    onSuccess: () => {
-      setSnackbar({ open: true, message: "AML limits saved successfully.", severity: "success" });
-    },
-    onError: (err: any) => {
-      setSnackbar({ open: true, message: err?.message || "Failed to save limits.", severity: "error" });
-    },
+    mutationFn: () => apiClient.post("limits/aml", {
+      transactionLimit: transactionLimit ? parseFloat(transactionLimit) : undefined,
+      dailyLimit: dailyLimit ? parseFloat(dailyLimit) : undefined,
+    }),
+    onSuccess: () => { setSnackbar({ open: true, message: "AML limits saved successfully.", severity: "success" }); },
+    onError: (err: any) => { setSnackbar({ open: true, message: err?.message || "Failed to save limits.", severity: "error" }); },
   });
-
-  const fieldSx = {
-    "& .MuiOutlinedInput-root": {
-      color: "text.primary",
-      "& fieldset": { borderColor: "rgba(0,0,0,0.2)" },
-      "&:hover fieldset": { borderColor: "rgba(0,0,0,0.4)" },
-    },
-    "& .MuiInputLabel-root": { color: "text.secondary" },
-  };
 
   return (
     <HokekaPageShell title="Transaction Limits" subtitle="Configure AML transaction and daily volume limits">
-    <Box>
-      <Paper sx={{ p: 3, backgroundColor: "background.paper", border: "1px solid rgba(0,0,0,0.1)" }}>
-        <Typography variant="h6" sx={{ color: "text.primary", mb: 3 }}>
-          AML Limits Configuration
-        </Typography>
-
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              label="Transaction Limit"
-              type="number"
-              value={transactionLimit}
-              onChange={(e) => setTransactionLimit(e.target.value)}
-              helperText="Maximum amount per single transaction (USD)"
-              inputProps={{ min: 0, step: "0.01" }}
-              sx={fieldSx}
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              label="Daily Limit"
-              type="number"
-              value={dailyLimit}
-              onChange={(e) => setDailyLimit(e.target.value)}
-              helperText="Maximum total transaction volume per day (USD)"
-              inputProps={{ min: 0, step: "0.01" }}
-              sx={fieldSx}
-            />
-          </Grid>
-          <Grid item xs={12}>
-            <Button
-              variant="contained"
-              onClick={() => saveLimits.mutate()}
-              disabled={saveLimits.isPending || (!transactionLimit && !dailyLimit)}
-              sx={{ backgroundColor: "#a93226", "&:hover": { backgroundColor: "#922b21" }, textTransform: "none" }}
-            >
-              {saveLimits.isPending ? <CircularProgress size={18} sx={{ color: "white", mr: 1 }} /> : null}
-              Save Limits
-            </Button>
-          </Grid>
-        </Grid>
-      </Paper>
-
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-      >
-        <Alert severity={snackbar.severity} onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} sx={{ width: "100%" }}>
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
-    </Box>
+      <div className="rounded-lg border border-white/10 bg-[#0f1a2e] p-6">
+        <h3 className="mb-4 flex items-center gap-2 text-base font-semibold text-white">
+          <DollarSign size={20} className="text-burgundy-400" /> AML Limits Configuration
+        </h3>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-glass-muted">Transaction Limit</label>
+            <input type="number" value={transactionLimit} onChange={(e) => setTransactionLimit(e.target.value)}
+              placeholder="e.g. 10000"
+              className="mt-1 w-full rounded-lg border border-white/10 bg-[#1a2744] px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-burgundy-700" />
+            <p className="mt-1 text-xs text-glass-muted">Maximum amount per single transaction (USD)</p>
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-glass-muted">Daily Limit</label>
+            <input type="number" value={dailyLimit} onChange={(e) => setDailyLimit(e.target.value)}
+              placeholder="e.g. 50000"
+              className="mt-1 w-full rounded-lg border border-white/10 bg-[#1a2744] px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-burgundy-700" />
+            <p className="mt-1 text-xs text-glass-muted">Maximum total transaction volume per day (USD)</p>
+          </div>
+        </div>
+        <div className="mt-6">
+          <button onClick={() => saveLimits.mutate()} disabled={saveLimits.isPending || (!transactionLimit && !dailyLimit)}
+            className="flex items-center gap-2 rounded-lg bg-burgundy-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-burgundy-800 disabled:opacity-50">
+            {saveLimits.isPending ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+            Save Limits
+          </button>
+        </div>
+      </div>
+      <TwSnackbar open={snackbar.open} message={snackbar.message} severity={snackbar.severity} onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} />
     </HokekaPageShell>
   );
 }
