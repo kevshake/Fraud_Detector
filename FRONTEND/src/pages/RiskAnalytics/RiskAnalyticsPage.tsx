@@ -1,6 +1,4 @@
 import { useState } from "react";
-import { Box, Typography, Select, MenuItem, FormControl, InputLabel, Grid, useTheme } from "@mui/material";
-import { alpha } from "@mui/material/styles";
 import { useRiskHeatmap, useRiskTrends } from "../../features/api/queries";
 import {
   Chart as ChartJS,
@@ -15,11 +13,11 @@ import {
 import { Line } from "react-chartjs-2";
 import GlassCard from "../../components/Common/GlassCard";
 import HokekaPageShell from "../../components/Layout/HokekaPageShell";
+import { Loader2 } from "lucide-react";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
 export default function RiskAnalyticsPage() {
-  const theme = useTheme();
   const [period, setPeriod] = useState<number>(30);
   const [heatmapType, setHeatmapType] = useState<"customer" | "merchant">("customer");
 
@@ -33,128 +31,84 @@ export default function RiskAnalyticsPage() {
           {
             label: "Risk Trend",
             data: trends.data || Object.values(trends),
-            borderColor: theme.palette.primary.main,
-            backgroundColor: alpha(theme.palette.primary.main, 0.1),
+            borderColor: "#8B4049",
+            backgroundColor: "rgba(139, 64, 73, 0.1)",
             tension: 0.4,
           },
         ],
       }
     : null;
 
+  const heatmapEntries = heatmap ? Object.entries(heatmap).slice(0, 20) : [];
+
   return (
     <HokekaPageShell title="Risk Analytics" subtitle="Heatmaps, trends, and risk distribution" noCard>
-    <Box>
-      <Box sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center", mb: 2 }}>
-        <Box sx={{ display: "flex", gap: 2 }}>
-          <FormControl size="small" sx={{ minWidth: 150 }}>
-            <InputLabel sx={{ color: "text.secondary" }}>Period</InputLabel>
-            <Select
-              value={period}
-              onChange={(e) => setPeriod(Number(e.target.value))}
-              label="Period"
-              sx={{ color: "text.primary" }}
-            >
-              <MenuItem value={7}>7 days</MenuItem>
-              <MenuItem value={30}>30 days</MenuItem>
-              <MenuItem value={90}>90 days</MenuItem>
-              <MenuItem value={180}>180 days</MenuItem>
-            </Select>
-          </FormControl>
-          <FormControl size="small" sx={{ minWidth: 150 }}>
-            <InputLabel sx={{ color: "text.secondary" }}>Heatmap Type</InputLabel>
-            <Select
-              value={heatmapType}
-              onChange={(e) => setHeatmapType(e.target.value as "customer" | "merchant")}
-              label="Heatmap Type"
-              sx={{ color: "text.primary" }}
-            >
-              <MenuItem value="customer">Customer</MenuItem>
-              <MenuItem value="merchant">Merchant</MenuItem>
-            </Select>
-          </FormControl>
-        </Box>
-      </Box>
+      <div className="mb-3 flex justify-end">
+        <div className="flex gap-3">
+          <select value={period} onChange={(e) => setPeriod(Number(e.target.value))}
+            className="rounded-lg border border-white/10 bg-[#1a2744] px-3 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-burgundy-700">
+            <option value={7}>7 days</option>
+            <option value={30}>30 days</option>
+            <option value={90}>90 days</option>
+            <option value={180}>180 days</option>
+          </select>
+          <select value={heatmapType} onChange={(e) => setHeatmapType(e.target.value as any)}
+            className="rounded-lg border border-white/10 bg-[#1a2744] px-3 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-burgundy-700">
+            <option value="customer">Customer</option>
+            <option value="merchant">Merchant</option>
+          </select>
+        </div>
+      </div>
 
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={8}>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="md:col-span-2">
           <GlassCard padding="md" glowVariant="red" className="h-full">
-            <Typography variant="h6" sx={{ color: "text.primary", mb: 2 }}>
-              Risk Heatmap - {heatmapType.charAt(0).toUpperCase() + heatmapType.slice(1)}
-            </Typography>
-            {heatmap ? (
-              <Box sx={{ p: 2, borderRadius: 1 }}>
-                <Grid container spacing={1}>
-                  {Object.entries(heatmap).slice(0, 20).map(([key, value]: [string, any]) => (
-                    <Grid item xs={6} sm={4} md={3} key={key}>
-                      <Box
-                        sx={{
-                          p: 2,
-                          backgroundColor:
-                            typeof value === "number" && value > 50
-                              ? alpha(theme.palette.error.main, 0.15)
-                              : typeof value === "number" && value > 25
-                              ? alpha(theme.palette.warning.main, 0.15)
-                              : alpha(theme.palette.success.main, 0.15),
-                          border: `1px solid ${
-                            typeof value === "number" && value > 50
-                              ? theme.palette.error.main
-                              : typeof value === "number" && value > 25
-                              ? theme.palette.warning.main
-                              : theme.palette.success.main
-                          }`,
-                          borderRadius: 1,
-                          textAlign: "center",
-                        }}
-                      >
-                        <Typography variant="caption" sx={{ color: "text.secondary", display: "block" }}>
-                          {key}
-                        </Typography>
-                        <Typography variant="h6" sx={{ color: "text.primary" }}>
-                          {typeof value === "number" ? value : String(value)}
-                        </Typography>
-                      </Box>
-                    </Grid>
-                  ))}
-                </Grid>
-              </Box>
+            <h3 className="mb-3 text-base font-semibold text-white">Risk Heatmap - {heatmapType.charAt(0).toUpperCase() + heatmapType.slice(1)}</h3>
+            {heatmapEntries.length > 0 ? (
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-3">
+                {heatmapEntries.map(([key, value]: [string, any]) => {
+                  const numVal = typeof value === "number" ? value : 0;
+                  const isHigh = numVal > 50;
+                  const isMed = numVal > 25;
+                  return (
+                    <div key={key} className={`rounded-lg border p-3 text-center ${
+                      isHigh ? "border-red-700/30 bg-red-900/20" : isMed ? "border-amber-700/30 bg-amber-900/20" : "border-emerald-700/30 bg-emerald-900/20"
+                    }`}>
+                      <p className="text-xs text-glass-muted">{key}</p>
+                      <p className="text-lg font-bold text-white">{typeof value === "number" ? value : String(value)}</p>
+                    </div>
+                  );
+                })}
+              </div>
             ) : (
-              <Box sx={{ height: 400, display: "flex", alignItems: "center", justifyContent: "center", color: "text.disabled" }}>
-                Loading heatmap data...
-              </Box>
+              <div className="flex h-[300px] items-center justify-center text-sm text-glass-muted"><Loader2 size={20} className="mr-2 animate-spin" />Loading heatmap data...</div>
             )}
           </GlassCard>
-        </Grid>
-        <Grid item xs={12} md={4}>
+        </div>
+        <div>
           <GlassCard padding="md" glowVariant="orange" className="h-full">
-            <Typography variant="h6" sx={{ color: "text.primary", mb: 2 }}>
-              Risk Trends ({period} days)
-            </Typography>
+            <h3 className="mb-3 text-base font-semibold text-white">Risk Trends ({period} days)</h3>
             {trendsChartData ? (
-              <Box sx={{ height: 400 }}>
+              <div className="h-[350px]">
                 <Line
                   data={trendsChartData}
                   options={{
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: {
-                      legend: { labels: { color: "text.primary" } },
-                    },
+                    plugins: { legend: { labels: { color: "#94a3b8" } } },
                     scales: {
-                      x: { ticks: { color: "text.primary" }, grid: { color: "rgba(255,255,255,0.1)" } },
-                      y: { ticks: { color: "text.primary" }, grid: { color: "rgba(255,255,255,0.1)" } },
+                      x: { ticks: { color: "#94a3b8" }, grid: { color: "rgba(255,255,255,0.1)" } },
+                      y: { ticks: { color: "#94a3b8" }, grid: { color: "rgba(255,255,255,0.1)" } },
                     },
                   }}
                 />
-              </Box>
+              </div>
             ) : (
-              <Box sx={{ height: 400, display: "flex", alignItems: "center", justifyContent: "center", color: "text.disabled" }}>
-                Loading trend data...
-              </Box>
+              <div className="flex h-[350px] items-center justify-center text-sm text-glass-muted"><Loader2 size={20} className="mr-2 animate-spin" />Loading trend data...</div>
             )}
           </GlassCard>
-        </Grid>
-      </Grid>
-    </Box>
+        </div>
+      </div>
     </HokekaPageShell>
   );
 }

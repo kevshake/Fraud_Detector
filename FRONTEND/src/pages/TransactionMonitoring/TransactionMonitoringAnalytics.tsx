@@ -1,4 +1,3 @@
-import { Box, Typography, Grid, Card, CardContent, Paper } from "@mui/material";
 import {
   useMonitoringRiskDistribution,
   useMonitoringRiskIndicators,
@@ -36,100 +35,60 @@ export default function TransactionMonitoringAnalytics() {
       }
     : null;
 
+  const indicators = (riskIndicators && Array.isArray(riskIndicators)) ? riskIndicators : [];
+
   return (
-    <Box>
-      <Typography variant="h6" sx={{ color: "text.primary", mb: 3 }}>
-        Transaction Analytics
-      </Typography>
+    <div className="flex flex-col gap-4">
+      <h3 className="text-lg font-semibold text-white">Transaction Analytics</h3>
 
-      <Grid container spacing={3} sx={{ mb: 3 }}>
-        {riskIndicators && Array.isArray(riskIndicators) && riskIndicators.length > 0 && (
-          <>
-            {riskIndicators.slice(0, 4).map((indicator: any, idx: number) => (
-              <Grid item xs={12} sm={6} md={3} key={indicator.id || indicator.name || idx}>
-                <Card sx={{ backgroundColor: "background.paper", border: "1px solid rgba(0,0,0,0.1)" }}>
-                  <CardContent>
-                    <Typography variant="body2" sx={{ color: "text.secondary", mb: 1 }}>
-                      {indicator.name || indicator.type || "Risk Indicator"}
-                    </Typography>
-                    <Typography variant="h6" sx={{ color: "text.primary" }}>
-                      {indicator.value || indicator.count || 0}
-                    </Typography>
-                    {indicator.percentage && (
-                      <Typography variant="caption" sx={{ color: "text.disabled" }}>
-                        {indicator.percentage}%
-                      </Typography>
-                    )}
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
-          </>
-        )}
-      </Grid>
+      {indicators.length > 0 && (
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          {indicators.slice(0, 4).map((indicator: any, idx: number) => (
+            <div key={indicator.id || indicator.name || idx} className="rounded-lg border border-white/10 bg-[#0f1a2e] p-4">
+              <p className="mb-1 text-sm text-glass-muted">{indicator.name || indicator.type || "Risk Indicator"}</p>
+              <p className="text-xl font-bold text-white">{indicator.value || indicator.count || 0}</p>
+              {indicator.percentage && <p className="text-xs text-glass-muted">{indicator.percentage}%</p>}
+            </div>
+          ))}
+        </div>
+      )}
 
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3, backgroundColor: "background.paper", border: "1px solid rgba(0,0,0,0.1)" }}>
-            <Typography variant="h6" sx={{ color: "text.primary", mb: 2 }}>
-              Risk Distribution
-            </Typography>
-            {riskChartData ? (
-              <Box sx={{ height: 300 }}>
-                <Doughnut
-                  data={riskChartData}
-                  options={{
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                      legend: { position: "bottom", labels: { color: "#94a3b8", padding: 15 } },
-                    },
-                  }}
-                />
-              </Box>
-            ) : (
-              <Box sx={{ height: 300, display: "flex", alignItems: "center", justifyContent: "center", color: "text.disabled" }}>
-                No risk distribution data available
-              </Box>
-            )}
-          </Paper>
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3, backgroundColor: "background.paper", border: "1px solid rgba(0,0,0,0.1)" }}>
-            <Typography variant="h6" sx={{ color: "text.primary", mb: 2 }}>
-              Top Risk Indicators
-            </Typography>
-            {riskIndicators && Array.isArray(riskIndicators) && riskIndicators.length > 0 ? (
-              <Box>
-                {riskIndicators.map((indicator: any, idx: number) => (
-                  <Box
-                    key={indicator.id || indicator.name || idx}
-                    sx={{
-                      p: 2,
-                      mb: 0.5,
-                      backgroundColor: "background.paper",
-                      borderRadius: 1,
-                      border: "1px solid rgba(0,0,0,0.1)",
-                    }}
-                  >
-                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <Typography variant="body1" sx={{ color: "text.primary" }}>
-                        {indicator.name || indicator.type || "Indicator"}
-                      </Typography>
-                      <Typography variant="h6" sx={{ color: "#a93226" }}>
-                        {indicator.value || indicator.count || 0}
-                      </Typography>
-                    </Box>
-                  </Box>
-                ))}
-              </Box>
-            ) : (
-              <Typography sx={{ color: "text.disabled" }}>No risk indicators available</Typography>
-            )}
-          </Paper>
-        </Grid>
-      </Grid>
-    </Box>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="rounded-lg border border-white/10 bg-[#0f1a2e] p-4">
+          <h4 className="mb-3 text-sm font-semibold text-white">Risk Distribution</h4>
+          {riskChartData ? (
+            <div className="h-[300px]">
+              <Doughnut
+                data={riskChartData}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: {
+                    legend: { position: "bottom" as const, labels: { color: "#94a3b8", padding: 15 } },
+                  },
+                }}
+              />
+            </div>
+          ) : (
+            <div className="flex h-[300px] items-center justify-center text-sm text-glass-muted">No risk distribution data available</div>
+          )}
+        </div>
+        <div className="rounded-lg border border-white/10 bg-[#0f1a2e] p-4">
+          <h4 className="mb-3 text-sm font-semibold text-white">Top Risk Indicators</h4>
+          {indicators.length > 0 ? (
+            <div className="space-y-1">
+              {indicators.map((indicator: any, idx: number) => (
+                <div key={indicator.id || indicator.name || idx} className="flex items-center justify-between rounded-lg border border-white/5 bg-[#0f1a2e] p-3">
+                  <p className="text-sm text-white/80">{indicator.name || indicator.type || "Indicator"}</p>
+                  <p className="text-base font-bold text-burgundy-400">{indicator.value || indicator.count || 0}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-glass-muted">No risk indicators available</p>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
-

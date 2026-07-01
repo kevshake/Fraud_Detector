@@ -1,7 +1,6 @@
-import { Box, Paper, Typography, Grid, Card, CardContent, Button } from "@mui/material";
 import { useDashboardStats } from "../../features/api/queries";
-import { Download as DownloadIcon } from "@mui/icons-material";
 import HokekaPageShell from "../../components/Layout/HokekaPageShell";
+import { Download, Loader2 } from "lucide-react";
 
 export default function ReportsPage() {
   const { data: stats, isLoading } = useDashboardStats();
@@ -35,167 +34,59 @@ export default function ReportsPage() {
 
   return (
     <HokekaPageShell title="Reports" subtitle="Generate and export compliance reports" noCard>
-    <Box>
-      <Grid container spacing={2} sx={{ mb: 2 }}>
-        <Grid item xs={12} md={4}>
-          <Card sx={{ backgroundColor: "background.paper", border: "1px solid rgba(0,0,0,0.1)" }}>
-            <CardContent>
-              <Typography variant="h6" sx={{ color: "text.primary", mb: 1 }}>
-                Case Summary Report
-              </Typography>
-              <Typography variant="body2" sx={{ color: "text.secondary", mb: 2 }}>
-                Summary of all compliance cases by status
-              </Typography>
-              <Box sx={{ mb: 2 }}>
-                {stats?.casesByStatus &&
-                  Object.entries(stats.casesByStatus).map(([status, count]) => (
-                    <Box key={status} sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
-                      <Typography variant="body2" sx={{ color: "text.primary" }}>
-                        {status}:
-                      </Typography>
-                      <Typography variant="body2" sx={{ color: "text.primary", fontWeight: 600 }}>
-                        {String(count)}
-                      </Typography>
-                    </Box>
-                  ))}
-              </Box>
-              <Button
-                variant="outlined"
-                startIcon={<DownloadIcon />}
-                onClick={() => handleExport("cases")}
-                sx={{ borderColor: "error.main", color: "error.main", "&:hover": { borderColor: "error.dark" } }}
-              >
-                Export
-              </Button>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} md={4}>
-          <Card sx={{ backgroundColor: "background.paper", border: "1px solid rgba(0,0,0,0.1)" }}>
-            <CardContent>
-              <Typography variant="h6" sx={{ color: "text.primary", mb: 1 }}>
-                SAR Summary Report
-              </Typography>
-              <Typography variant="body2" sx={{ color: "text.secondary", mb: 2 }}>
-                Summary of all SAR reports by status
-              </Typography>
-              <Box sx={{ mb: 2 }}>
-                {stats?.sarsByStatus &&
-                  Object.entries(stats.sarsByStatus).map(([status, count]) => (
-                    <Box key={status} sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
-                      <Typography variant="body2" sx={{ color: "text.primary" }}>
-                        {status}:
-                      </Typography>
-                      <Typography variant="body2" sx={{ color: "text.primary", fontWeight: 600 }}>
-                        {String(count)}
-                      </Typography>
-                    </Box>
-                  ))}
-              </Box>
-              <Button
-                variant="outlined"
-                startIcon={<DownloadIcon />}
-                onClick={() => handleExport("sars")}
-                sx={{ borderColor: "error.main", color: "error.main", "&:hover": { borderColor: "error.dark" } }}
-              >
-                Export
-              </Button>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} md={4}>
-          <Card sx={{ backgroundColor: "background.paper", border: "1px solid rgba(0,0,0,0.1)" }}>
-            <CardContent>
-              <Typography variant="h6" sx={{ color: "text.primary", mb: 1 }}>
-                Audit Activity Report
-              </Typography>
-              <Typography variant="body2" sx={{ color: "text.secondary", mb: 2 }}>
-                Audit events in the last 24 hours
-              </Typography>
-              <Box sx={{ mb: 2 }}>
-                <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
-                  <Typography variant="body2" sx={{ color: "text.primary" }}>
-                    Last 24h:
-                  </Typography>
-                  <Typography variant="body2" sx={{ color: "text.primary", fontWeight: 600 }}>
-                    {stats?.auditLast24h || 0}
-                  </Typography>
-                </Box>
-              </Box>
-              <Button
-                variant="outlined"
-                startIcon={<DownloadIcon />}
-                onClick={() => handleExport("audit")}
-                sx={{ borderColor: "error.main", color: "error.main", "&:hover": { borderColor: "error.dark" } }}
-              >
-                Export
-              </Button>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
-      <Paper sx={{ p: 2, backgroundColor: "background.paper", border: "1px solid rgba(0,0,0,0.1)" }}>
-        <Typography variant="h6" sx={{ color: "text.primary", mb: 2 }}>
-          Daily Trends
-        </Typography>
-        <Grid container spacing={2}>
-          <Grid item xs={12} md={6}>
-            <Typography variant="body2" sx={{ color: "text.secondary", mb: 1 }}>
-              Cases (Last 7 Days)
-            </Typography>
-            {stats?.casesLast7d ? (
-              <Box>
-                {Object.entries(stats.casesLast7d).map(([date, count]) => (
-                  <Box key={date} sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
-                    <Typography variant="caption" sx={{ color: "text.primary" }}>
-                      {date}:
-                    </Typography>
-                    <Typography variant="caption" sx={{ color: "text.primary" }}>
-                      {String(count)}
-                    </Typography>
-                  </Box>
-                ))}
-              </Box>
-            ) : (
-              <Typography variant="body2" sx={{ color: "text.disabled" }}>
-                No data available
-              </Typography>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        {[
+          { title: "Case Summary Report", desc: "Summary of all compliance cases by status", type: "cases", data: stats?.casesByStatus },
+                    { title: "SAR Summary Report", desc: "Summary of all SAR reports by status", type: "sars", data: stats?.sarsByStatus },
+                    { title: "Audit Activity Report", desc: "Audit events in the last 24 hours", type: "audit", data: null as Record<string, number> | null },
+                  ].map((card) => (
+                    <div key={card.type} className="rounded-lg border border-white/10 bg-[#0f1a2e] p-4">
+                      <h4 className="mb-1 text-base font-semibold text-white">{card.title}</h4>
+                      <p className="mb-3 text-xs text-glass-muted">{card.desc}</p>
+                      {card.data && Object.entries(card.data).map(([status, count]) => (
+              <div key={status} className="mb-1 flex justify-between text-sm">
+                <span className="text-white/80">{status}:</span>
+                <span className="font-semibold text-white">{String(count)}</span>
+              </div>
+            ))}
+            {card.type === "audit" && (
+              <div className="mb-1 flex justify-between text-sm">
+                <span className="text-white/80">Last 24h:</span>
+                <span className="font-semibold text-white">{stats?.auditLast24h || 0}</span>
+              </div>
             )}
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <Typography variant="body2" sx={{ color: "text.secondary", mb: 1 }}>
-              SARs (Last 7 Days)
-            </Typography>
-            {stats?.sarsLast7d ? (
-              <Box>
-                {Object.entries(stats.sarsLast7d).map(([date, count]) => (
-                  <Box key={date} sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
-                    <Typography variant="caption" sx={{ color: "text.primary" }}>
-                      {date}:
-                    </Typography>
-                    <Typography variant="caption" sx={{ color: "text.primary" }}>
-                      {String(count)}
-                    </Typography>
-                  </Box>
-                ))}
-              </Box>
-            ) : (
-              <Typography variant="body2" sx={{ color: "text.disabled" }}>
-                No data available
-              </Typography>
-            )}
-          </Grid>
-        </Grid>
-      </Paper>
+            <button onClick={() => handleExport(card.type)} className="mt-3 flex items-center gap-1.5 rounded-lg border border-burgundy-700 px-3 py-1.5 text-xs text-burgundy-400 transition-colors hover:bg-burgundy-700/10">
+              <Download size={14} /> Export
+            </button>
+          </div>
+        ))}
+      </div>
 
-      {isLoading && (
-        <Typography sx={{ color: "text.disabled", mt: 2 }}>Loading report data...</Typography>
-      )}
-    </Box>
+      <div className="mt-4 rounded-lg border border-white/10 bg-[#0f1a2e] p-4">
+        <h4 className="mb-3 text-base font-semibold text-white">Daily Trends</h4>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div>
+            <p className="mb-2 text-xs text-glass-muted">Cases (Last 7 Days)</p>
+            {stats?.casesLast7d ? Object.entries(stats.casesLast7d).map(([date, count]) => (
+              <div key={date} className="mb-0.5 flex justify-between text-xs">
+                <span className="text-white/80">{date}:</span>
+                <span className="text-white">{String(count)}</span>
+              </div>
+            )) : <p className="text-xs text-glass-muted">No data available</p>}
+          </div>
+          <div>
+            <p className="mb-2 text-xs text-glass-muted">SARs (Last 7 Days)</p>
+            {stats?.sarsLast7d ? Object.entries(stats.sarsLast7d).map(([date, count]) => (
+              <div key={date} className="mb-0.5 flex justify-between text-xs">
+                <span className="text-white/80">{date}:</span>
+                <span className="text-white">{String(count)}</span>
+              </div>
+            )) : <p className="text-xs text-glass-muted">No data available</p>}
+          </div>
+        </div>
+      </div>
+
+      {isLoading && <p className="mt-2 text-sm text-glass-muted"><Loader2 size={14} className="mr-1 inline animate-spin" />Loading report data...</p>}
     </HokekaPageShell>
   );
 }
-
