@@ -1,39 +1,19 @@
-import {
-  Box,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Typography,
-  Chip,
-  Button,
-  TablePagination,
-  CircularProgress,
-  Tooltip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Grid,
-  Divider,
-  TextField,
-  MenuItem,
-  Snackbar,
-  Alert,
-} from "@mui/material";
 import { useState } from "react";
 import { useMerchants } from "../../features/api/queries";
 import { useCreateMerchant, type CreateMerchantRequest } from "../../features/api/mutations";
 import type { Merchant } from "../../types";
 import HokekaPageShell from "../../components/Layout/HokekaPageShell";
+import TwBadge from "../../components/Common/TwBadge";
+import TwPagination from "../../components/Common/TwPagination";
+import TwSnackbar from "../../components/Common/TwSnackbar";
+import { TwInput } from "../../components/Common/TwInput";
+import { Download, Eye, Loader2, Plus, X } from "lucide-react";
 
-const riskColors: Record<string, string> = {
-  LOW: "#2ecc71",
-  MEDIUM: "#f39c12",
-  HIGH: "#e74c3c",
+const riskBadge = (level: string | undefined): "danger" | "warning" | "success" | "default" => {
+  if (level === "HIGH" || level === "CRITICAL") return "danger";
+  if (level === "MEDIUM") return "warning";
+  if (level === "LOW") return "success";
+  return "default";
 };
 
 const formatScore = (score: number | null | undefined): string => {
@@ -49,36 +29,28 @@ export default function MerchantsPage() {
   const [viewMerchant, setViewMerchant] = useState<Merchant | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [formData, setFormData] = useState<CreateMerchantRequest>({
-    merchantId: "",
-    businessName: "",
-    mcc: "",
-    kycStatus: "",
-    contractStatus: "",
+    merchantId: "", businessName: "", mcc: "", kycStatus: "", contractStatus: "",
   });
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: "success" | "error" }>({
     open: false, message: "", severity: "success",
   });
 
   const { data: merchants, isLoading, isError, error } = useMerchants({
-    page: page.index,
-    size: page.size,
+    page: page.index, size: page.size,
   });
-
   const createMerchant = useCreateMerchant();
 
+  const content = merchants?.content || [];
+  const totalElements = merchants?.totalElements ?? 0;
+  const totalPages = merchants?.totalPages ?? 1;
+
   const handleExportCSV = () => {
-    const content = merchants?.content || [];
     if (!content.length) return;
     const headers = ["Merchant ID", "Business Name", "MCC", "Risk Level", "KRS", "CRA", "KYC Status", "Contract Status"];
-    const rows = content.map(m => [
-      m.merchantId,
-      (m.businessName || "").replace(/,/g, ";"),
-      m.mcc || "",
-      m.riskLevel || "",
-      formatScore(m.krs),
-      formatScore(m.cra),
-      m.kycStatus || "",
-      m.contractStatus || "",
+    const rows = content.map((m: any) => [
+      m.merchantId, (m.businessName || "").replace(/,/g, ";"), m.mcc || "",
+      m.riskLevel || "", formatScore(m.krs), formatScore(m.cra),
+      m.kycStatus || "", m.contractStatus || "",
     ]);
     const csv = [headers, ...rows].map(r => r.join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
@@ -104,265 +76,179 @@ export default function MerchantsPage() {
 
   return (
     <HokekaPageShell title="Merchants" subtitle="Onboard and monitor merchant risk profiles" noCard>
-    <Box>
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-          <Button
-            size="small"
-            variant="outlined"
-            disabled={!merchants?.content?.length}
-            onClick={handleExportCSV}
-            sx={{ textTransform: "none", color: "text.secondary", borderColor: "rgba(0,0,0,0.2)", fontSize: "0.75rem" }}
-          >
-            Export CSV
-          </Button>
-        </Box>
-        <Tooltip title="Onboard a new merchant to the system." arrow enterDelay={2000}>
-          <Button
-            variant="contained"
-            onClick={() => setAddOpen(true)}
-            sx={{ backgroundColor: "#a93226", "&:hover": { backgroundColor: "#922b21" } }}
-          >
-            Add Merchant
-          </Button>
-        </Tooltip>
-      </Box>
+      {/* Toolbar */}
+      <div className="flex items-center justify-between pb-3">
+        <button
+          onClick={handleExportCSV}
+          disabled={!content.length}
+          className="flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-glass-muted transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-30"
+        >
+          <Download size={14} /> Export CSV
+        </button>
+        <button
+          onClick={() => setAddOpen(true)}
+          className="flex items-center gap-1.5 rounded-lg bg-burgundy-700 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-burgundy-800"
+        >
+          <Plus size={14} /> Add Merchant
+        </button>
+      </div>
 
-      <TableContainer component={Paper} sx={{ backgroundColor: "background.paper", border: "1px solid rgba(0,0,0,0.1)" }}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell sx={{ color: "text.secondary" }}>Merchant ID</TableCell>
-              <TableCell sx={{ color: "text.secondary" }}>Business Name</TableCell>
-              <TableCell sx={{ color: "text.secondary" }}>MCC</TableCell>
-              <TableCell sx={{ color: "text.secondary" }}>Risk Level</TableCell>
-              <TableCell sx={{ color: "text.secondary" }}>KRS</TableCell>
-              <TableCell sx={{ color: "text.secondary" }}>CRA</TableCell>
-              <TableCell sx={{ color: "text.secondary" }}>KYC Status</TableCell>
-              <TableCell sx={{ color: "text.secondary" }}>Contract Status</TableCell>
-              <TableCell sx={{ color: "text.secondary" }}>Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={9} align="center" sx={{ color: "text.disabled", py: 2 }}>
-                  <CircularProgress size={24} />
-                </TableCell>
-              </TableRow>
-            ) : isError ? (
-              <TableRow>
-                <TableCell colSpan={9} align="center" sx={{ color: "#e74c3c", py: 2 }}>
-                  Error loading merchants: {error instanceof Error ? error.message : "Unknown error"}
-                </TableCell>
-              </TableRow>
-            ) : merchants?.content && merchants.content.length > 0 ? (
-              merchants.content.map((merchant) => (
-                <TableRow key={merchant.id} hover>
-                  <TableCell sx={{ color: "text.primary", py: 2, fontFamily: "monospace" }}>{merchant.merchantId}</TableCell>
-                  <TableCell sx={{ color: "text.primary", py: 2 }}>{merchant.businessName}</TableCell>
-                  <TableCell sx={{ color: "text.primary", py: 2 }}>{merchant.mcc || "—"}</TableCell>
-                  <TableCell sx={{ py: 2 }}>
-                    {merchant.riskLevel ? (
-                      <Chip
-                        label={merchant.riskLevel}
-                        size="small"
-                        sx={{
-                          backgroundColor: riskColors[merchant.riskLevel] + "20",
-                          color: riskColors[merchant.riskLevel],
-                          border: `1px solid ${riskColors[merchant.riskLevel]}`,
-                          fontWeight: 600,
-                        }}
-                      />
-                    ) : "—"}
-                  </TableCell>
-                  <TableCell sx={{ color: "text.primary", py: 2 }}>{formatScore(merchant.krs)}</TableCell>
-                  <TableCell sx={{ color: "text.primary", py: 2 }}>{formatScore(merchant.cra)}</TableCell>
-                  <TableCell sx={{ color: "text.primary", py: 2 }}>{merchant.kycStatus || "—"}</TableCell>
-                  <TableCell sx={{ color: "text.primary", py: 2 }}>{merchant.contractStatus || "—"}</TableCell>
-                  <TableCell sx={{ py: 2 }}>
-                    <Button
-                      size="small"
-                      sx={{ color: "#a93226", textTransform: "none" }}
-                      onClick={() => setViewMerchant(merchant)}
-                    >
-                      View
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={9} align="center" sx={{ color: "text.disabled", py: 2 }}>
-                  No merchants found
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-        <TablePagination
-          rowsPerPageOptions={[10, 25, 50, 100]}
-          component="div"
-          count={merchants?.totalElements || 0}
-          rowsPerPage={page.size}
-          page={page.index}
-          onPageChange={(_, newPage) => setPage(prev => ({ ...prev, index: newPage }))}
-          onRowsPerPageChange={(e) => setPage({ index: 0, size: parseInt(e.target.value, 10) })}
-        />
-      </TableContainer>
-
-      {/* Merchant Detail Modal */}
-      <Dialog open={!!viewMerchant} onClose={() => setViewMerchant(null)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <Box>
-            <Typography variant="h6">{viewMerchant?.businessName}</Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ fontFamily: "monospace" }}>
-              {viewMerchant?.merchantId}
-            </Typography>
-          </Box>
-          {viewMerchant?.riskLevel && (
-            <Chip
-              label={viewMerchant.riskLevel}
-              size="small"
-              sx={{
-                backgroundColor: riskColors[viewMerchant.riskLevel] + "20",
-                color: riskColors[viewMerchant.riskLevel],
-                fontWeight: 600,
-              }}
-            />
+      {/* Table */}
+      <div className="overflow-hidden rounded-lg border border-white/10 bg-[#0f1a2e]">
+        <div className="overflow-auto" style={{ maxHeight: "calc(100vh - 320px)" }}>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 size={24} className="animate-spin text-glass-muted" />
+            </div>
+          ) : isError ? (
+            <div className="px-4 py-8 text-center text-sm text-red-400">
+              Error loading merchants: {error instanceof Error ? error.message : "Unknown error"}
+            </div>
+          ) : (
+            <table className="w-full border-collapse">
+              <thead className="sticky top-0 z-10">
+                <tr className="border-b border-white/10 bg-[#0f1a2e]">
+                  <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">Merchant ID</th>
+                  <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">Business Name</th>
+                  <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">MCC</th>
+                  <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">Risk Level</th>
+                  <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">KRS</th>
+                  <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">CRA</th>
+                  <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">KYC</th>
+                  <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">Contract</th>
+                  <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {content.map((merchant: any) => (
+                  <tr key={merchant.id} className="transition-colors hover:bg-white/[0.02]">
+                    <td className="whitespace-nowrap px-4 py-3 font-mono text-sm text-white">{merchant.merchantId}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-sm text-white">{merchant.businessName}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-sm text-white/80">{merchant.mcc || "—"}</td>
+                    <td className="whitespace-nowrap px-4 py-3">
+                      {merchant.riskLevel ? <TwBadge variant={riskBadge(merchant.riskLevel)}>{merchant.riskLevel}</TwBadge> : <span className="text-glass-muted">—</span>}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-sm text-white/80">{formatScore(merchant.krs)}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-sm text-white/80">{formatScore(merchant.cra)}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-sm text-white/80">{merchant.kycStatus || "—"}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-sm text-white/80">{merchant.contractStatus || "—"}</td>
+                    <td className="whitespace-nowrap px-4 py-3">
+                      <button onClick={() => setViewMerchant(merchant)} className="flex items-center gap-1 text-xs text-burgundy-400 transition-colors hover:text-burgundy-300">
+                        <Eye size={14} /> View
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {!content.length && (
+                  <tr><td colSpan={9} className="px-4 py-8 text-center text-sm text-glass-muted">No merchants found</td></tr>
+                )}
+              </tbody>
+            </table>
           )}
-        </DialogTitle>
-        <Divider />
-        {viewMerchant && (
-          <DialogContent sx={{ pt: 2 }}>
-            <Grid container spacing={2}>
-              {viewMerchant.mcc && (
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="overline" color="text.secondary">MCC Code</Typography>
-                  <Typography variant="body2" sx={{ mt: 0.5, fontFamily: "monospace" }}>{viewMerchant.mcc}</Typography>
-                </Grid>
-              )}
-              <Grid item xs={12} sm={6}>
-                <Typography variant="overline" color="text.secondary">KYC Status</Typography>
-                <Typography variant="body2" sx={{ mt: 0.5 }}>{viewMerchant.kycStatus || "Not set"}</Typography>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <Typography variant="overline" color="text.secondary">Contract Status</Typography>
-                <Typography variant="body2" sx={{ mt: 0.5 }}>{viewMerchant.contractStatus || "Not set"}</Typography>
-              </Grid>
-              <Grid item xs={12}>
-                <Divider sx={{ my: 1 }} />
-                <Typography variant="overline" color="text.secondary">Risk Scores</Typography>
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="body2" color="text.secondary">KRS (Know Your Risk Score)</Typography>
-                <Typography variant="h6" sx={{ fontWeight: 700, color: viewMerchant.krs && viewMerchant.krs > 7 ? "#e74c3c" : viewMerchant.krs && viewMerchant.krs > 4 ? "#f39c12" : "text.primary" }}>
-                  {formatScore(viewMerchant.krs)}
-                </Typography>
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="body2" color="text.secondary">CRA (Customer Risk Assessment)</Typography>
-                <Typography variant="h6" sx={{ fontWeight: 700, color: viewMerchant.cra && viewMerchant.cra > 7 ? "#e74c3c" : viewMerchant.cra && viewMerchant.cra > 4 ? "#f39c12" : "text.primary" }}>
-                  {formatScore(viewMerchant.cra)}
-                </Typography>
-              </Grid>
-            </Grid>
-          </DialogContent>
-        )}
-        <DialogActions>
-          <Button onClick={() => setViewMerchant(null)} sx={{ textTransform: "none" }}>Close</Button>
-        </DialogActions>
-      </Dialog>
+        </div>
+        <TwPagination
+          page={page.index} totalPages={totalPages} totalCount={totalElements} rowsPerPage={page.size}
+          onPageChange={(p) => setPage(prev => ({ ...prev, index: p }))}
+          onRowsPerPageChange={(s) => setPage({ index: 0, size: s })}
+        />
+      </div>
+
+      {/* View Merchant Modal */}
+      {viewMerchant && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={() => setViewMerchant(null)} />
+          <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2">
+            <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0f1a2e] shadow-2xl">
+              <div className="flex items-start justify-between border-b border-white/10 px-6 py-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-white">{viewMerchant.businessName}</h3>
+                  <p className="mt-0.5 font-mono text-xs text-glass-muted">{viewMerchant.merchantId}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {viewMerchant.riskLevel && <TwBadge variant={riskBadge(viewMerchant.riskLevel)}>{viewMerchant.riskLevel}</TwBadge>}
+                  <button onClick={() => setViewMerchant(null)} className="rounded p-1 text-glass-muted transition-colors hover:bg-white/10"><X size={18} /></button>
+                </div>
+              </div>
+              <div className="space-y-4 px-6 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  {viewMerchant.mcc && <div><p className="text-[11px] font-semibold uppercase tracking-wider text-glass-muted">MCC Code</p><p className="mt-0.5 font-mono text-sm text-white">{viewMerchant.mcc}</p></div>}
+                  <div><p className="text-[11px] font-semibold uppercase tracking-wider text-glass-muted">KYC Status</p><p className="mt-0.5 text-sm text-white/80">{viewMerchant.kycStatus || "Not set"}</p></div>
+                  <div><p className="text-[11px] font-semibold uppercase tracking-wider text-glass-muted">Contract Status</p><p className="mt-0.5 text-sm text-white/80">{viewMerchant.contractStatus || "Not set"}</p></div>
+                </div>
+                <div className="border-t border-white/10 pt-4">
+                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-glass-muted">Risk Scores</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs text-glass-muted">KRS</p>
+                      <p className={`text-xl font-bold ${viewMerchant.krs && viewMerchant.krs > 7 ? "text-red-400" : viewMerchant.krs && viewMerchant.krs > 4 ? "text-amber-400" : "text-white"}`}>
+                        {formatScore(viewMerchant.krs)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-glass-muted">CRA</p>
+                      <p className={`text-xl font-bold ${viewMerchant.cra && viewMerchant.cra > 7 ? "text-red-400" : viewMerchant.cra && viewMerchant.cra > 4 ? "text-amber-400" : "text-white"}`}>
+                        {formatScore(viewMerchant.cra)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-end border-t border-white/10 px-6 py-3">
+                <button onClick={() => setViewMerchant(null)} className="rounded-lg border border-white/10 px-4 py-1.5 text-xs text-white transition-colors hover:bg-white/5">Close</button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Add Merchant Modal */}
-      <Dialog open={addOpen} onClose={() => setAddOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Onboard New Merchant</DialogTitle>
-        <Divider />
-        <DialogContent sx={{ pt: 2 }}>
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Merchant ID"
-                value={formData.merchantId}
-                onChange={(e) => setFormData(prev => ({ ...prev, merchantId: e.target.value }))}
-                fullWidth
-                size="small"
-                required
-                placeholder="e.g. MRC-00123"
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Business Name"
-                value={formData.businessName}
-                onChange={(e) => setFormData(prev => ({ ...prev, businessName: e.target.value }))}
-                fullWidth
-                size="small"
-                required
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="MCC Code"
-                value={formData.mcc}
-                onChange={(e) => setFormData(prev => ({ ...prev, mcc: e.target.value }))}
-                fullWidth
-                size="small"
-                placeholder="e.g. 5411"
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                select
-                label="KYC Status"
-                value={formData.kycStatus}
-                onChange={(e) => setFormData(prev => ({ ...prev, kycStatus: e.target.value }))}
-                fullWidth
-                size="small"
-              >
-                <MenuItem value="">Not Set</MenuItem>
-                {kycStatuses.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
-              </TextField>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                select
-                label="Contract Status"
-                value={formData.contractStatus}
-                onChange={(e) => setFormData(prev => ({ ...prev, contractStatus: e.target.value }))}
-                fullWidth
-                size="small"
-              >
-                <MenuItem value="">Not Set</MenuItem>
-                {contractStatuses.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
-              </TextField>
-            </Grid>
-          </Grid>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setAddOpen(false)} sx={{ textTransform: "none" }}>Cancel</Button>
-          <Button
-            variant="contained"
-            onClick={handleAddMerchant}
-            disabled={!formData.merchantId.trim() || !formData.businessName.trim() || createMerchant.isPending}
-            sx={{ backgroundColor: "#a93226", "&:hover": { backgroundColor: "#922b21" }, textTransform: "none" }}
-          >
-            {createMerchant.isPending ? <CircularProgress size={18} sx={{ color: "white" }} /> : "Onboard Merchant"}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {addOpen && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={() => setAddOpen(false)} />
+          <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2">
+            <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0f1a2e] shadow-2xl">
+              <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+                <h3 className="text-lg font-semibold text-white">Onboard New Merchant</h3>
+                <button onClick={() => setAddOpen(false)} className="rounded p-1 text-glass-muted transition-colors hover:bg-white/10"><X size={18} /></button>
+              </div>
+              <div className="space-y-4 px-6 py-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <TwInput label="Merchant ID" value={formData.merchantId} onChange={(e) => setFormData(prev => ({ ...prev, merchantId: e.target.value }))} placeholder="e.g. MRC-00123" />
+                  <TwInput label="Business Name" value={formData.businessName} onChange={(e) => setFormData(prev => ({ ...prev, businessName: e.target.value }))} />
+                  <TwInput label="MCC Code" value={formData.mcc} onChange={(e) => setFormData(prev => ({ ...prev, mcc: e.target.value }))} placeholder="e.g. 5411" />
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[11px] font-semibold uppercase tracking-wider text-glass-muted">KYC Status</label>
+                    <select value={formData.kycStatus} onChange={(e) => setFormData(prev => ({ ...prev, kycStatus: e.target.value }))} className="w-full rounded-lg border border-white/10 bg-[#1a2744] px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-burgundy-700">
+                      <option value="">Not Set</option>
+                      {kycStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[11px] font-semibold uppercase tracking-wider text-glass-muted">Contract Status</label>
+                    <select value={formData.contractStatus} onChange={(e) => setFormData(prev => ({ ...prev, contractStatus: e.target.value }))} className="w-full rounded-lg border border-white/10 bg-[#1a2744] px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-burgundy-700">
+                      <option value="">Not Set</option>
+                      {contractStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 border-t border-white/10 px-6 py-3">
+                <button onClick={() => setAddOpen(false)} className="rounded-lg border border-white/10 px-4 py-1.5 text-xs text-white transition-colors hover:bg-white/5">Cancel</button>
+                <button
+                  onClick={handleAddMerchant}
+                  disabled={!formData.merchantId.trim() || !formData.businessName.trim() || createMerchant.isPending}
+                  className="flex items-center gap-1.5 rounded-lg bg-burgundy-700 px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-burgundy-800 disabled:opacity-30"
+                >
+                  {createMerchant.isPending ? <Loader2 size={14} className="animate-spin" /> : null}
+                  Onboard Merchant
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-      >
-        <Alert severity={snackbar.severity} onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} sx={{ width: "100%" }}>
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
-    </Box>
+      <TwSnackbar open={snackbar.open} message={snackbar.message} severity={snackbar.severity} onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} />
     </HokekaPageShell>
   );
 }
