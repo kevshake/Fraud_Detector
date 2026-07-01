@@ -88,6 +88,10 @@ Pixel-match the Hokeka AML mockup; full migration off MUI to Tailwind + Shadcn +
   - [x] `npm run typecheck` passes with zero errors
 - [x] **#72** Phase 4 — Backend aggregate endpoints (extended `/dashboard/stats` + new `/risk-heatmap`, `/cases/closed-recent`, `/screening/results-today`, `/merchants/top-risk`, `/compliance/health`, `/alerts/trends`); V140 migration for CDD/EDD review timestamps; all widgets now consume real data
 - [ ] **#73** Phase 5 — Migrate remaining pages off MUI, drop @mui/material (long tail — separate session)
+  - [x] Phase 5a — Shared Tailwind component library (TwTable, TwPagination, TwBadge, TwSnackbar, TwInput, TwSelect)
+  - [x] Phase 5b — AlertsPage, AuditLogsPage, MerchantsPage, KycDocumentsPage migrated (4 pages)
+  - [x] Phase 5c — TransactionMonitoringLive/Reports/Sars migrated (3 pages)
+  - [ ] Phase 5d — Remaining 15+ pages + AnalyticsPage + ReportsCenter components
 
 ---
 
