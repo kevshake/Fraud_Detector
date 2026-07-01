@@ -1,187 +1,89 @@
 import { useState } from "react";
-import {
-    Box,
-    Paper,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    Button,
-    Chip,
-    IconButton,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    TextField,
-    FormControl,
-    InputLabel,
-    Select,
-    MenuItem,
-    Typography,
-    Alert,
-    Accordion,
-    AccordionSummary,
-    AccordionDetails,
-    FormGroup,
-    FormControlLabel,
-    Checkbox,
-} from "@mui/material";
-import {
-    Add as AddIcon,
-    Edit as EditIcon,
-    Delete as DeleteIcon,
-    ExpandMore as ExpandMoreIcon,
-} from "@mui/icons-material";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Role, Psp, Permission, PERMISSION_LABELS, PERMISSION_CATEGORIES } from "../../types/userManagement";
+import TwBadge from "../../components/Common/TwBadge";
+import { Loader2, Plus, Edit, Trash2, X, ChevronDown, ChevronRight } from "lucide-react";
 
 export default function RolesTab() {
     const queryClient = useQueryClient();
     const [openDialog, setOpenDialog] = useState(false);
     const [editingRole, setEditingRole] = useState<Role | null>(null);
     const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+    const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
     const [formData, setFormData] = useState({
-        name: "",
-        description: "",
-        pspId: "",
-        permissions: [] as Permission[],
+        name: "", description: "", pspId: "", permissions: [] as Permission[],
     });
 
-    // Helper — every API call must carry the session cookie so Spring Security
-    // sees the authenticated principal. Without `credentials: include` the request
-    // is anonymous and the @PreAuthorize check returns 403, surfacing as
-    // "Failed to save role".
     const apiFetch = async (input: string, init: RequestInit = {}) => {
         const response = await fetch(input, {
-            ...init,
-            credentials: "include",
-            headers: {
-                "Content-Type": "application/json",
-                ...(init.headers || {}),
-            },
+            ...init, credentials: "include",
+            headers: { "Content-Type": "application/json", ...(init.headers || {}) },
         });
         if (!response.ok) {
             let message = `${response.status} ${response.statusText}`;
-            try {
-                const body = await response.clone().json();
-                message = body.message || body.error || JSON.stringify(body);
-            } catch {
-                try {
-                    const txt = await response.text();
-                    if (txt) message = txt;
-                } catch { /* ignore */ }
-            }
-            const err = new Error(message);
-            (err as any).status = response.status;
-            throw err;
+            try { const body = await response.clone().json(); message = body.message || body.error || JSON.stringify(body); }
+            catch { try { const txt = await response.text(); if (txt) message = txt; } catch { /* ignore */ } }
+            const err = new Error(message); (err as any).status = response.status; throw err;
         }
         return response;
     };
 
-    // Fetch roles
     const { data: roles, isLoading } = useQuery<Role[]>({
         queryKey: ["roles"],
         queryFn: async () => (await apiFetch("/api/v1/roles")).json(),
     });
 
-    // Fetch PSPs for dropdown — admin endpoint returns full Psp entity (pspId/legalName/pspCode)
     const { data: psps } = useQuery<Psp[]>({
         queryKey: ["psps"],
-        queryFn: async () => {
-            const response = await fetch("/api/v1/psps");
-            if (!response.ok) throw new Error("Failed to fetch PSPs");
-            return response.json();
-        },
+        queryFn: async () => { const response = await fetch("/api/v1/psps"); if (!response.ok) throw new Error("Failed to fetch PSPs"); return response.json(); },
     });
 
-    // Create/Update role mutation
     const saveRoleMutation = useMutation({
         mutationFn: async (roleData: any) => {
             const url = editingRole ? `/api/v1/roles/${editingRole.id}` : "/api/v1/roles";
-            const method = editingRole ? "PUT" : "POST";
-            const response = await apiFetch(url, {
-                method,
-                body: JSON.stringify(roleData),
-            });
-            return response.json();
+            return (await apiFetch(url, { method: editingRole ? "PUT" : "POST", body: JSON.stringify(roleData) })).json();
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["roles"] });
-            handleCloseDialog();
-        },
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["roles"] }); handleCloseDialog(); },
     });
 
-    // Delete role mutation
     const deleteRoleMutation = useMutation({
-    mutationFn: async (roleId: number) => {
-        await apiFetch(`/api/v1/roles/${roleId}`, { method: "DELETE" });
-    },
-    onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ["roles"] });
-    },
-    onError: () => {
-        alert("Failed to delete role. Please try again.");
-    },
-});
+        mutationFn: async (roleId: number) => { await apiFetch(`/api/v1/roles/${roleId}`, { method: "DELETE" }); },
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["roles"] }); },
+        onError: () => { alert("Failed to delete role. Please try again."); },
+    });
 
     const handleOpenDialog = (role?: Role) => {
         if (role) {
             setEditingRole(role);
-            const scopedPspId = role.psp?.pspId ?? role.psp?.id ?? role.pspId;
+            const scopedPspId = role.psp?.pspId ?? role.psp?.id ?? (role as any).pspId;
             setFormData({
-                name: role.name,
-                description: role.description,
+                name: role.name, description: role.description,
                 pspId: scopedPspId != null ? String(scopedPspId) : "",
                 permissions: role.permissions,
             });
         } else {
             setEditingRole(null);
-            setFormData({
-                name: "",
-                description: "",
-                pspId: "",
-                permissions: [],
-            });
+            setFormData({ name: "", description: "", pspId: "", permissions: [] });
         }
         setOpenDialog(true);
     };
 
-    const handleCloseDialog = () => {
-        setOpenDialog(false);
-        setEditingRole(null);
-    };
+    const handleCloseDialog = () => { setOpenDialog(false); setEditingRole(null); setExpandedCategories(new Set()); };
 
     const handleSave = () => {
-    if (!formData.name) return;
-    const roleData = {
-        name: formData.name,
-            description: formData.description,
-            pspId: formData.pspId ? parseInt(formData.pspId) : null,
-            permissions: formData.permissions,
-        };
-
-        saveRoleMutation.mutate(roleData);
+        if (!formData.name) return;
+        saveRoleMutation.mutate({
+            name: formData.name, description: formData.description,
+            pspId: formData.pspId ? parseInt(formData.pspId) : null, permissions: formData.permissions,
+        });
     };
 
- // ✅ Replace with
-const handleDelete = (roleId: number) => {
-    setDeleteConfirmId(roleId);
-};
-
-const handleConfirmDelete = () => {
-    if (deleteConfirmId !== null) {
-        deleteRoleMutation.mutate(deleteConfirmId);
-        setDeleteConfirmId(null);
-    }
-};   
+    const handleDelete = (roleId: number) => setDeleteConfirmId(roleId);
+    const handleConfirmDelete = () => { if (deleteConfirmId !== null) { deleteRoleMutation.mutate(deleteConfirmId); setDeleteConfirmId(null); } };
 
     const handlePermissionToggle = (permission: Permission) => {
         setFormData((prev) => ({
-            ...prev,
-            permissions: prev.permissions.includes(permission)
+            ...prev, permissions: prev.permissions.includes(permission)
                 ? prev.permissions.filter((p) => p !== permission)
                 : [...prev.permissions, permission],
         }));
@@ -197,226 +99,164 @@ const handleConfirmDelete = () => {
         }));
     };
 
-    return (
-        <Box>
-            <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 3 }}>
-                <Button
-                    variant="contained"
-                    startIcon={<AddIcon />}
-                    onClick={() => handleOpenDialog()}
-                    sx={{ backgroundColor: "#8B4049", "&:hover": { backgroundColor: "#6B3037" } }}
-                >
-                    Create Role
-                </Button>
-            </Box>
+    const toggleCategory = (cat: string) => {
+        setExpandedCategories(prev => { const next = new Set(prev); if (next.has(cat)) next.delete(cat); else next.add(cat); return next; });
+    };
 
-            <TableContainer component={Paper} sx={{ backgroundColor: "background.paper", border: "1px solid rgba(0,0,0,0.1)" }}>
-                <Table>
-                    <TableHead>
-                        <TableRow>
-                            <TableCell sx={{ color: "text.secondary", fontWeight: 600 }}>Role Name</TableCell>
-                            <TableCell sx={{ color: "text.secondary", fontWeight: 600 }}>Description</TableCell>
-                            <TableCell sx={{ color: "text.secondary", fontWeight: 600 }}>Scope</TableCell>
-                            <TableCell sx={{ color: "text.secondary", fontWeight: 600 }}>Permissions</TableCell>
-                            <TableCell sx={{ color: "text.secondary", fontWeight: 600 }}>Actions</TableCell>
-                        </TableRow>
-                    </TableHead>
-                    <TableBody>
-                        {isLoading ? (
-                            <TableRow>
-                                <TableCell colSpan={5} align="center" sx={{ py: 4, color: "text.secondary" }}>
-                                    Loading roles...
-                                </TableCell>
-                            </TableRow>
-                        ) : roles && roles.length > 0 ? (
-                            roles.map((role) => (
-                                <TableRow key={role.id} hover>
-                                    <TableCell sx={{ color: "text.primary", fontWeight: 500 }}>{role.name}</TableCell>
-                                    <TableCell sx={{ color: "text.primary" }}>{role.description}</TableCell>
-                                    <TableCell>
-                                        {(() => {
-                                            const scopeLabel = role.psp
-                                                ? (role.psp.legalName || role.psp.name || role.psp.pspCode || role.psp.code || "PSP")
-                                                : "System";
-                                            const scoped = !!role.psp;
-                                            return (
-                                                <Chip
-                                                    label={scopeLabel}
-                                                    size="small"
-                                                    sx={{
-                                                        backgroundColor: scoped ? "#f39c1220" : "#8B404920",
-                                                        color: scoped ? "#f39c12" : "#8B4049",
-                                                        border: `1px solid ${scoped ? "#f39c12" : "#8B4049"}`,
-                                                    }}
-                                                />
-                                            );
-                                        })()}
-                                    </TableCell>
-                                    <TableCell>
-                                        <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                                            {role.permissions.length} permission{role.permissions.length !== 1 ? "s" : ""}
-                                        </Typography>
-                                    </TableCell>
-                                    <TableCell>
-                                        <Box sx={{ display: "flex", gap: 0.5 }}>
-                                            <IconButton size="small" onClick={() => handleOpenDialog(role)} sx={{ color: "#8B4049" }}>
-                                                <EditIcon fontSize="small" />
-                                            </IconButton>
-                                            <IconButton size="small" onClick={() => handleDelete(role.id)} sx={{ color: "error.main" }}>
-                                                <DeleteIcon fontSize="small" />
-                                            </IconButton>
-                                        </Box>
-                                    </TableCell>
-                                </TableRow>
-                            ))
-                        ) : (
-                            <TableRow>
-                                <TableCell colSpan={5} align="center" sx={{ py: 4, color: "text.secondary" }}>
-                                    No roles found
-                                </TableCell>
-                            </TableRow>
-                        )}
-                    </TableBody>
-                </Table>
-            </TableContainer>
+    return (
+        <div>
+            <div className="mb-3 flex justify-end">
+                <button onClick={() => handleOpenDialog()} className="flex items-center gap-1.5 rounded-lg bg-burgundy-700 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-burgundy-800">
+                    <Plus size={14} /> Create Role
+                </button>
+            </div>
+
+            <div className="overflow-hidden rounded-lg border border-white/10 bg-[#0f1a2e]">
+                <div className="overflow-auto" style={{ maxHeight: "calc(100vh - 320px)" }}>
+                    {isLoading ? (
+                        <div className="flex items-center justify-center py-8"><Loader2 size={24} className="animate-spin text-glass-muted" /></div>
+                    ) : (
+                        <table className="w-full border-collapse">
+                            <thead className="sticky top-0 z-10">
+                                <tr className="border-b border-white/10 bg-[#0f1a2e]">
+                                    <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">Role Name</th>
+                                    <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">Description</th>
+                                    <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">Scope</th>
+                                    <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">Permissions</th>
+                                    <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5">
+                                {roles && roles.length > 0 ? roles.map((role) => {
+                                    const scoped = !!role.psp;
+                                    const scopeLabel = role.psp ? (role.psp.legalName || (role.psp as any).name || role.psp.pspCode || (role.psp as any).code || "PSP") : "System";
+                                    return (
+                                        <tr key={role.id} className="transition-colors hover:bg-white/[0.02]">
+                                            <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-white">{role.name}</td>
+                                            <td className="whitespace-nowrap px-4 py-3 text-sm text-white/80">{role.description}</td>
+                                            <td className="whitespace-nowrap px-4 py-3"><TwBadge variant={scoped ? "warning" : "info"}>{scopeLabel}</TwBadge></td>
+                                            <td className="whitespace-nowrap px-4 py-3 text-sm text-glass-muted">{role.permissions.length} permission{role.permissions.length !== 1 ? "s" : ""}</td>
+                                            <td className="whitespace-nowrap px-4 py-3">
+                                                <div className="flex items-center gap-1">
+                                                    <button onClick={() => handleOpenDialog(role)} className="rounded p-1 text-burgundy-400 transition-colors hover:bg-white/10"><Edit size={16} /></button>
+                                                    <button onClick={() => handleDelete(role.id)} className="rounded p-1 text-red-400 transition-colors hover:bg-white/10"><Trash2 size={16} /></button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                }) : (
+                                    <tr><td colSpan={5} className="px-4 py-8 text-center text-sm text-glass-muted">No roles found</td></tr>
+                                )}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+            </div>
 
             {/* Create/Edit Role Dialog */}
-            <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
-                <DialogTitle>{editingRole ? "Edit Role" : "Create New Role"}</DialogTitle>
-                <DialogContent>
-                    <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 2 }}>
-                        {saveRoleMutation.isError && (
-                            <Alert severity="error">
+            {openDialog && (
+                <>
+                    <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={handleCloseDialog} />
+                    <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2">
+                        <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0f1a2e] shadow-2xl">
+                            <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+                                <h3 className="text-lg font-semibold text-white">{editingRole ? "Edit Role" : "Create New Role"}</h3>
+                                <button onClick={handleCloseDialog} className="rounded p-1 text-glass-muted hover:bg-white/10"><X size={18} /></button>
+                            </div>
+                            <div className="max-h-[32rem] space-y-4 overflow-y-auto px-6 py-4">
+                                {saveRoleMutation.isError && (
+                                    <div className="rounded-lg border border-red-700/30 bg-red-900/30 px-4 py-3 text-sm text-red-200">
                                 {(saveRoleMutation.error as Error)?.message || "Failed to save role. Please try again."}
-                            </Alert>
-                        )}
-
-                        <TextField
-                            label="Role Name"
-                            value={formData.name}
-                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                            fullWidth
-                            required
-                            placeholder="e.g., Compliance Officer, Analyst"
-                        />
-
-                        <TextField
-                            label="Description"
-                            value={formData.description}
-                            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                            fullWidth
-                            multiline
-                            rows={2}
-                            placeholder="Brief description of this role's responsibilities"
-                        />
-
-                        <FormControl fullWidth>
-                            <InputLabel>PSP Scope (Optional)</InputLabel>
-                            <Select
-                                value={formData.pspId}
-                                onChange={(e) => setFormData({ ...formData, pspId: e.target.value })}
-                                label="PSP Scope (Optional)"
-                            >
-                                <MenuItem value="">System Role (Global)</MenuItem>
-                                {psps?.map((psp) => {
-                                    const id = psp.pspId ?? psp.id;
-                                    if (id == null) return null;
-                                    const label = psp.legalName || psp.name || psp.pspCode || psp.code || `PSP ${id}`;
-                                    return (
-                                        <MenuItem key={id} value={String(id)}>
-                                            {label}
-                                        </MenuItem>
-                                    );
-                                })}
-                            </Select>
-                        </FormControl>
-
-                        <Box>
-                            <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600 }}>
-                                Permissions ({formData.permissions.length} selected)
-                            </Typography>
-
-                            {Object.entries(PERMISSION_CATEGORIES).map(([category, categoryPermissions]) => {
-                                const allSelected = categoryPermissions.every((p) => formData.permissions.includes(p));
-                                const someSelected = categoryPermissions.some((p) => formData.permissions.includes(p));
-
-                                return (
-                                    <Accordion key={category} sx={{ mb: 1 }}>
-                                        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                                            <FormControlLabel
-                                                control={
-                                                    <Checkbox
-                                                        checked={allSelected}
-                                                        indeterminate={someSelected && !allSelected}
+                            </div>
+                                )}
+                                <div>
+                                    <label className="text-[11px] font-semibold uppercase tracking-wider text-glass-muted">Role Name</label>
+                                    <input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                        placeholder="e.g., Compliance Officer, Analyst"
+                                        className="mt-1 w-full rounded-lg border border-white/10 bg-[#1a2744] px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-burgundy-700" />
+                                </div>
+                                <div>
+                                    <label className="text-[11px] font-semibold uppercase tracking-wider text-glass-muted">Description</label>
+                                    <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                        rows={2} placeholder="Brief description of this role's responsibilities"
+                                        className="mt-1 w-full rounded-lg border border-white/10 bg-[#1a2744] px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-burgundy-700" />
+                                </div>
+                                <div>
+                                    <label className="text-[11px] font-semibold uppercase tracking-wider text-glass-muted">PSP Scope (Optional)</label>
+                                    <select value={formData.pspId} onChange={(e) => setFormData({ ...formData, pspId: e.target.value })}
+                                        className="mt-1 w-full rounded-lg border border-white/10 bg-[#1a2744] px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-burgundy-700">
+                                        <option value="">System Role (Global)</option>
+                                        {psps?.map((psp) => {
+                                            const id = (psp as any).pspId ?? (psp as any).id;
+                                            if (id == null) return null;
+                                            const label = (psp as any).legalName || (psp as any).name || (psp as any).pspCode || (psp as any).code || `PSP ${id}`;
+                                            return <option key={id} value={String(id)}>{label}</option>;
+                                        })}
+                                    </select>
+                                </div>
+                                <div>
+                                    <p className="mb-2 text-sm font-semibold text-white">Permissions ({formData.permissions.length} selected)</p>
+                                    {Object.entries(PERMISSION_CATEGORIES).map(([category, categoryPermissions]) => {
+                                        const allSelected = categoryPermissions.every((p) => formData.permissions.includes(p));
+                                        const someSelected = categoryPermissions.some((p) => formData.permissions.includes(p));
+                                        const isExpanded = expandedCategories.has(category);
+                                        return (
+                                            <div key={category} className="mb-2 overflow-hidden rounded-lg border border-white/10">
+                                                <button onClick={() => toggleCategory(category)} className="flex w-full items-center gap-2 bg-[#1a2744] px-3 py-2 text-left text-xs font-semibold text-white transition-colors hover:bg-[#1f3050]">
+                                                    {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                                    <input type="checkbox" checked={allSelected}
+                                                        ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected; }}
                                                         onChange={() => handleCategoryToggle(category, categoryPermissions)}
                                                         onClick={(e) => e.stopPropagation()}
-                                                    />
-                                                }
-                                                label={
-                                                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                                                        {category}
-                                                    </Typography>
-                                                }
-                                                onClick={(e) => e.stopPropagation()}
-                                            />
-                                        </AccordionSummary>
-                                        <AccordionDetails>
-                                            <FormGroup>
-                                                {categoryPermissions.map((permission) => (
-                                                    <FormControlLabel
-                                                        key={permission}
-                                                        control={
-                                                            <Checkbox
-                                                                checked={formData.permissions.includes(permission)}
-                                                                onChange={() => handlePermissionToggle(permission)}
-                                                            />
-                                                        }
-                                                        label={PERMISSION_LABELS[permission]}
-                                                    />
-                                                ))}
-                                            </FormGroup>
-                                        </AccordionDetails>
-                                    </Accordion>
-                                );
-                            })}
-                        </Box>
-                    </Box>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleCloseDialog}>Cancel</Button>
-                    <Button
-                        onClick={handleSave}
-                        variant="contained"
-                        disabled={saveRoleMutation.isPending || !formData.name}
-                        sx={{ backgroundColor: "#8B4049", "&:hover": { backgroundColor: "#6B3037" } }}
-                    >
-                        {saveRoleMutation.isPending ? "Saving..." : "Save"}
-                    </Button>
-                </DialogActions>
-          </Dialog>
-        
-            {/* Delete Confirmation Dialog - only ONE instance */}
-            <Dialog open={deleteConfirmId !== null} onClose={() => setDeleteConfirmId(null)}>
-                <DialogTitle>Delete Role</DialogTitle>
-                <DialogContent>
-                    Are you sure you want to delete this role? Users with this role will need to be reassigned.
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setDeleteConfirmId(null)}>Cancel</Button>
-                    <Button
-                        onClick={handleConfirmDelete}
-                        variant="contained"
-                        sx={{ backgroundColor: "error.main", "&:hover": { backgroundColor: "error.dark" } }}
-                    >
-                        Delete
-                    </Button>
-                </DialogActions>
-            </Dialog>
+                                                        className="rounded border-white/20 bg-white/5 text-burgundy-700 focus:ring-burgundy-700" />
+                                                    <span>{category}</span>
+                                                </button>
+                                                {isExpanded && (
+                                                    <div className="space-y-1 border-t border-white/10 px-3 py-2">
+                                                        {categoryPermissions.map((permission) => (
+                                                            <label key={permission} className="flex items-center gap-2 text-sm text-white/80">
+                                                                <input type="checkbox" checked={formData.permissions.includes(permission)}
+                                                                    onChange={() => handlePermissionToggle(permission)}
+                                                                    className="rounded border-white/20 bg-white/5 text-burgundy-700 focus:ring-burgundy-700" />
+                                                                {PERMISSION_LABELS[permission]}
+                                                            </label>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                            <div className="flex justify-end gap-2 border-t border-white/10 px-6 py-3">
+                                <button onClick={handleCloseDialog} className="rounded-lg border border-white/10 px-4 py-1.5 text-xs text-white transition-colors hover:bg-white/5">Cancel</button>
+                                <button onClick={handleSave} disabled={saveRoleMutation.isPending || !formData.name}
+                                    className="flex items-center gap-1.5 rounded-lg bg-burgundy-700 px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-burgundy-800 disabled:opacity-30">
+                                    {saveRoleMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : null}
+                                    {saveRoleMutation.isPending ? "Saving..." : "Save"}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </>
+            )}
 
-        </Box> 
+            {/* Delete Confirmation Dialog */}
+            {deleteConfirmId !== null && (
+                <>
+                    <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={() => setDeleteConfirmId(null)} />
+                    <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
+                        <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0f1a2e] shadow-2xl">
+                            <div className="border-b border-white/10 px-6 py-4"><h3 className="text-lg font-semibold text-white">Delete Role</h3></div>
+                            <div className="px-6 py-4 text-sm text-white/80">Are you sure you want to delete this role? Users with this role will need to be reassigned.</div>
+                            <div className="flex justify-end gap-2 border-t border-white/10 px-6 py-3">
+                                <button onClick={() => setDeleteConfirmId(null)} className="rounded-lg border border-white/10 px-4 py-1.5 text-xs text-white transition-colors hover:bg-white/5">Cancel</button>
+                                <button onClick={handleConfirmDelete} className="rounded-lg bg-red-700 px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-800">Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                </>
+            )}
+        </div>
     );
 }
-
-
-
-    
