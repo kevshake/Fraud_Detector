@@ -1,156 +1,122 @@
-import { Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Chip, Grid, Card, CardContent, TablePagination, CircularProgress } from "@mui/material";
 import { useState } from "react";
 import {
   useMonitoringTransactions,
   useMonitoringDashboardStats,
   useMonitoringRecentActivity,
 } from "../../features/api/queries";
-import { useResponsivePagination } from "../../hooks/useResponsivePagination";
+import TwBadge from "../../components/Common/TwBadge";
+import TwPagination from "../../components/Common/TwPagination";
+import { Loader2 } from "lucide-react";
+
+const decisionBadge = (decision: string | undefined): "danger" | "success" | "default" => {
+  if (decision === "BLOCK") return "danger";
+  if (decision === "ALLOW") return "success";
+  return "default";
+};
 
 export default function TransactionMonitoringLive() {
-  const [defaultRows] = useResponsivePagination();
-  const [page, setPage] = useState({ index: 0, size: defaultRows });
+  const [page, setPage] = useState({ index: 0, size: 25 });
   
   const { data: transactions, isLoading: transactionsLoading } = useMonitoringTransactions({
-    page: page.index,
-    size: page.size,
+    page: page.index, size: page.size,
   });
   const { data: stats, isLoading: statsLoading } = useMonitoringDashboardStats();
   const { data: recentActivity, isLoading: activityLoading } = useMonitoringRecentActivity();
 
-  return (
-    <Box>
-      <Typography variant="h6" sx={{ color: "text.primary", mb: 3 }}>
-        Live Transaction Monitoring
-      </Typography>
+  const content = (transactions as any)?.content || [];
+  const totalElements = (transactions as any)?.totalElements ?? 0;
+  const totalPages = (transactions as any)?.totalPages ?? 1;
 
+  return (
+    <div className="flex flex-col gap-4">
+      <h3 className="text-lg font-semibold text-white">Live Transaction Monitoring</h3>
+
+      {/* Stats cards */}
       {stats && !statsLoading && (
-        <Grid container spacing={2} sx={{ mb: 3 }}>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           {Object.entries(stats).map(([key, value]) => (
-            <Grid item xs={12} sm={6} md={3} key={key}>
-              <Card sx={{ backgroundColor: "background.paper", border: "1px solid rgba(0,0,0,0.1)" }}>
-                <CardContent>
-                  <Typography variant="body2" sx={{ color: "text.secondary", mb: 0.5, textTransform: "capitalize" }}>
-                    {key.replace(/([A-Z])/g, " $1").trim()}
-                  </Typography>
-                  <Typography variant="h6" sx={{ color: "text.primary" }}>
-                    {typeof value === "number" ? value.toLocaleString() : String(value)}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
+            <div key={key} className="rounded-lg border border-white/10 bg-[#0f1a2e] p-4">
+              <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-glass-muted">
+                {key.replace(/([A-Z])/g, " $1").trim()}
+              </p>
+              <p className="text-xl font-bold text-white">
+                {typeof value === "number" ? value.toLocaleString() : String(value)}
+              </p>
+            </div>
           ))}
-        </Grid>
+        </div>
       )}
 
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={8}>
-          <Paper sx={{ backgroundColor: "background.paper", border: "1px solid rgba(0,0,0,0.1)" }}>
-            <Box sx={{ p: 2, borderBottom: "1px solid rgba(0,0,0,0.1)" }}>
-              <Typography variant="h6" sx={{ color: "text.primary" }}>
-                Monitored Transactions
-              </Typography>
-            </Box>
-            <TableContainer>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ color: "text.secondary" }}>ID</TableCell>
-                    <TableCell sx={{ color: "text.secondary" }}>Merchant</TableCell>
-                    <TableCell sx={{ color: "text.secondary" }}>Amount</TableCell>
-                    <TableCell sx={{ color: "text.secondary" }}>Decision</TableCell>
-                    <TableCell sx={{ color: "text.secondary" }}>Timestamp</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {transactionsLoading ? (
-                    <TableRow>
-                      <TableCell colSpan={5} align="center" sx={{ color: "text.disabled", py: 4 }}>
-                        <CircularProgress size={24} />
-                      </TableCell>
-                    </TableRow>
-                  ) : transactions?.content && transactions.content.length > 0 ? (
-                    transactions.content.map((txn: any, idx: number) => (
-                      <TableRow key={txn.txnId || txn.transactionId || txn.id || idx} hover>
-                        <TableCell sx={{ color: "text.primary", py: 2 }}>#{txn.txnId || txn.transactionId || txn.id || idx}</TableCell>
-                        <TableCell sx={{ color: "text.primary", py: 2 }}>{txn.merchantId || "-"}</TableCell>
-                        <TableCell sx={{ color: "text.primary", py: 2 }}>
-                          {txn.amountCents ? `$${(txn.amountCents / 100).toFixed(2)}` : "-"}
-                        </TableCell>
-                        <TableCell sx={{ py: 2 }}>
-                          <Chip
-                            label={txn.decision || "ALLOW"}
-                            size="small"
-                            sx={{
-                              backgroundColor: txn.decision === "BLOCK" ? "#e74c3c20" : "#2ecc7120",
-                              color: txn.decision === "BLOCK" ? "#e74c3c" : "#2ecc71",
-                              border: `1px solid ${txn.decision === "BLOCK" ? "#e74c3c" : "#2ecc71"}`,
-                              fontWeight: 600,
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell sx={{ color: "text.secondary", py: 2 }}>
-                          {txn.txnTs ? new Date(txn.txnTs).toLocaleString() : "-"}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={5} align="center" sx={{ color: "text.disabled", py: 4 }}>
-                        No transactions found
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-              <TablePagination
-                rowsPerPageOptions={[10, 25, 50, 100]}
-                component="div"
-                count={transactions?.totalElements || 0}
-                rowsPerPage={page.size}
-                page={page.index}
-                onPageChange={(_, newPage) => setPage(prev => ({ ...prev, index: newPage }))}
-                onRowsPerPageChange={(e) => setPage({ index: 0, size: parseInt(e.target.value, 10) })}
-              />
-            </TableContainer>
-          </Paper>
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2, backgroundColor: "background.paper", border: "1px solid rgba(0,0,0,0.1)" }}>
-            <Typography variant="h6" sx={{ color: "text.primary", mb: 2 }}>
-              Recent Activity
-            </Typography>
-            {activityLoading ? (
-              <Typography sx={{ color: "text.disabled" }}>Loading activity...</Typography>
-            ) : recentActivity && Array.isArray(recentActivity) && recentActivity.length > 0 ? (
-              <Box>
-                {recentActivity.slice(0, 10).map((activity: any, idx: number) => (
-                  <Box
-                    key={activity.id || activity.timestamp || idx}
-                    sx={{
-                      p: 1.5,
-                      mb: 0.5,
-                      backgroundColor: "background.paper",
-                      borderRadius: 1,
-                      border: "1px solid rgba(0,0,0,0.1)",
-                    }}
-                  >
-                    <Typography variant="body2" sx={{ color: "text.primary" }}>
-                      {activity.description || activity.action || "Activity"}
-                    </Typography>
-                    <Typography variant="caption" sx={{ color: "text.disabled" }}>
-                      {activity.timestamp ? new Date(activity.timestamp).toLocaleString() : ""}
-                    </Typography>
-                  </Box>
-                ))}
-              </Box>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        {/* Transactions table */}
+        <div className="overflow-hidden rounded-lg border border-white/10 bg-[#0f1a2e] lg:col-span-2">
+          <div className="border-b border-white/10 px-4 py-3">
+            <h4 className="text-sm font-semibold text-white">Monitored Transactions</h4>
+          </div>
+          <div className="overflow-auto" style={{ maxHeight: "500px" }}>
+            {transactionsLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 size={24} className="animate-spin text-glass-muted" />
+              </div>
             ) : (
-              <Typography sx={{ color: "text.disabled" }}>No recent activity</Typography>
+              <table className="w-full border-collapse">
+                <thead className="sticky top-0 z-10">
+                  <tr className="border-b border-white/10 bg-[#0f1a2e]">
+                    <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">ID</th>
+                    <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">Merchant</th>
+                    <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">Amount</th>
+                    <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">Decision</th>
+                    <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">Timestamp</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {content.length > 0 ? content.map((txn: any) => (
+                    <tr key={txn.txnId || txn.transactionId || txn.id} className="transition-colors hover:bg-white/[0.02]">
+                      <td className="whitespace-nowrap px-4 py-3 text-sm text-white/80">#{txn.txnId || txn.transactionId || txn.id}</td>
+                      <td className="whitespace-nowrap px-4 py-3 text-sm text-white">{txn.merchantId || "-"}</td>
+                      <td className="whitespace-nowrap px-4 py-3 text-sm text-white">{txn.amountCents ? `$${(txn.amountCents / 100).toFixed(2)}` : "-"}</td>
+                      <td className="whitespace-nowrap px-4 py-3">
+                        <TwBadge variant={decisionBadge(txn.decision)}>{txn.decision || "ALLOW"}</TwBadge>
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3 text-sm text-glass-muted">
+                        {txn.txnTs ? new Date(txn.txnTs).toLocaleString() : "-"}
+                      </td>
+                    </tr>
+                  )) : (
+                    <tr><td colSpan={5} className="px-4 py-8 text-center text-sm text-glass-muted">No transactions found</td></tr>
+                  )}
+                </tbody>
+              </table>
             )}
-          </Paper>
-        </Grid>
-      </Grid>
-    </Box>
+          </div>
+          <TwPagination
+            page={page.index} totalPages={totalPages} totalCount={totalElements} rowsPerPage={page.size}
+            onPageChange={(p) => setPage(prev => ({ ...prev, index: p }))}
+            onRowsPerPageChange={(s) => setPage({ index: 0, size: s })}
+          />
+        </div>
+
+        {/* Recent Activity */}
+        <div className="rounded-lg border border-white/10 bg-[#0f1a2e] p-4">
+          <h4 className="mb-3 text-sm font-semibold text-white">Recent Activity</h4>
+          {activityLoading ? (
+            <p className="text-sm text-glass-muted">Loading activity...</p>
+          ) : recentActivity && Array.isArray(recentActivity) && recentActivity.length > 0 ? (
+            <div className="flex flex-col gap-1.5">
+              {recentActivity.slice(0, 10).map((activity: any, idx: number) => (
+                <div key={activity.id || activity.timestamp || idx} className="rounded-lg border border-white/5 bg-[#0f1a2e] p-3">
+                  <p className="text-sm text-white/80">{activity.description || activity.action || "Activity"}</p>
+                  <p className="mt-0.5 text-xs text-glass-muted">
+                    {activity.timestamp ? new Date(activity.timestamp).toLocaleString() : ""}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-glass-muted">No recent activity</p>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
-

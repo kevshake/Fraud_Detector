@@ -1,39 +1,26 @@
 import { useState } from "react";
-import {
-  Box, Typography, Table, TableBody, TableCell, TableContainer,
-  TableHead, TableRow, Paper, Chip, Dialog, DialogTitle,
-  DialogContent, DialogActions, Button, Grid, Divider,
-  TextField, MenuItem, Alert, Stack,
-} from "@mui/material";
 import { useSarReports } from "../../features/api/queries";
 import { useCreateSar } from "../../features/api/mutations";
 import { useAuth } from "../../contexts/AuthContext";
 import type { SarReport } from "../../types";
+import TwBadge from "../../components/Common/TwBadge";
+import { TwInput } from "../../components/Common/TwInput";
+import { Eye, Loader2, Plus, X } from "lucide-react";
 
-const statusColors: Record<string, string> = {
-  DRAFT: "#95a5a6",
-  REVIEW: "#f39c12",
-  APPROVED: "#3498db",
-  FILED: "#2ecc71",
-  REJECTED: "#e74c3c",
-  AMENDED: "#8e44ad",
+const statusBadge = (s: string | undefined): "default" | "warning" | "info" | "success" | "danger" | "info" => {
+  const map: Record<string, "default" | "warning" | "info" | "success" | "danger"> = {
+    DRAFT: "default", REVIEW: "warning", APPROVED: "info",
+    FILED: "success", REJECTED: "danger", AMENDED: "info",
+  };
+  return map[s || ""] || "default";
 };
 
 const SAR_ACTIVITY_TYPES = [
-  "Transaction Structuring",
-  "Money Laundering",
-  "Fraud",
-  "Terrorism Financing",
-  "Sanctions Evasion",
-  "Other Transaction Activity",
+  "Transaction Structuring", "Money Laundering", "Fraud",
+  "Terrorism Financing", "Sanctions Evasion", "Other Transaction Activity",
 ];
 
-const defaultForm = {
-  sarReference: "",
-  suspiciousActivityType: "",
-  narrative: "",
-  jurisdiction: "",
-};
+const defaultForm = { sarReference: "", suspiciousActivityType: "", narrative: "", jurisdiction: "" };
 
 export default function TransactionMonitoringSars() {
   const { data: sars, isLoading } = useSarReports();
@@ -45,7 +32,7 @@ export default function TransactionMonitoringSars() {
   const { user } = useAuth();
   const createSar = useCreateSar();
 
-  const transactionSars = sars?.filter((sar) => sar.suspiciousActivityType?.toLowerCase().includes("transaction")) || [];
+  const transactionSars = (sars?.filter((sar: any) => sar.suspiciousActivityType?.toLowerCase().includes("transaction")) || []);
 
   const handleCreate = () => {
     if (!form.sarReference.trim() || !form.suspiciousActivityType || !form.narrative.trim()) {
@@ -61,12 +48,9 @@ export default function TransactionMonitoringSars() {
         jurisdiction: form.jurisdiction.trim() || undefined,
         sarType: "INITIAL",
         creatorUserId: user!.id,
-      },
+      } as any,
       {
-        onSuccess: () => {
-          setCreateOpen(false);
-          setForm(defaultForm);
-        },
+        onSuccess: () => { setCreateOpen(false); setForm(defaultForm); },
         onError: (err: unknown) => {
           const msg = (err as { message?: string })?.message || "Failed to create SAR.";
           setFormError(msg);
@@ -76,220 +60,126 @@ export default function TransactionMonitoringSars() {
   };
 
   return (
-    <Box>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
-        <Typography variant="h6" sx={{ color: "text.primary" }}>
-          Transaction-Related SAR Reports
-        </Typography>
-        <Button
-          variant="contained"
-          onClick={() => { setCreateOpen(true); setFormError(null); setForm(defaultForm); }}
-          sx={{
-            backgroundColor: "#a93226",
-            "&:hover": { backgroundColor: "#922b21" },
-            textTransform: "none",
-            fontWeight: 600,
-          }}
-        >
-          + Create SAR
-        </Button>
-      </Stack>
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-white">Transaction-Related SAR Reports</h3>
+        <button onClick={() => { setCreateOpen(true); setFormError(null); setForm(defaultForm); }}
+          className="flex items-center gap-1.5 rounded-lg bg-burgundy-700 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-burgundy-800">
+          <Plus size={14} /> Create SAR
+        </button>
+      </div>
 
-      <Paper sx={{ backgroundColor: "background.paper", border: "1px solid rgba(0,0,0,0.1)" }}>
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell sx={{ color: "text.secondary" }}>Reference</TableCell>
-                <TableCell sx={{ color: "text.secondary" }}>Status</TableCell>
-                <TableCell sx={{ color: "text.secondary" }}>Activity Type</TableCell>
-                <TableCell sx={{ color: "text.secondary" }}>Created</TableCell>
-                <TableCell sx={{ color: "text.secondary" }}>Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={5} align="center" sx={{ color: "text.disabled", py: 4 }}>
-                    Loading SAR reports...
-                  </TableCell>
-                </TableRow>
-              ) : transactionSars.length > 0 ? (
-                transactionSars.map((sar) => (
-                  <TableRow key={sar.id} hover>
-                    <TableCell sx={{ color: "text.primary" }}>{sar.sarReference}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={sar.status}
-                        size="small"
-                        sx={{
-                          backgroundColor: (statusColors[sar.status] || "#95a5a6") + "20",
-                          color: statusColors[sar.status] || "#95a5a6",
-                          border: `1px solid ${statusColors[sar.status] || "#95a5a6"}`,
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell sx={{ color: "text.primary" }}>{sar.suspiciousActivityType}</TableCell>
-                    <TableCell sx={{ color: "text.secondary" }}>
-                      {new Date(sar.createdAt).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label="View"
-                        size="small"
-                        onClick={() => setViewSar(sar)}
-                        sx={{ cursor: "pointer", color: "#a93226", "&:hover": { backgroundColor: "rgba(169,50,38,0.08)" } }}
-                      />
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={5} align="center" sx={{ color: "text.disabled", py: 4 }}>
-                    No transaction-related SAR reports found
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Paper>
+      <div className="overflow-hidden rounded-lg border border-white/10 bg-[#0f1a2e]">
+        <div className="overflow-auto" style={{ maxHeight: "calc(100vh - 320px)" }}>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12"><Loader2 size={24} className="animate-spin text-glass-muted" /></div>
+          ) : (
+            <table className="w-full border-collapse">
+              <thead className="sticky top-0 z-10">
+                <tr className="border-b border-white/10 bg-[#0f1a2e]">
+                  <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">Reference</th>
+                  <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">Status</th>
+                  <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">Activity Type</th>
+                  <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">Created</th>
+                  <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {transactionSars.length > 0 ? transactionSars.map((sar: any) => (
+                  <tr key={sar.id} className="transition-colors hover:bg-white/[0.02]">
+                    <td className="whitespace-nowrap px-4 py-3 font-mono text-sm text-white">{sar.sarReference}</td>
+                    <td className="whitespace-nowrap px-4 py-3"><TwBadge variant={statusBadge(sar.status)}>{sar.status}</TwBadge></td>
+                    <td className="whitespace-nowrap px-4 py-3 text-sm text-white/80">{sar.suspiciousActivityType}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-sm text-glass-muted">{new Date(sar.createdAt).toLocaleDateString()}</td>
+                    <td className="whitespace-nowrap px-4 py-3">
+                      <button onClick={() => setViewSar(sar)} className="flex items-center gap-1 text-xs text-burgundy-400 transition-colors hover:text-burgundy-300">
+                        <Eye size={14} /> View
+                      </button>
+                    </td>
+                  </tr>
+                )) : (
+                  <tr><td colSpan={5} className="px-4 py-8 text-center text-sm text-glass-muted">No transaction-related SAR reports found</td></tr>
+                )}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
 
       {/* Create SAR Dialog */}
-      <Dialog open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>Create SAR</DialogTitle>
-        <Divider />
-        <DialogContent sx={{ pt: 2 }}>
-          {formError && <Alert severity="error" sx={{ mb: 2 }}>{formError}</Alert>}
-          <Grid container spacing={2}>
-            <Grid item xs={12}>
-              <TextField
-                label="SAR Reference"
-                fullWidth
-                required
-                value={form.sarReference}
-                onChange={(e) => setForm((f) => ({ ...f, sarReference: e.target.value }))}
-                size="small"
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                label="Activity Type"
-                fullWidth
-                required
-                select
-                value={form.suspiciousActivityType}
-                onChange={(e) => setForm((f) => ({ ...f, suspiciousActivityType: e.target.value }))}
-                size="small"
-              >
-                {SAR_ACTIVITY_TYPES.map((t) => (
-                  <MenuItem key={t} value={t}>{t}</MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                label="Narrative"
-                fullWidth
-                required
-                multiline
-                rows={4}
-                value={form.narrative}
-                onChange={(e) => setForm((f) => ({ ...f, narrative: e.target.value }))}
-                size="small"
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                label="Jurisdiction (optional)"
-                fullWidth
-                value={form.jurisdiction}
-                onChange={(e) => setForm((f) => ({ ...f, jurisdiction: e.target.value }))}
-                size="small"
-              />
-            </Grid>
-          </Grid>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setCreateOpen(false)} sx={{ textTransform: "none" }}>Cancel</Button>
-          <Button
-            variant="contained"
-            onClick={handleCreate}
-            disabled={createSar.isPending}
-            sx={{
-              backgroundColor: "#a93226",
-              "&:hover": { backgroundColor: "#922b21" },
-              textTransform: "none",
-              fontWeight: 600,
-            }}
-          >
-            {createSar.isPending ? "Creating..." : "Create SAR"}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {createOpen && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={() => setCreateOpen(false)} />
+          <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2">
+            <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0f1a2e] shadow-2xl">
+              <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+                <h3 className="text-lg font-semibold text-white">Create SAR</h3>
+                <button onClick={() => setCreateOpen(false)} className="rounded p-1 text-glass-muted hover:bg-white/10"><X size={18} /></button>
+              </div>
+              <div className="space-y-4 px-6 py-4">
+                {formError && <div className="rounded-lg border border-red-700/30 bg-red-900/30 px-3 py-2 text-sm text-red-200">{formError}</div>}
+                <TwInput label="SAR Reference" value={form.sarReference} onChange={(e) => setForm(f => ({ ...f, sarReference: e.target.value }))} />
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[11px] font-semibold uppercase tracking-wider text-glass-muted">Activity Type</label>
+                  <select value={form.suspiciousActivityType} onChange={(e) => setForm(f => ({ ...f, suspiciousActivityType: e.target.value }))}
+                    className="w-full rounded-lg border border-white/10 bg-[#1a2744] px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-burgundy-700">
+                    <option value="">Select...</option>
+                    {SAR_ACTIVITY_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[11px] font-semibold uppercase tracking-wider text-glass-muted">Narrative</label>
+                  <textarea value={form.narrative} onChange={(e) => setForm(f => ({ ...f, narrative: e.target.value }))} rows={4}
+                    className="w-full rounded-lg border border-white/10 bg-[#1a2744] px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-burgundy-700" />
+                </div>
+                <TwInput label="Jurisdiction (optional)" value={form.jurisdiction} onChange={(e) => setForm(f => ({ ...f, jurisdiction: e.target.value }))} />
+              </div>
+              <div className="flex justify-end gap-2 border-t border-white/10 px-6 py-3">
+                <button onClick={() => setCreateOpen(false)} className="rounded-lg border border-white/10 px-4 py-1.5 text-xs text-white transition-colors hover:bg-white/5">Cancel</button>
+                <button onClick={handleCreate} disabled={createSar.isPending}
+                  className="flex items-center gap-1.5 rounded-lg bg-burgundy-700 px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-burgundy-800 disabled:opacity-30">
+                  {createSar.isPending ? <Loader2 size={14} className="animate-spin" /> : null}
+                  Create SAR
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* SAR Detail Modal */}
-      <Dialog open={!!viewSar} onClose={() => setViewSar(null)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <Box>
-            <Typography variant="h6" sx={{ fontFamily: "monospace", fontWeight: 700 }}>
-              {viewSar?.sarReference}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">SAR Report — {viewSar?.sarType}</Typography>
-          </Box>
-          {viewSar && (
-            <Chip
-              label={viewSar.status}
-              size="small"
-              sx={{
-                backgroundColor: (statusColors[viewSar.status] || "#95a5a6") + "20",
-                color: statusColors[viewSar.status] || "#95a5a6",
-                fontWeight: 600,
-              }}
-            />
-          )}
-        </DialogTitle>
-        <Divider />
-        {viewSar && (
-          <DialogContent sx={{ pt: 2 }}>
-            <Grid container spacing={2}>
-              <Grid item xs={12}>
-                <Typography variant="overline" color="text.secondary">Activity Type</Typography>
-                <Typography variant="body2" sx={{ mt: 0.5 }}>{viewSar.suspiciousActivityType}</Typography>
-              </Grid>
-              {viewSar.narrative && (
-                <Grid item xs={12}>
-                  <Typography variant="overline" color="text.secondary">Narrative</Typography>
-                  <Typography variant="body2" sx={{ mt: 0.5, lineHeight: 1.6 }}>{viewSar.narrative}</Typography>
-                </Grid>
-              )}
-              <Grid item xs={12} sm={6}>
-                <Typography variant="overline" color="text.secondary">Jurisdiction</Typography>
-                <Typography variant="body2" sx={{ mt: 0.5 }}>{viewSar.jurisdiction || "—"}</Typography>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <Typography variant="overline" color="text.secondary">Created</Typography>
-                <Typography variant="body2" sx={{ mt: 0.5 }}>{new Date(viewSar.createdAt).toLocaleString()}</Typography>
-              </Grid>
-              {viewSar.filedAt && (
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="overline" color="text.secondary">Filed</Typography>
-                  <Typography variant="body2" sx={{ mt: 0.5, color: "#2ecc71" }}>{new Date(viewSar.filedAt).toLocaleString()}</Typography>
-                </Grid>
-              )}
-              {viewSar.filingReference && (
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="overline" color="text.secondary">Filing Reference</Typography>
-                  <Typography variant="body2" sx={{ mt: 0.5, fontFamily: "monospace" }}>{viewSar.filingReference}</Typography>
-                </Grid>
-              )}
-            </Grid>
-          </DialogContent>
-        )}
-        <DialogActions>
-          <Button onClick={() => setViewSar(null)} sx={{ textTransform: "none" }}>Close</Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+      {viewSar && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={() => setViewSar(null)} />
+          <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2">
+            <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0f1a2e] shadow-2xl">
+              <div className="flex items-start justify-between border-b border-white/10 px-6 py-4">
+                <div>
+                  <h3 className="font-mono text-lg font-semibold text-white">{viewSar.sarReference}</h3>
+                  <p className="mt-0.5 text-xs text-glass-muted">SAR Report — {viewSar.sarType}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <TwBadge variant={statusBadge(viewSar.status)}>{viewSar.status}</TwBadge>
+                  <button onClick={() => setViewSar(null)} className="rounded p-1 text-glass-muted hover:bg-white/10"><X size={18} /></button>
+                </div>
+              </div>
+              <div className="space-y-4 px-6 py-4">
+                <div><p className="text-[11px] font-semibold uppercase tracking-wider text-glass-muted">Activity Type</p><p className="mt-1 text-sm text-white/80">{viewSar.suspiciousActivityType}</p></div>
+                {viewSar.narrative && <div><p className="text-[11px] font-semibold uppercase tracking-wider text-glass-muted">Narrative</p><p className="mt-1 text-sm leading-relaxed text-white/80">{viewSar.narrative}</p></div>}
+                <div className="grid grid-cols-2 gap-4">
+                  <div><p className="text-[11px] font-semibold uppercase tracking-wider text-glass-muted">Jurisdiction</p><p className="mt-0.5 text-sm text-white/80">{viewSar.jurisdiction || "—"}</p></div>
+                  <div><p className="text-[11px] font-semibold uppercase tracking-wider text-glass-muted">Created</p><p className="mt-0.5 text-sm text-white/80">{new Date(viewSar.createdAt).toLocaleString()}</p></div>
+                  {viewSar.filedAt && <div><p className="text-[11px] font-semibold uppercase tracking-wider text-glass-muted">Filed</p><p className="mt-0.5 text-sm text-emerald-400">{new Date(viewSar.filedAt).toLocaleString()}</p></div>}
+                  {viewSar.filingReference && <div><p className="text-[11px] font-semibold uppercase tracking-wider text-glass-muted">Filing Reference</p><p className="mt-0.5 font-mono text-sm text-white/80">{viewSar.filingReference}</p></div>}
+                </div>
+              </div>
+              <div className="flex justify-end border-t border-white/10 px-6 py-3">
+                <button onClick={() => setViewSar(null)} className="rounded-lg border border-white/10 px-4 py-1.5 text-xs text-white transition-colors hover:bg-white/5">Close</button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
   );
 }
