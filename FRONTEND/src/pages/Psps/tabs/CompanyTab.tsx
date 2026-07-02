@@ -1,45 +1,24 @@
 import { useState } from "react";
-import {
-  Box,
-  Grid,
-  TextField,
-  Button,
-  CircularProgress,
-  Snackbar,
-  Alert,
-  Typography,
-} from "@mui/material";
 import { apiClient } from "../../../lib/apiClient";
 import { useQueryClient } from "@tanstack/react-query";
+import TwSnackbar from "../../../components/Common/TwSnackbar";
+import { Save, Loader2 } from "lucide-react";
 
-const ACCENT = "#8B4049";
-
-interface CompanyTabProps {
-  pspId: string;
-  psp: any;
-}
+interface CompanyTabProps { pspId: string; psp: any }
 
 export default function CompanyTab({ pspId, psp }: CompanyTabProps) {
   const queryClient = useQueryClient();
   const [form, setForm] = useState({
-    legalName: psp?.legalName ?? "",
-    tradingName: psp?.tradingName ?? "",
-    country: psp?.country ?? "",
-    registrationNumber: psp?.registrationNumber ?? "",
-    taxId: psp?.taxId ?? "",
-    contactEmail: psp?.contactEmail ?? "",
-    contactPhone: psp?.contactPhone ?? "",
-    contactAddress: psp?.contactAddress ?? "",
+    legalName: psp?.legalName ?? "", tradingName: psp?.tradingName ?? "",
+    country: psp?.country ?? "", registrationNumber: psp?.registrationNumber ?? "",
+    taxId: psp?.taxId ?? "", contactEmail: psp?.contactEmail ?? "",
+    contactPhone: psp?.contactPhone ?? "", contactAddress: psp?.contactAddress ?? "",
   });
   const [saving, setSaving] = useState(false);
-  const [toast, setToast] = useState<{ open: boolean; severity: "success" | "error"; message: string }>({
-    open: false,
-    severity: "success",
-    message: "",
-  });
+  const [toast, setToast] = useState<{ open: boolean; severity: "success" | "error"; message: string }>({ open: false, severity: "success", message: "" });
 
-  const set = (field: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    setForm((f) => ({ ...f, [field]: e.target.value }));
+  const set = (field: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    setForm(f => ({ ...f, [field]: e.target.value }));
 
   const handleSave = async () => {
     setSaving(true);
@@ -48,117 +27,33 @@ export default function CompanyTab({ pspId, psp }: CompanyTabProps) {
       queryClient.invalidateQueries({ queryKey: ["psp", pspId] });
       queryClient.invalidateQueries({ queryKey: ["psps"] });
       setToast({ open: true, severity: "success", message: "Company details saved." });
-    } catch {
-      setToast({ open: true, severity: "error", message: "Save failed. Please try again." });
-    } finally {
-      setSaving(false);
-    }
+    } catch { setToast({ open: true, severity: "error", message: "Save failed. Please try again." }); }
+    finally { setSaving(false); }
   };
 
+  const inputClass = "w-full rounded-lg border border-white/10 bg-[#1a2744] px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-burgundy-700";
+  const labelClass = "text-[11px] font-semibold uppercase tracking-wider text-glass-muted";
+
   return (
-    <Box>
-      <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
-        Company Details
-      </Typography>
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={6}>
-          <TextField
-            fullWidth
-            size="small"
-            label="Legal Name"
-            value={form.legalName}
-            onChange={set("legalName")}
-          />
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <TextField
-            fullWidth
-            size="small"
-            label="Trading Name"
-            value={form.tradingName}
-            onChange={set("tradingName")}
-          />
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <TextField
-            fullWidth
-            size="small"
-            label="Country"
-            value={form.country}
-            onChange={set("country")}
-          />
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <TextField
-            fullWidth
-            size="small"
-            label="Registration Number"
-            value={form.registrationNumber}
-            onChange={set("registrationNumber")}
-          />
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <TextField
-            fullWidth
-            size="small"
-            label="Tax ID / PIN"
-            value={form.taxId}
-            onChange={set("taxId")}
-          />
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <TextField
-            fullWidth
-            size="small"
-            label="Contact Email"
-            type="email"
-            value={form.contactEmail}
-            onChange={set("contactEmail")}
-          />
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <TextField
-            fullWidth
-            size="small"
-            label="Contact Phone"
-            value={form.contactPhone}
-            onChange={set("contactPhone")}
-          />
-        </Grid>
-        <Grid item xs={12}>
-          <TextField
-            fullWidth
-            size="small"
-            label="Contact Address"
-            multiline
-            rows={2}
-            value={form.contactAddress}
-            onChange={set("contactAddress")}
-          />
-        </Grid>
-      </Grid>
-
-      <Box sx={{ mt: 3, display: "flex", justifyContent: "flex-end" }}>
-        <Button
-          variant="contained"
-          onClick={handleSave}
-          disabled={saving}
-          sx={{ backgroundColor: ACCENT, textTransform: "none", "&:hover": { backgroundColor: "#6b313a" } }}
-        >
-          {saving ? <CircularProgress size={18} sx={{ color: "white" }} /> : "Save Changes"}
-        </Button>
-      </Box>
-
-      <Snackbar
-        open={toast.open}
-        autoHideDuration={4000}
-        onClose={() => setToast((t) => ({ ...t, open: false }))}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-      >
-        <Alert severity={toast.severity} onClose={() => setToast((t) => ({ ...t, open: false }))} variant="filled">
-          {toast.message}
-        </Alert>
-      </Snackbar>
-    </Box>
+    <div>
+      <h4 className="mb-3 text-base font-semibold text-white">Company Details</h4>
+      <div className="grid grid-cols-2 gap-4">
+        <div><label className={labelClass}>Legal Name</label><input value={form.legalName} onChange={set("legalName")} className={inputClass} /></div>
+        <div><label className={labelClass}>Trading Name</label><input value={form.tradingName} onChange={set("tradingName")} className={inputClass} /></div>
+        <div><label className={labelClass}>Country</label><input value={form.country} onChange={set("country")} className={inputClass} /></div>
+        <div><label className={labelClass}>Registration Number</label><input value={form.registrationNumber} onChange={set("registrationNumber")} className={inputClass} /></div>
+        <div><label className={labelClass}>Tax ID / PIN</label><input value={form.taxId} onChange={set("taxId")} className={inputClass} /></div>
+        <div><label className={labelClass}>Contact Email</label><input type="email" value={form.contactEmail} onChange={set("contactEmail")} className={inputClass} /></div>
+        <div><label className={labelClass}>Contact Phone</label><input value={form.contactPhone} onChange={set("contactPhone")} className={inputClass} /></div>
+        <div className="col-span-2"><label className={labelClass}>Contact Address</label><textarea value={form.contactAddress} onChange={set("contactAddress")} rows={2} className={inputClass} /></div>
+      </div>
+      <div className="mt-4 flex justify-end">
+        <button onClick={handleSave} disabled={saving}
+          className="flex items-center gap-2 rounded-lg bg-burgundy-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-burgundy-800 disabled:opacity-50">
+          {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Save Changes
+        </button>
+      </div>
+      <TwSnackbar open={toast.open} message={toast.message} severity={toast.severity} onClose={() => setToast(t => ({ ...t, open: false }))} />
+    </div>
   );
 }
