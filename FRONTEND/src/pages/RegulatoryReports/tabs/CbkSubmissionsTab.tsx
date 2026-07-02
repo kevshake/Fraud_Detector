@@ -1,53 +1,27 @@
 import { useState } from "react";
-import {
-  Box,
-  Typography,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TablePagination,
-  Chip,
-  Button,
-  CircularProgress,
-  Alert,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Snackbar,
-  TextField,
-  Stack,
-} from "@mui/material";
-import { Refresh as ReplayIcon } from "@mui/icons-material";
 import { useCbkSubmissions, useAllPsps } from "../../../features/api/queries";
 import { useReplayCbkSubmission } from "../../../features/api/mutations";
 import { CBK_ENDPOINT_LABELS } from "../../../types/cbk";
 import type { CbkEndpointType } from "../../../types/cbk";
+import TwBadge from "../../../components/Common/TwBadge";
+import TwPagination from "../../../components/Common/TwPagination";
+import TwSnackbar from "../../../components/Common/TwSnackbar";
+import { Repeat, Loader2 } from "lucide-react";
 
-const ACCENT = "#8B4049";
-
-const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
-  SUCCESS: { bg: "#e9f7ef", color: "#27ae60" },
-  FAILED: { bg: "#fdedec", color: "#c0392b" },
-  PENDING: { bg: "#fef5e7", color: "#e67e22" },
-  RETRYING: { bg: "#f5eef8", color: "#8e44ad" },
+const statusBadge = (s: string): "success" | "danger" | "warning" | "info" | "default" => {
+  if (s === "SUCCESS") return "success";
+  if (s === "FAILED") return "danger";
+  if (s === "PENDING") return "warning";
+  if (s === "RETRYING") return "info";
+  return "default";
 };
 
 export default function CbkSubmissionsTab() {
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(25);
+  const [page, setPage] = useState({ index: 0, size: 25 });
   const [filterPspId, setFilterPspId] = useState<string>("");
   const [filterStatus, setFilterStatus] = useState<string>("");
   const [filterEndpoint, setFilterEndpoint] = useState<string>("");
-  const [toast, setToast] = useState<{ open: boolean; severity: "success" | "error"; message: string }>({
-    open: false,
-    severity: "success",
-    message: "",
-  });
+  const [toast, setToast] = useState<{ open: boolean; severity: "success" | "error"; message: string }>({ open: false, severity: "success", message: "" });
   const [replayingId, setReplayingId] = useState<number | null>(null);
 
   const { data: psps } = useAllPsps();
@@ -57,219 +31,104 @@ export default function CbkSubmissionsTab() {
     pspId: filterPspId || undefined,
     status: filterStatus || undefined,
     endpoint: filterEndpoint || undefined,
-    page,
-    size: rowsPerPage,
+    page: page.index,
+    size: page.size,
   });
 
   const rows = data?.content ?? [];
-  const total = data?.totalElements ?? 0;
+  const totalElements = data?.totalElements ?? 0;
+  const totalPages = data?.totalPages ?? 1;
 
   const handleReplay = async (row: any) => {
     setReplayingId(row.id);
     try {
       await replay.mutateAsync({ endpointType: row.endpointType, pspId: row.pspId });
       setToast({ open: true, severity: "success", message: `Replay triggered for ${row.endpointType}.` });
-    } catch {
-      setToast({ open: true, severity: "error", message: "Replay failed." });
-    } finally {
-      setReplayingId(null);
-    }
+    } catch { setToast({ open: true, severity: "error", message: "Replay failed." }); }
+    finally { setReplayingId(null); }
   };
 
+  const selectClass = "rounded-lg border border-white/10 bg-[#1a2744] px-3 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-burgundy-700";
+
   return (
-    <Box>
-      <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
-        CBK Submission History
-      </Typography>
+    <div>
+      <h4 className="mb-3 text-base font-semibold text-white">CBK Submission History</h4>
 
-      {/* Filters */}
-      <Stack direction="row" spacing={2} sx={{ mb: 2, flexWrap: "wrap" }}>
-        <FormControl size="small" sx={{ minWidth: 180 }}>
-          <InputLabel>PSP</InputLabel>
-          <Select value={filterPspId} label="PSP" onChange={(e) => { setFilterPspId(e.target.value); setPage(0); }}>
-            <MenuItem value="">All PSPs</MenuItem>
-            {(psps ?? []).map((p) => {
-              const id = String(p.id ?? p.pspId ?? "");
-              return (
-                <MenuItem key={id} value={id}>
-                  {p.legalName ?? p.tradingName ?? `PSP ${id}`}
-                </MenuItem>
-              );
-            })}
-          </Select>
-        </FormControl>
+      <div className="mb-3 flex flex-wrap gap-2">
+        <select value={filterPspId} onChange={(e) => { setFilterPspId(e.target.value); setPage({ index: 0, size: page.size }); }} className={selectClass}>
+          <option value="">All PSPs</option>
+          {(psps ?? []).map((p: any) => <option key={p.id ?? p.pspId} value={String(p.id ?? p.pspId)}>{p.legalName ?? p.tradingName ?? `PSP ${p.id}`}</option>)}
+        </select>
+        <select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setPage({ index: 0, size: page.size }); }} className={selectClass}>
+          <option value="">All Status</option>
+          <option value="SUCCESS">Success</option>
+          <option value="FAILED">Failed</option>
+          <option value="PENDING">Pending</option>
+          <option value="RETRYING">Retrying</option>
+        </select>
+        <select value={filterEndpoint} onChange={(e) => { setFilterEndpoint(e.target.value); setPage({ index: 0, size: page.size }); }} className={selectClass}>
+          <option value="">All Endpoints</option>
+          {(Object.keys(CBK_ENDPOINT_LABELS) as CbkEndpointType[]).map((ep) => (
+            <option key={ep} value={ep}>{CBK_ENDPOINT_LABELS[ep]}</option>
+          ))}
+        </select>
+      </div>
 
-        <FormControl size="small" sx={{ minWidth: 160 }}>
-          <InputLabel>Status</InputLabel>
-          <Select value={filterStatus} label="Status" onChange={(e) => { setFilterStatus(e.target.value); setPage(0); }}>
-            <MenuItem value="">All</MenuItem>
-            <MenuItem value="SUCCESS">Success</MenuItem>
-            <MenuItem value="FAILED">Failed</MenuItem>
-            <MenuItem value="PENDING">Pending</MenuItem>
-            <MenuItem value="RETRYING">Retrying</MenuItem>
-          </Select>
-        </FormControl>
+      {isError && <div className="mb-3 rounded-lg border border-red-700/30 bg-red-900/30 px-4 py-3 text-sm text-red-200">Failed to load CBK submission history.</div>}
 
-        <FormControl size="small" sx={{ minWidth: 240 }}>
-          <InputLabel>Endpoint</InputLabel>
-          <Select value={filterEndpoint} label="Endpoint" onChange={(e) => { setFilterEndpoint(e.target.value); setPage(0); }}>
-            <MenuItem value="">All Endpoints</MenuItem>
-            {(Object.keys(CBK_ENDPOINT_LABELS) as CbkEndpointType[]).map((ep) => (
-              <MenuItem key={ep} value={ep}>{CBK_ENDPOINT_LABELS[ep]}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-
-        <TextField
-          size="small"
-          label="Request ID"
-          sx={{ minWidth: 160 }}
-          placeholder="Search request ID"
-          disabled
+      <div className="overflow-hidden rounded-lg border border-white/10 bg-[#0f1a2e]">
+        <div className="overflow-auto" style={{ maxHeight: "calc(100vh - 380px)" }}>
+          {isLoading ? (
+            <div className="flex justify-center py-12"><Loader2 size={28} className="animate-spin text-glass-muted" /></div>
+          ) : (
+            <table className="w-full border-collapse">
+              <thead className="sticky top-0 z-10">
+                <tr className="border-b border-white/10 bg-[#0f1a2e]">
+                  <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">PSP</th>
+                  <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">Endpoint</th>
+                  <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">Status</th>
+                  <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">Attempted At</th>
+                  <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">Request ID</th>
+                  <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">Records</th>
+                  <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {rows.length > 0 ? rows.map((row: any) => {
+                  const psp = (psps ?? []).find((p: any) => String(p.id ?? p.pspId) === String(row.pspId));
+                  const pspName = psp?.legalName ?? psp?.tradingName ?? `PSP ${row.pspId}`;
+                  return (
+                    <tr key={row.id} className="transition-colors hover:bg-white/[0.02]">
+                      <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-white">{pspName}</td>
+                      <td className="whitespace-nowrap px-4 py-3 text-xs text-white/80">{CBK_ENDPOINT_LABELS[row.endpointType as CbkEndpointType] ?? row.endpointType}</td>
+                      <td className="whitespace-nowrap px-4 py-3"><TwBadge variant={statusBadge(row.status)}>{row.status}</TwBadge></td>
+                      <td className="whitespace-nowrap px-4 py-3 text-xs text-glass-muted">{row.attemptedAt ? new Date(row.attemptedAt).toLocaleString() : "—"}</td>
+                      <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-glass-muted">{row.requestId ?? "—"}</td>
+                      <td className="whitespace-nowrap px-4 py-3 text-xs text-glass-muted">{row.recordCount ?? "—"}</td>
+                      <td className="whitespace-nowrap px-4 py-3">
+                        <button onClick={() => handleReplay(row)} disabled={replayingId === row.id}
+                          className="flex items-center gap-1 rounded border border-burgundy-700 px-2 py-1 text-xs text-burgundy-400 transition-colors hover:bg-burgundy-700/10 disabled:opacity-30">
+                          {replayingId === row.id ? <Loader2 size={12} className="animate-spin" /> : <Repeat size={12} />}
+                          Replay
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                }) : (
+                  <tr><td colSpan={7} className="px-4 py-12 text-center text-sm text-glass-muted">No CBK submissions found</td></tr>
+                )}
+              </tbody>
+            </table>
+          )}
+        </div>
+        <TwPagination
+          page={page.index} totalPages={totalPages} totalCount={totalElements} rowsPerPage={page.size}
+          onPageChange={(p) => setPage(prev => ({ ...prev, index: p }))}
+          onRowsPerPageChange={(s) => setPage({ index: 0, size: s })}
         />
-      </Stack>
+      </div>
 
-      {isError && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          Failed to load CBK submission history.
-        </Alert>
-      )}
-
-      <TableContainer
-        component={Paper}
-        sx={{ border: "1px solid rgba(0,0,0,0.08)", borderRadius: 2, backgroundColor: "background.paper" }}
-      >
-        <Table size="small">
-          <TableHead>
-            <TableRow sx={{ backgroundColor: "rgba(0,0,0,0.02)" }}>
-              <TableCell sx={{ color: "text.secondary", fontWeight: 600 }}>PSP</TableCell>
-              <TableCell sx={{ color: "text.secondary", fontWeight: 600 }}>Endpoint</TableCell>
-              <TableCell sx={{ color: "text.secondary", fontWeight: 600 }}>Status</TableCell>
-              <TableCell sx={{ color: "text.secondary", fontWeight: 600 }}>Attempted At</TableCell>
-              <TableCell sx={{ color: "text.secondary", fontWeight: 600 }}>Request ID</TableCell>
-              <TableCell sx={{ color: "text.secondary", fontWeight: 600 }}>Records</TableCell>
-              <TableCell sx={{ color: "text.secondary", fontWeight: 600 }}>Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
-                  <CircularProgress size={28} sx={{ color: ACCENT }} />
-                </TableCell>
-              </TableRow>
-            ) : rows.length > 0 ? (
-              rows.map((row: any) => {
-                const statusCfg = STATUS_COLORS[row.status] ?? { bg: "#f4f6f7", color: "#7f8c8d" };
-                const label =
-                  CBK_ENDPOINT_LABELS[row.endpointType as CbkEndpointType] ?? row.endpointType;
-                const psp = (psps ?? []).find(
-                  (p) => String(p.id ?? p.pspId) === String(row.pspId)
-                );
-                const pspName = psp?.legalName ?? psp?.tradingName ?? `PSP ${row.pspId}`;
-                return (
-                  <TableRow key={row.id} hover>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                        {pspName}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontSize: "0.78rem" }}>
-                        {label}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={row.status}
-                        size="small"
-                        sx={{
-                          backgroundColor: statusCfg.bg,
-                          color: statusCfg.color,
-                          fontWeight: 500,
-                          fontSize: "0.72rem",
-                          height: 22,
-                          borderRadius: 1,
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" color="text.secondary" sx={{ fontSize: "0.78rem" }}>
-                        {row.attemptedAt
-                          ? new Date(row.attemptedAt).toLocaleString()
-                          : "—"}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography
-                        variant="body2"
-                        sx={{ fontFamily: "monospace", fontSize: "0.72rem", color: "text.secondary" }}
-                      >
-                        {row.requestId ?? "—"}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" color="text.secondary">
-                        {row.recordCount ?? "—"}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        startIcon={
-                          replayingId === row.id ? (
-                            <CircularProgress size={14} />
-                          ) : (
-                            <ReplayIcon sx={{ fontSize: 16 }} />
-                          )
-                        }
-                        disabled={replayingId === row.id}
-                        onClick={() => handleReplay(row)}
-                        sx={{
-                          textTransform: "none",
-                          fontSize: "0.75rem",
-                          borderColor: ACCENT,
-                          color: ACCENT,
-                          "&:hover": { borderColor: "#6b313a", backgroundColor: "rgba(139,64,73,0.06)" },
-                        }}
-                      >
-                        Replay
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            ) : (
-              <TableRow>
-                <TableCell colSpan={7} align="center" sx={{ py: 8, color: "text.disabled" }}>
-                  <Typography variant="body1">No CBK submissions found</Typography>
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-        <TablePagination
-          rowsPerPageOptions={[10, 25, 50]}
-          component="div"
-          count={total}
-          rowsPerPage={rowsPerPage}
-          page={page}
-          onPageChange={(_, p) => setPage(p)}
-          onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
-        />
-      </TableContainer>
-
-      <Snackbar
-        open={toast.open}
-        autoHideDuration={4000}
-        onClose={() => setToast((t) => ({ ...t, open: false }))}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-      >
-        <Alert severity={toast.severity} onClose={() => setToast((t) => ({ ...t, open: false }))} variant="filled">
-          {toast.message}
-        </Alert>
-      </Snackbar>
-    </Box>
+      <TwSnackbar open={toast.open} message={toast.message} severity={toast.severity} onClose={() => setToast(t => ({ ...t, open: false }))} />
+    </div>
   );
 }
