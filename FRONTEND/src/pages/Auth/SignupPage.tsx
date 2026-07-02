@@ -1,27 +1,10 @@
 import { useState } from "react";
-import {
-    Box,
-    Paper,
-    TextField,
-    Button,
-    Typography,
-    Alert,
-    InputAdornment,
-    IconButton,
-    CircularProgress,
-    Link,
-} from "@mui/material";
-import { Visibility, VisibilityOff, PersonAdd } from "@mui/icons-material";
 import { Link as RouterLink } from "react-router-dom";
+import { Eye, EyeOff, UserPlus, Loader2 } from "lucide-react";
 
 export default function SignupPage() {
     const [formData, setFormData] = useState({
-        username: "",
-        email: "",
-        firstName: "",
-        lastName: "",
-        password: "",
-        confirmPassword: "",
+        username: "", email: "", firstName: "", lastName: "", password: "", confirmPassword: "",
     });
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -29,8 +12,8 @@ export default function SignupPage() {
     const [success, setSuccess] = useState("");
     const [isLoading, setIsLoading] = useState(false);
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
+    const handleChange = (field: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
+        setFormData(prev => ({ ...prev, [field]: e.target.value }));
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -38,254 +21,107 @@ export default function SignupPage() {
         setError("");
         setSuccess("");
 
-        // Validation
-        if (!formData.username || !formData.firstName || !formData.lastName || !formData.email || !formData.password) {
-            setError("All fields are required");
+        if (!formData.username || !formData.email || !formData.password) {
+            setError("Please fill in all required fields.");
             return;
         }
-
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(formData.email)) {
-            setError("Please enter a valid email address");
-            return;
-        }
-
         if (formData.password !== formData.confirmPassword) {
-            setError("Passwords do not match");
+            setError("Passwords do not match.");
             return;
         }
 
         setIsLoading(true);
-
         try {
             const response = await fetch("/api/v1/auth/register", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    username: formData.username,
-                    email: formData.email,
-                    firstName: formData.firstName,
-                    lastName: formData.lastName,
-                    password: formData.password,
-                }),
+                body: JSON.stringify(formData),
             });
-
             if (!response.ok) {
-                const data = await response.json();
-                throw new Error(data.message || "Registration failed");
+                const err = await response.json().catch(() => null);
+                throw new Error(err?.message || `Registration failed (${response.status})`);
             }
-
-            setSuccess("Account created successfully! Please log in.");
-            setFormData({
-                username: "",
-                email: "",
-                firstName: "",
-                lastName: "",
-                password: "",
-                confirmPassword: "",
-            });
+            setSuccess("Account created successfully! You can now log in.");
+            setFormData({ username: "", email: "", firstName: "", lastName: "", password: "", confirmPassword: "" });
         } catch (err: any) {
-            setError(err.message || "Failed to create account");
+            setError(err.message || "An unexpected error occurred.");
         } finally {
             setIsLoading(false);
         }
     };
 
+    const inputClass = "w-full rounded-lg border border-white/10 bg-[#1a2744] px-3 py-2.5 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-burgundy-700";
+    const labelClass = "text-[11px] font-semibold uppercase tracking-wider text-glass-muted";
+
     return (
-        <Box
-            sx={{
-                minHeight: "100vh",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                background: "linear-gradient(135deg, #FAF8F5 0%, #F5F0E8 100%)",
-            }}
-        >
-            <Paper
-                elevation={3}
-                sx={{
-                    p: 4,
-                    maxWidth: 450,
-                    width: "100%",
-                    mx: 2,
-                    borderRadius: 3,
-                    boxShadow: "0 8px 32px rgba(139, 64, 73, 0.15)",
-                }}
-            >
-                {/* Logo */}
-                <Box sx={{ textAlign: "center", mb: 4 }}>
-                    <Box
-                        sx={{
-                            width: 80,
-                            height: 80,
-                            borderRadius: "16px",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            overflow: "hidden",
-                            boxShadow: "0 4px 12px rgba(139, 64, 73, 0.25)",
-                            mb: 2,
-                        }}
-                    >
-                        <img
-                            src="/images/hokeka-logo.png"
-                            alt="Hokeka Logo"
-                            style={{
-                                width: "100%",
-                                height: "100%",
-                                objectFit: "contain"
-                            }}
-                        />
-                    </Box>
-                    <Typography variant="h4" sx={{ fontWeight: 700, color: "#3D2C2E", mb: 0.5 }}>
-                        Create Account
-                    </Typography>
-                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                        Join AML Fraud Detector
-                    </Typography>
-                </Box>
+        <div className="flex min-h-screen items-center justify-center bg-[#07142e] px-4">
+            <div className="w-full max-w-md">
+                <div className="mb-6 text-center">
+                    <div className="mb-2 flex items-center justify-center gap-2">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-burgundy-700">
+                            <span className="text-lg font-bold text-white">H</span>
+                        </div>
+                        <span className="text-xl font-bold text-white">Hokeka AML</span>
+                    </div>
+                    <h2 className="text-lg font-semibold text-white">Create Account</h2>
+                    <p className="text-sm text-glass-muted">Register for a new platform account</p>
+                </div>
 
-                {/* Error Alert */}
-                {error && (
-                    <Alert severity="error" sx={{ mb: 3 }}>
-                        {error}
-                    </Alert>
-                )}
+                <div className="rounded-xl border border-white/10 bg-[#0f1a2e] p-6 shadow-2xl">
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        {error && <div className="rounded-lg border border-red-700/30 bg-red-900/30 px-4 py-3 text-sm text-red-200">{error}</div>}
+                        {success && <div className="rounded-lg border border-emerald-700/30 bg-emerald-900/30 px-4 py-3 text-sm text-emerald-200">{success}</div>}
 
-                {/* Success Alert */}
-                {success && (
-                    <Alert severity="success" sx={{ mb: 3 }}>
-                        {success}
-                    </Alert>
-                )}
+                        <div>
+                            <label className={labelClass}>Username</label>
+                            <input value={formData.username} onChange={handleChange("username")} placeholder="Choose a username" className={inputClass} />
+                        </div>
+                        <div>
+                            <label className={labelClass}>Email</label>
+                            <input type="email" value={formData.email} onChange={handleChange("email")} placeholder="you@example.com" className={inputClass} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className={labelClass}>First Name</label>
+                                <input value={formData.firstName} onChange={handleChange("firstName")} className={inputClass} />
+                            </div>
+                            <div>
+                                <label className={labelClass}>Last Name</label>
+                                <input value={formData.lastName} onChange={handleChange("lastName")} className={inputClass} />
+                            </div>
+                        </div>
+                        <div>
+                            <label className={labelClass}>Password</label>
+                            <div className="relative">
+                                <input type={showPassword ? "text" : "password"} value={formData.password} onChange={handleChange("password")} className={inputClass + " pr-10"} />
+                                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-glass-muted">
+                                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                </button>
+                            </div>
+                        </div>
+                        <div>
+                            <label className={labelClass}>Confirm Password</label>
+                            <div className="relative">
+                                <input type={showConfirmPassword ? "text" : "password"} value={formData.confirmPassword} onChange={handleChange("confirmPassword")} className={inputClass + " pr-10"} />
+                                <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-glass-muted">
+                                    {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                </button>
+                            </div>
+                        </div>
 
-                {/* Signup Form */}
-                <form onSubmit={handleSubmit}>
-                    <TextField
-                        fullWidth
-                        label="Username"
-                        name="username"
-                        value={formData.username}
-                        onChange={handleChange}
-                        required
-                        autoFocus
-                        sx={{ mb: 2 }}
-                    />
+                        <button type="submit" disabled={isLoading}
+                            className="flex w-full items-center justify-center gap-2 rounded-lg bg-burgundy-700 py-2.5 text-sm font-medium text-white transition-colors hover:bg-burgundy-800 disabled:opacity-50">
+                            {isLoading ? <Loader2 size={16} className="animate-spin" /> : <UserPlus size={16} />}
+                            {isLoading ? "Creating account..." : "Create Account"}
+                        </button>
+                    </form>
+                </div>
 
-                    <Box sx={{ display: "flex", gap: 2 }}>
-                        <TextField
-                            fullWidth
-                            label="First Name"
-                            name="firstName"
-                            value={formData.firstName}
-                            onChange={handleChange}
-                            required
-                            sx={{ mb: 2 }}
-                        />
-                        <TextField
-                            fullWidth
-                            label="Last Name"
-                            name="lastName"
-                            value={formData.lastName}
-                            onChange={handleChange}
-                            required
-                            sx={{ mb: 2 }}
-                        />
-                    </Box>
-
-                    <TextField
-                        fullWidth
-                        label="Email"
-                        name="email"
-                        type="email"
-                        value={formData.email}
-                        onChange={handleChange}
-                        required
-                        sx={{ mb: 2 }}
-                    />
-
-                    <TextField
-                        fullWidth
-                        label="Password"
-                        name="password"
-                        type={showPassword ? "text" : "password"}
-                        value={formData.password}
-                        onChange={handleChange}
-                        required
-                        sx={{ mb: 2 }}
-                        InputProps={{
-                            endAdornment: (
-                                <InputAdornment position="end">
-                                    <IconButton
-                                        onClick={() => setShowPassword(!showPassword)}
-                                        edge="end"
-                                    >
-                                        {showPassword ? <VisibilityOff /> : <Visibility />}
-                                    </IconButton>
-                                </InputAdornment>
-                            ),
-                        }}
-                    />
-
-                    <TextField
-                        fullWidth
-                        label="Confirm Password"
-                        name="confirmPassword"
-                        type={showConfirmPassword ? "text" : "password"}
-                        value={formData.confirmPassword}
-                        onChange={handleChange}
-                        required
-                        sx={{ mb: 3 }}
-                        InputProps={{
-                            endAdornment: (
-                                <InputAdornment position="end">
-                                    <IconButton
-                                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                        edge="end"
-                                    >
-                                        {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
-                                    </IconButton>
-                                </InputAdornment>
-                            ),
-                        }}
-                    />
-
-                    <Button
-                        type="submit"
-                        fullWidth
-                        variant="contained"
-                        size="large"
-                        disabled={isLoading}
-                        startIcon={isLoading ? <CircularProgress size={20} /> : <PersonAdd />}
-                        sx={{
-                            backgroundColor: "#8B4049",
-                            "&:hover": { backgroundColor: "#6B3037" },
-                            py: 1.5,
-                            fontSize: "1rem",
-                            fontWeight: 600,
-                        }}
-                    >
-                        {isLoading ? "Creating Account..." : "Create Account"}
-                    </Button>
-                </form>
-
-                {/* Login Link */}
-                <Box sx={{ mt: 3, textAlign: "center" }}>
-                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                        Already have an account?{" "}
-                        <Link component={RouterLink} to="/login" sx={{ color: "#8B4049", fontWeight: 600 }}>
-                            Sign In
-                        </Link>
-                    </Typography>
-                </Box>
-
-                {/* Footer */}
-                <Box sx={{ mt: 3, textAlign: "center" }}>
-                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                        © 2026 Hokeka. All rights reserved.
-                    </Typography>
-                </Box>
-            </Paper>
-        </Box>
+                <p className="mt-4 text-center text-xs text-glass-muted">
+                    Already have an account?{" "}
+                    <RouterLink to="/login" className="text-burgundy-400 hover:underline">Log in</RouterLink>
+                </p>
+            </div>
+        </div>
     );
 }
