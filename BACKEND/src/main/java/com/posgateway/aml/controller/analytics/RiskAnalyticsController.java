@@ -16,7 +16,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/analytics/risk")
-@PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'MLRO', 'ANALYST')")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'COMPLIANCE_OFFICER', 'MLRO', 'ANALYST')")
 public class RiskAnalyticsController {
 
     private final RiskAnalyticsService riskAnalyticsService;

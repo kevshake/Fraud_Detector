@@ -18,7 +18,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/compliance/calendar")
-@PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'MLRO', 'PSP_ADMIN')")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'COMPLIANCE_OFFICER', 'MLRO', 'PSP_ADMIN')")
 public class ComplianceCalendarController {
 
     private final ComplianceCalendarService complianceCalendarService;

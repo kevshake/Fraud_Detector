@@ -555,3 +555,42 @@ export const getStatusLabel = (status: ReportInstance["status"]): string => {
   };
   return labels[status] || status;
 };
+
+export interface ReportFavoriteDto {
+  id: number;
+  reportId?: number;
+  reportCode?: string;
+  pspId?: number;
+  displayOrder?: number;
+  createdAt?: string;
+}
+
+export const useReportFavorites = () => {
+  return useQuery<ReportFavoriteDto[]>({
+    queryKey: ["reports", "favorites"],
+    queryFn: async () => apiClient.get<ReportFavoriteDto[]>("reports/favorites"),
+  });
+};
+
+export const useAddReportFavorite = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: { reportCode: string; pspId?: number }) =>
+      apiClient.post<ReportFavoriteDto>("reports/favorites", payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["reports", "favorites"] });
+    },
+  });
+};
+
+export const useRemoveReportFavorite = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (reportCode: string) => {
+      await apiClient.delete(`reports/favorites/${encodeURIComponent(reportCode)}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["reports", "favorites"] });
+    },
+  });
+};

@@ -22,7 +22,7 @@ import java.util.Optional;
  */
 @RestController
 @RequestMapping("/psps/{pspId}/cbk/customer-complaints")
-@PreAuthorize("hasAnyRole('ADMIN','PSP_ADMIN','COMPLIANCE_OFFICER')")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN','PSP_ADMIN','COMPLIANCE_OFFICER')")
 public class PspCustomerComplaintController {
 
     private static final Logger log = LoggerFactory.getLogger(PspCustomerComplaintController.class);

@@ -36,7 +36,7 @@ import java.util.stream.Collectors;
  */
 @RestController
 @RequestMapping("/compliance/cbk")
-@PreAuthorize("hasAnyRole('ADMIN','COMPLIANCE_OFFICER','PSP_ADMIN')")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN','COMPLIANCE_OFFICER','PSP_ADMIN')")
 public class CbkReportController {
 
     private static final Logger log = LoggerFactory.getLogger(CbkReportController.class);
@@ -148,7 +148,7 @@ public class CbkReportController {
      * @return the {@link CbkSubmissionResult} for the triggered submission attempt
      */
     @PostMapping("/submissions/{endpointType}/run")
-    @PreAuthorize("hasAnyRole('ADMIN','COMPLIANCE_OFFICER','PSP_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN','COMPLIANCE_OFFICER','PSP_ADMIN')")
     public ResponseEntity<CbkSubmissionResult> runSingleEndpoint(
             @PathVariable CbkEndpointType endpointType,
             @RequestBody Map<String, Long> body) {

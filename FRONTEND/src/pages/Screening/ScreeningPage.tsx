@@ -3,6 +3,7 @@ import { apiClient } from "../../lib/apiClient";
 import HokekaPageShell from "../../components/Layout/HokekaPageShell";
 import TwBadge from "../../components/Common/TwBadge";
 import { Loader2, Search, Shield, UserCheck } from "lucide-react";
+import MonitoringAlertsPanel from "../../components/monitoring/MonitoringAlertsPanel";
 
 export default function ScreeningPage() {
   const [name, setName] = useState("");
@@ -95,6 +96,10 @@ export default function ScreeningPage() {
             )}
           </div>
         )}
+      </div>
+
+      <div className="mt-4">
+        <MonitoringAlertsPanel />
       </div>
     </HokekaPageShell>
   );

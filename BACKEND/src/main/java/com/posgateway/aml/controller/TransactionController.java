@@ -287,6 +287,8 @@ public class TransactionController {
         request.setEmvTags(dto.getEmvTags());
         request.setAcquirerResponse(dto.getAcquirerResponse());
         request.setDirection(dto.getDirection());
+        request.setIpAddress(dto.getIpAddress());
+        request.setCountryCode(dto.getCountryCode());
         return request;
     }
 
@@ -318,7 +320,7 @@ public class TransactionController {
      * Platform Administrators can see all transactions or filter by PSP.
      */
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'ANALYST', 'PSP_ADMIN', 'PSP_ANALYST', 'VIEWER')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'COMPLIANCE_OFFICER', 'ANALYST', 'PSP_ADMIN', 'PSP_ANALYST', 'VIEWER')")
     public ResponseEntity<org.springframework.data.domain.Page<TransactionEntity>> getAllTransactions(
             @RequestParam(required = false, defaultValue = "0") int page,
             @RequestParam(required = false, defaultValue = "25") int size,

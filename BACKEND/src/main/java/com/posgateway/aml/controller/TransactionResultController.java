@@ -20,7 +20,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
  * Receives feedback (authorization results, chargebacks) from the gateway
  * Updates fraud metrics (Async)
  */
-@PreAuthorize("hasAnyRole('ADMIN','COMPLIANCE_OFFICER','PSP_ADMIN','PSP_USER')")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN','COMPLIANCE_OFFICER','PSP_ADMIN','PSP_USER')")
 @RestController
 @RequestMapping("/transaction/result")
 public class TransactionResultController {

@@ -32,7 +32,7 @@ public class RegulatoryReportingController {
 
     /** Generate Currency Transaction Report (CTR) — JSON */
     @GetMapping("/ctr")
-    @PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'COMPLIANCE_OFFICER', 'PSP_ADMIN', 'PSP_COMPLIANCE_OFFICER')")
     public ResponseEntity<RegulatoryReportingService.CurrencyTransactionReport> generateCtr(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate) {
@@ -45,7 +45,7 @@ public class RegulatoryReportingController {
 
     /** Generate Large Cash Transaction Report (LCTR) — JSON */
     @GetMapping("/lctr")
-    @PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'COMPLIANCE_OFFICER', 'PSP_ADMIN', 'PSP_COMPLIANCE_OFFICER')")
     public ResponseEntity<RegulatoryReportingService.LargeCashTransactionReport> generateLctr(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate) {
@@ -58,7 +58,7 @@ public class RegulatoryReportingController {
 
     /** Generate International Funds Transfer Report (IFTR) — JSON */
     @GetMapping("/iftr")
-    @PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'COMPLIANCE_OFFICER', 'PSP_ADMIN', 'PSP_COMPLIANCE_OFFICER')")
     public ResponseEntity<RegulatoryReportingService.InternationalFundsTransferReport> generateIftr(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate) {

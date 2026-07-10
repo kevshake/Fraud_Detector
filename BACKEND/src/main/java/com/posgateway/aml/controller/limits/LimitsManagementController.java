@@ -19,7 +19,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 /**
  * Controller for Limits & AML Management
  */
-@PreAuthorize("hasAnyRole('ADMIN','COMPLIANCE_OFFICER','PSP_ADMIN','PSP_USER')")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN','COMPLIANCE_OFFICER','PSP_ADMIN','PSP_USER')")
 @RestController
 @RequestMapping("/limits")
 public class LimitsManagementController {

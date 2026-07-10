@@ -29,7 +29,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/rules")
-@PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'PSP_ADMIN', 'PSP_USER')")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'COMPLIANCE_OFFICER', 'PSP_ADMIN', 'PSP_USER')")
 public class RulesController {
 
     private final RuleDefinitionRepository ruleRepository;

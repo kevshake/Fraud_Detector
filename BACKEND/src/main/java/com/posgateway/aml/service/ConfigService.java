@@ -153,5 +153,10 @@ public class ConfigService {
     public Boolean isBlacklistEnabled() {
         return getConfigAsBoolean("fraud.rule.blacklist.enabled", true);
     }
+
+    /** Auto-create compliance cases when rule engine triggers BLOCK/HOLD/ALERT. */
+    public Boolean isRuleAutoCreateCasesEnabled() {
+        return getConfigAsBoolean("rules.auto-create-cases", true);
+    }
 }
 

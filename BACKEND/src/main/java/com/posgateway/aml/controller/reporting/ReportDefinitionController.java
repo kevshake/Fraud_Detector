@@ -53,7 +53,7 @@ public class ReportDefinitionController {
      * GET /api/reports/definitions
      */
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN', 'PSP_USER', 'ANALYST')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN', 'PSP_USER', 'ANALYST')")
     public ResponseEntity<Page<ReportDefinitionDTO>> listReportDefinitions(
             @RequestParam(required = false) String category,
             @RequestParam(required = false) String type,
@@ -103,7 +103,7 @@ public class ReportDefinitionController {
      * GET /api/reports/definitions/{id}
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN', 'PSP_USER', 'ANALYST')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN', 'PSP_USER', 'ANALYST')")
     public ResponseEntity<ReportDefinitionDTO> getReportDefinition(@PathVariable Long id) {
         logger.debug("Get report definition by ID: {}", id);
         
@@ -118,7 +118,7 @@ public class ReportDefinitionController {
      * GET /api/reports/definitions/code/{code}
      */
     @GetMapping("/code/{code}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN', 'PSP_USER', 'ANALYST')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN', 'PSP_USER', 'ANALYST')")
     public ResponseEntity<ReportDefinitionDTO> getReportDefinitionByCode(@PathVariable String code) {
         logger.debug("Get report definition by code: {}", code);
         
@@ -133,7 +133,7 @@ public class ReportDefinitionController {
      * GET /api/reports/categories
      */
     @GetMapping("/categories")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN', 'PSP_USER', 'ANALYST')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN', 'PSP_USER', 'ANALYST')")
     public ResponseEntity<List<ReportCategoryDTO>> listCategories() {
         logger.debug("List report categories");
         
@@ -149,7 +149,7 @@ public class ReportDefinitionController {
      * GET /api/reports/definitions/category/{category}
      */
     @GetMapping("/category/{category}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN', 'PSP_USER', 'ANALYST')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN', 'PSP_USER', 'ANALYST')")
     public ResponseEntity<ReportCategoryDTO> getReportsByCategory(@PathVariable String category) {
         logger.debug("Get reports by category: {}", category);
         
@@ -177,7 +177,7 @@ public class ReportDefinitionController {
      * GET /api/reports/definitions/types
      */
     @GetMapping("/types")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN', 'PSP_USER', 'ANALYST')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN', 'PSP_USER', 'ANALYST')")
     public ResponseEntity<List<Map<String, String>>> getReportTypes() {
         logger.debug("Get report types");
         
@@ -197,7 +197,7 @@ public class ReportDefinitionController {
      * GET /api/reports/definitions/statistics/categories
      */
     @GetMapping("/statistics/categories")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'PSP_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'PSP_ADMIN')")
     public ResponseEntity<List<Map<String, Object>>> getCategoryStatistics() {
         logger.debug("Get category statistics");
         
@@ -224,7 +224,7 @@ public class ReportDefinitionController {
      * GET /api/reports/definitions/{id}/versions
      */
     @GetMapping("/{id}/versions")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
     public ResponseEntity<List<Map<String, Object>>> getReportVersions(@PathVariable Long id) {
         logger.debug("Get report versions for report: {}", id);
         

@@ -94,8 +94,16 @@ public class SecurityConfig {
                                                 // Safaricom Daraja M-Pesa callback — must be publicly accessible
                                                 .requestMatchers("/api/v1/billing/payments/mpesa/callback",
                                                                 "/billing/payments/mpesa/callback").permitAll()
-                                                // Visa/Verifi RDR webhooks — HMAC/API-key verified in controller
-                                                .requestMatchers("/api/v1/integrations/verifi/rdr",
+                                                // Visa/Verifi API 3.0 — JWS verified in controller
+                                                .requestMatchers("/api/v1/integrations/verifi/notifications",
+                                                                "/integrations/verifi/notifications",
+                                                                "/api/v1/integrations/verifi/decisions",
+                                                                "/integrations/verifi/decisions",
+                                                                "/api/v1/integrations/verifi/decision",
+                                                                "/integrations/verifi/decision",
+                                                                "/api/v1/integrations/verifi/ping",
+                                                                "/integrations/verifi/ping",
+                                                                "/api/v1/integrations/verifi/rdr",
                                                                 "/integrations/verifi/rdr",
                                                                 "/api/v1/chargeback/verifi/rdr",
                                                                 "/chargeback/verifi/rdr",

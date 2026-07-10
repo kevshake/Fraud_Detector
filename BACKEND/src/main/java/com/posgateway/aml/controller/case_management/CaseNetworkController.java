@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
  */
 @RestController
 @RequestMapping("/cases/{caseId}/network")
-@PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'INVESTIGATOR', 'CASE_MANAGER')")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'COMPLIANCE_OFFICER', 'INVESTIGATOR', 'CASE_MANAGER')")
 public class CaseNetworkController {
 
     private final CaseNetworkService caseNetworkService;

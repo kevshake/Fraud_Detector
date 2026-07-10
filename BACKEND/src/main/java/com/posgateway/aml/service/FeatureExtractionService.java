@@ -26,14 +26,17 @@ public class FeatureExtractionService {
     private final TransactionRepository transactionRepository;
     private final ObjectMapper objectMapper;
     private final com.posgateway.aml.service.graph.Neo4jGdsService neo4jGdsService;
+    private final com.posgateway.aml.service.rules.RuleFeatureEnrichmentService ruleFeatureEnrichmentService;
 
     @Autowired
     public FeatureExtractionService(TransactionRepository transactionRepository,
             ObjectMapper objectMapper,
-            @Autowired(required = false) com.posgateway.aml.service.graph.Neo4jGdsService neo4jGdsService) {
+            @Autowired(required = false) com.posgateway.aml.service.graph.Neo4jGdsService neo4jGdsService,
+            com.posgateway.aml.service.rules.RuleFeatureEnrichmentService ruleFeatureEnrichmentService) {
         this.transactionRepository = transactionRepository;
         this.objectMapper = objectMapper;
         this.neo4jGdsService = neo4jGdsService;
+        this.ruleFeatureEnrichmentService = ruleFeatureEnrichmentService;
     }
 
     /**
@@ -61,6 +64,9 @@ public class FeatureExtractionService {
 
         // Graph features from Neo4j GDS (PageRank, Community, Betweenness)
         extractGraphFeatures(transaction, features);
+
+        // SpEL rule features (velocity, screening, chargeback signals)
+        ruleFeatureEnrichmentService.enrich(transaction, features);
 
         logger.debug("Extracted {} features for transaction {}", features.size(), transaction.getTxnId());
         return features;

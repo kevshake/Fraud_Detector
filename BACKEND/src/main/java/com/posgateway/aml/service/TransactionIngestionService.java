@@ -142,6 +142,10 @@ public class TransactionIngestionService {
         transaction.setTerminalId(transactionRequest.getTerminalId());
         transaction.setAmountCents(transactionRequest.getAmountCents());
         transaction.setCurrency(transactionRequest.getCurrency());
+        transaction.setIpAddress(transactionRequest.getIpAddress());
+        if (transactionRequest.getCountryCode() != null && !transactionRequest.getCountryCode().isBlank()) {
+            transaction.setMerchantCountry(transactionRequest.getCountryCode().toUpperCase());
+        }
         transaction
                 .setTxnTs(transactionRequest.getTxnTs() != null ? transactionRequest.getTxnTs() : LocalDateTime.now());
 
@@ -304,6 +308,7 @@ public class TransactionIngestionService {
         private String acquirerResponse;
         private String direction;
         private String ipAddress;
+        private String countryCode;
 
         public String getIpAddress() { return ipAddress; }
         public void setIpAddress(String ipAddress) { this.ipAddress = ipAddress; }
@@ -387,6 +392,14 @@ public class TransactionIngestionService {
 
         public void setDirection(String direction) {
             this.direction = direction;
+        }
+
+        public String getCountryCode() {
+            return countryCode;
+        }
+
+        public void setCountryCode(String countryCode) {
+            this.countryCode = countryCode;
         }
     }
 }

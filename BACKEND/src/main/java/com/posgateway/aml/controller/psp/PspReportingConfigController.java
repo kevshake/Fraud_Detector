@@ -23,7 +23,7 @@ public class PspReportingConfigController {
 
 
     @GetMapping("/{pspId}/report-config")
-    @PreAuthorize("hasAnyRole('ADMIN', 'APP_CONTROLLER', 'PSP_ADMIN', 'PSP_USER')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'APP_CONTROLLER', 'PSP_ADMIN', 'PSP_USER')")
     public ResponseEntity<PspReportConfigResponse> getConfig(@PathVariable Long pspId) {
         try {
             return ResponseEntity.ok(configService.getConfig(pspId));
@@ -33,7 +33,7 @@ public class PspReportingConfigController {
     }
 
     @PutMapping("/{pspId}/report-config")
-    @PreAuthorize("hasAnyRole('ADMIN', 'APP_CONTROLLER', 'PSP_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'APP_CONTROLLER', 'PSP_ADMIN')")
     public ResponseEntity<PspReportConfigResponse> updateConfig(@PathVariable Long pspId,
             @RequestBody PspReportConfigRequest request) {
         return ResponseEntity.ok(configService.updateConfig(pspId, request));

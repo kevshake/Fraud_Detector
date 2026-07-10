@@ -22,7 +22,7 @@ import java.util.Optional;
  */
 @RestController
 @RequestMapping("/psps/{pspId}/cbk/trust-accounts")
-@PreAuthorize("hasAnyRole('ADMIN','PSP_ADMIN','COMPLIANCE_OFFICER')")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN','PSP_ADMIN','COMPLIANCE_OFFICER')")
 public class PspTrustAccountController {
 
     private static final Logger log = LoggerFactory.getLogger(PspTrustAccountController.class);

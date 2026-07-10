@@ -118,7 +118,7 @@ public class ReportController {
      * GET /api/reports/status/{executionId}
      */
     @GetMapping("/status/{executionId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN', 'ANALYST')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN', 'ANALYST')")
     public ResponseEntity<ReportExecutionDTO> getExecutionStatus(@PathVariable String executionId) {
         logger.debug("Get execution status: {}", executionId);
         
@@ -131,7 +131,7 @@ public class ReportController {
      * POST /api/reports/cancel/{executionId}
      */
     @PostMapping("/cancel/{executionId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
     public ResponseEntity<Map<String, Object>> cancelReport(@PathVariable String executionId) {
         logger.info("Cancel report request: {}", executionId);
         
@@ -155,7 +155,7 @@ public class ReportController {
      * GET /api/reports/history
      */
     @GetMapping("/history")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN', 'ANALYST')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN', 'ANALYST')")
     public ResponseEntity<Page<ReportExecutionDTO>> getReportHistory(
             @RequestParam(required = false) Long pspId,
             @RequestParam(required = false) String status,
@@ -182,7 +182,7 @@ public class ReportController {
      * GET /api/reports/{id}
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN', 'ANALYST')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN', 'ANALYST')")
     public ResponseEntity<ReportExecutionDTO> getReportById(@PathVariable Long id) {
         logger.debug("Get report by ID: {}", id);
         
@@ -195,7 +195,7 @@ public class ReportController {
      * DELETE /api/reports/{id}
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
     public ResponseEntity<Map<String, Object>> deleteReport(@PathVariable Long id) {
         logger.info("Delete report: {}", id);
         
@@ -212,7 +212,7 @@ public class ReportController {
      * GET /api/reports/download/{id}
      */
     @GetMapping("/download/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN', 'ANALYST')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN', 'ANALYST')")
     public ResponseEntity<Resource> downloadReport(@PathVariable Long id,
                                                       @RequestParam(required = false) String format) {
         logger.info("Download report: {}, format: {}", id, format);
@@ -225,7 +225,7 @@ public class ReportController {
      * POST /api/reports/schedule
      */
     @PostMapping("/schedule")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
     public ResponseEntity<ReportScheduleDTO> scheduleReport(@RequestBody ReportScheduleRequest request,
                                                               Authentication authentication) {
         logger.info("Schedule report request: {}", request.getReportId());
@@ -250,7 +250,7 @@ public class ReportController {
      * PUT /api/reports/schedule/{scheduleId}
      */
     @PutMapping("/schedule/{scheduleId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
     public ResponseEntity<ReportScheduleDTO> updateSchedule(@PathVariable Long scheduleId,
                                                               @RequestBody ReportScheduleRequest request) {
         logger.info("Update schedule: {}", scheduleId);
@@ -264,7 +264,7 @@ public class ReportController {
      * GET /api/reports/schedule
      */
     @GetMapping("/schedule")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN', 'ANALYST')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN', 'ANALYST')")
     public ResponseEntity<Page<ReportScheduleDTO>> getScheduledReports(
             @RequestParam(required = false) Long pspId,
             @RequestParam(defaultValue = "0") int page,
@@ -288,7 +288,7 @@ public class ReportController {
      * GET /api/reports/schedule/{scheduleId}
      */
     @GetMapping("/schedule/{scheduleId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN', 'ANALYST')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN', 'ANALYST')")
     public ResponseEntity<ReportScheduleDTO> getScheduleById(@PathVariable Long scheduleId) {
         logger.debug("Get schedule by ID: {}", scheduleId);
         
@@ -301,7 +301,7 @@ public class ReportController {
      * DELETE /api/reports/schedule/{scheduleId}
      */
     @DeleteMapping("/schedule/{scheduleId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
     public ResponseEntity<Map<String, Object>> unscheduleReport(@PathVariable Long scheduleId) {
         logger.info("Unschedule report: {}", scheduleId);
         
@@ -318,7 +318,7 @@ public class ReportController {
      * POST /api/reports/schedule/{scheduleId}/activate
      */
     @PostMapping("/schedule/{scheduleId}/activate")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
     public ResponseEntity<ReportScheduleDTO> activateSchedule(@PathVariable Long scheduleId) {
         logger.info("Activate schedule: {}", scheduleId);
         
@@ -343,7 +343,7 @@ public class ReportController {
      *                 defaults to the last 30 days when absent
      */
     @PostMapping("/chart")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN', 'ANALYST')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN', 'ANALYST')")
     public ResponseEntity<ChartDataDTO> getChartData(@RequestBody ChartDataDTO request) {
         logger.info("Get chart data for report: {}", request.getReportType());
 
@@ -459,7 +459,7 @@ public class ReportController {
      * GET /api/reports/statistics
      */
     @GetMapping("/statistics")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
     public ResponseEntity<ReportHistoryService.ExecutionStatistics> getExecutionStatistics(
             @RequestParam(required = false) Long pspId,
             @RequestParam(required = false) String from,
@@ -486,7 +486,7 @@ public class ReportController {
      * POST /api/reports/{id}/retry
      */
     @PostMapping("/{id}/retry")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
     public ResponseEntity<ReportExecutionDTO> retryReport(@PathVariable Long id) {
         logger.info("Retry report: {}", id);
         
@@ -499,7 +499,7 @@ public class ReportController {
      * GET /api/reports/recent
      */
     @GetMapping("/recent")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN', 'ANALYST')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN', 'ANALYST')")
     public ResponseEntity<List<ReportExecutionDTO>> getRecentReports(Authentication authentication,
                                                                           @RequestParam(defaultValue = "10") int limit) {
         User user = (User) authentication.getPrincipal();

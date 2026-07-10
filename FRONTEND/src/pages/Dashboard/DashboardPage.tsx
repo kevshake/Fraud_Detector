@@ -8,13 +8,13 @@ import {
   User,
 } from 'lucide-react'
 import ScreeningResults from '../../components/Alerts/ScreeningResults'
+import MonitoringAlertsPanel from '../../components/monitoring/MonitoringAlertsPanel'
 import LiveAlertQueue from '../../components/Alerts/LiveAlertQueue'
 import TopRiskMerchants from '../../components/Alerts/TopRiskMerchants'
 import InvestigationCases from '../../components/Cases/InvestigationCases'
 import AlertTrends from '../../components/charts/AlertTrends'
 import RiskGauge from '../../components/charts/RiskGauge'
 import RiskHeatmap from '../../components/charts/RiskHeatmap'
-import ComplianceHealth from '../../components/compliance/ComplianceHealth'
 import InsightsPanel from '../../components/insights/InsightsPanel'
 import KpiCard from '../../components/kpi/KpiCard'
 import {
@@ -176,7 +176,7 @@ export default function DashboardPage() {
           <AlertTrends />
           <ScreeningResults />
           <TopRiskMerchants />
-          <ComplianceHealth />
+          <MonitoringAlertsPanel />
         </div>
       </div>
 

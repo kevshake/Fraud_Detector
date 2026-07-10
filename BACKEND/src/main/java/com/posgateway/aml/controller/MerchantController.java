@@ -32,7 +32,7 @@ import java.util.List;
 // @Slf4j removed
 @RestController
 @RequestMapping("/merchants")
-@PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'SCREENING_ANALYST')")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'COMPLIANCE_OFFICER', 'SCREENING_ANALYST')")
 public class MerchantController {
 
     private static final Logger log = LoggerFactory.getLogger(MerchantController.class);
@@ -130,7 +130,7 @@ public class MerchantController {
      * @return Paginated list of merchants
      */
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'SCREENING_ANALYST', 'PSP_ADMIN', 'PSP_ANALYST', 'VIEWER')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'COMPLIANCE_OFFICER', 'SCREENING_ANALYST', 'PSP_ADMIN', 'PSP_ANALYST', 'VIEWER')")
     public ResponseEntity<org.springframework.data.domain.Page<MerchantOnboardingResponse>> getAllMerchants(
             @RequestParam(required = false, defaultValue = "0") int page,
             @RequestParam(required = false, defaultValue = "25") int size) {
@@ -212,7 +212,7 @@ public class MerchantController {
      * GET /merchants/{id}
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'SCREENING_ANALYST', 'PSP_ADMIN', 'PSP_ANALYST', 'PSP_USER')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'COMPLIANCE_OFFICER', 'SCREENING_ANALYST', 'PSP_ADMIN', 'PSP_ANALYST', 'PSP_USER')")
     public ResponseEntity<MerchantOnboardingResponse> getMerchant(@PathVariable Long id,
             org.springframework.security.core.Authentication authentication) {
         String username = (authentication != null ? authentication.getName() : "anonymous");
@@ -261,7 +261,7 @@ public class MerchantController {
      * DELETE /merchants/{id}
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN')")
     public ResponseEntity<Void> deleteMerchant(@PathVariable Long id) {
         log.info("Delete merchant request for ID: {}", id);
         try {

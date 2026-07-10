@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
  */
 @RestController
 @RequestMapping("/risk/customer")
-@PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'ANALYST', 'INVESTIGATOR')")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'COMPLIANCE_OFFICER', 'ANALYST', 'INVESTIGATOR')")
 public class CustomerRiskController {
 
     private final CustomerRiskProfilingService riskProfilingService;

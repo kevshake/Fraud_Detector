@@ -22,7 +22,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/alerts/tuning")
-@PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'ANALYST')")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'COMPLIANCE_OFFICER', 'ANALYST')")
 @Tag(name = "Alert Tuning", description = "APIs for alert tuning recommendations and rule effectiveness analysis")
 public class AlertTuningController {
 

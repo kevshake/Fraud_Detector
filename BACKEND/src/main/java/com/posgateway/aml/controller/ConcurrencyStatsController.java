@@ -15,7 +15,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
  * Concurrency Statistics Controller
  * Provides real-time concurrency and throughput statistics
  */
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN')")
 @RestController
 @RequestMapping("/stats")
 public class ConcurrencyStatsController {

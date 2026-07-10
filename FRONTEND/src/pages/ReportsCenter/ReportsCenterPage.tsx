@@ -56,6 +56,9 @@ import {
   useDownloadReport,
   useDeleteReportInstance,
   useReportProgress,
+  useReportFavorites,
+  useAddReportFavorite,
+  useRemoveReportFavorite,
   downloadBlob,
   type ReportApiError,
 } from "../../features/api/reportQueries";
@@ -122,6 +125,31 @@ export default function ReportsCenterPage() {
   const scheduleMutation = useScheduleReport();
   const downloadMutation = useDownloadReport();
   const deleteMutation = useDeleteReportInstance();
+
+  const { data: favorites = [] } = useReportFavorites();
+  const addFavorite = useAddReportFavorite();
+  const removeFavorite = useRemoveReportFavorite();
+  const favoriteCodes = useMemo(
+    () => new Set(favorites.map((f) => f.reportCode || String(f.reportId))),
+    [favorites]
+  );
+
+  const handleToggleFavorite = useCallback(
+    async (reportId: string) => {
+      try {
+        if (favoriteCodes.has(reportId)) {
+          await removeFavorite.mutateAsync(reportId);
+          showSuccess("Removed from favorites");
+        } else {
+          await addFavorite.mutateAsync({ reportCode: reportId });
+          showSuccess("Added to favorites");
+        }
+      } catch {
+        showError("Failed to update favorite");
+      }
+    },
+    [favoriteCodes, addFavorite, removeFavorite, showSuccess, showError]
+  );
 
   // Track progress for generating report
   const { data: progressData } = useReportProgress(generatingReportId || "", {
@@ -617,6 +645,8 @@ export default function ReportsCenterPage() {
                             onGenerate={handleGenerateReport}
                             onSchedule={handleScheduleReport}
                             isGenerating={generatingReportId !== null}
+                            isFavorite={favoriteCodes.has(report.id)}
+                            onToggleFavorite={() => handleToggleFavorite(report.id)}
                           />
                         </Grid>
                       ))}

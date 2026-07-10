@@ -32,6 +32,12 @@ public class VerifiRdrProperties {
     /** Auto-create compliance cases for accepted RDR / fraud-category disputes. */
     private boolean autoCreateCases = true;
 
+    /** Verifi partner ID returned on Ping API responses (verifiEntityInfo.partnerId). */
+    private Long partnerId;
+
+    /** Verifi client ID returned on Ping API responses (verifiEntityInfo.clientId). */
+    private Long clientId;
+
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
 
@@ -49,4 +55,10 @@ public class VerifiRdrProperties {
 
     public boolean isAutoCreateCases() { return autoCreateCases; }
     public void setAutoCreateCases(boolean autoCreateCases) { this.autoCreateCases = autoCreateCases; }
+
+    public Long getPartnerId() { return partnerId; }
+    public void setPartnerId(Long partnerId) { this.partnerId = partnerId; }
+
+    public Long getClientId() { return clientId; }
+    public void setClientId(Long clientId) { this.clientId = clientId; }
 }

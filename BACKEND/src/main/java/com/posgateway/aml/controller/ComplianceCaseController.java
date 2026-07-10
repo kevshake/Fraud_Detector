@@ -247,7 +247,7 @@ public class ComplianceCaseController {
      * DELETE /compliance/cases/{id}
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'COMPLIANCE_OFFICER')")
     public ResponseEntity<Void> deleteCase(@PathVariable Long id) {
         // PSP-isolated delete: a PSP_ADMIN can only delete their own PSP's cases.
         // Platform admins (psp == null) can delete anything.

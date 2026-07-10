@@ -16,7 +16,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
  * REST Controller for Risk Assessment API
  * Provides endpoints for AML and Fraud risk assessment
  */
-@PreAuthorize("hasAnyRole('ADMIN','COMPLIANCE_OFFICER','PSP_ADMIN','PSP_USER')")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN','COMPLIANCE_OFFICER','PSP_ADMIN','PSP_USER')")
 @RestController
 @RequestMapping("/risk-assessment")
 public class RiskAssessmentController {

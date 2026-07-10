@@ -17,7 +17,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 // @RequiredArgsConstructor removed
 @RestController
 @RequestMapping("/compliance/cases/workflow")
-@PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'INVESTIGATOR', 'PSP_ADMIN', 'MLRO')")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'COMPLIANCE_OFFICER', 'INVESTIGATOR', 'PSP_ADMIN', 'MLRO')")
 public class ComplianceCaseWorkflowController {
 
     private final CaseWorkflowService caseWorkflowService;

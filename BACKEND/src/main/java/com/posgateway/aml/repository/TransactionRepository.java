@@ -562,4 +562,67 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
                    "LIMIT :limit", nativeQuery = true)
     List<Object[]> getCountryTransactionAndAlertCountsByPsp(@Param("pspId") Long pspId,
                                                             @Param("limit") int limit);
+
+    @Query("SELECT COUNT(DISTINCT t.merchantId) FROM TransactionEntity t " +
+           "WHERE t.panHash = :panHash AND t.txnTs >= :start AND t.txnTs <= :end")
+    Long countDistinctMerchantsByPanInWindow(@Param("panHash") String panHash,
+                                             @Param("start") LocalDateTime start,
+                                             @Param("end") LocalDateTime end);
+
+    @Query("SELECT COUNT(DISTINCT t.deviceFingerprint) FROM TransactionEntity t " +
+           "WHERE t.panHash = :panHash AND t.deviceFingerprint IS NOT NULL " +
+           "AND t.txnTs >= :start AND t.txnTs <= :end")
+    Long countDistinctDevicesByPanInWindow(@Param("panHash") String panHash,
+                                           @Param("start") LocalDateTime start,
+                                           @Param("end") LocalDateTime end);
+
+    @Query("SELECT COUNT(t) FROM TransactionEntity t " +
+           "WHERE t.panHash = :panHash AND UPPER(t.direction) LIKE 'IN%' " +
+           "AND t.txnTs >= :start AND t.txnTs <= :end")
+    Long countInboundByPanInWindow(@Param("panHash") String panHash,
+                                   @Param("start") LocalDateTime start,
+                                   @Param("end") LocalDateTime end);
+
+    @Query("SELECT COUNT(t) FROM TransactionEntity t " +
+           "WHERE t.panHash = :panHash AND (UPPER(t.direction) LIKE 'OUT%' OR t.direction IS NULL) " +
+           "AND t.txnTs >= :start AND t.txnTs <= :end")
+    Long countOutboundByPanInWindow(@Param("panHash") String panHash,
+                                    @Param("start") LocalDateTime start,
+                                    @Param("end") LocalDateTime end);
+
+    @Query("SELECT COALESCE(SUM(t.amountCents), 0) FROM TransactionEntity t " +
+           "WHERE t.panHash = :panHash AND UPPER(t.direction) LIKE 'IN%' " +
+           "AND t.txnTs >= :start AND t.txnTs <= :end")
+    Long sumInboundAmountByPanInWindow(@Param("panHash") String panHash,
+                                       @Param("start") LocalDateTime start,
+                                       @Param("end") LocalDateTime end);
+
+    @Query("SELECT COALESCE(SUM(t.amountCents), 0) FROM TransactionEntity t " +
+           "WHERE t.panHash = :panHash AND (UPPER(t.direction) LIKE 'OUT%' OR t.direction IS NULL) " +
+           "AND t.txnTs >= :start AND t.txnTs <= :end")
+    Long sumOutboundAmountByPanInWindow(@Param("panHash") String panHash,
+                                        @Param("start") LocalDateTime start,
+                                        @Param("end") LocalDateTime end);
+
+    @Query("SELECT COUNT(DISTINCT t.cardBrand) FROM TransactionEntity t " +
+           "WHERE t.panHash = :panHash AND t.cardBrand IS NOT NULL " +
+           "AND t.txnTs >= :start AND t.txnTs <= :end")
+    Long countDistinctCardBrandsByPanInWindow(@Param("panHash") String panHash,
+                                              @Param("start") LocalDateTime start,
+                                              @Param("end") LocalDateTime end);
+
+    @Query("SELECT COUNT(t) FROM TransactionEntity t " +
+           "WHERE t.panHash = :panHash AND UPPER(t.direction) IN ('CREDIT','REFUND','INBOUND') " +
+           "AND t.txnTs >= :start AND t.txnTs <= :end")
+    Long countRefundsByPanInWindow(@Param("panHash") String panHash,
+                                    @Param("start") LocalDateTime start,
+                                    @Param("end") LocalDateTime end);
+
+    @Query("SELECT COALESCE(SUM(t.amountCents), 0) FROM TransactionEntity t " +
+           "WHERE t.merchantId = :merchantId AND t.panHash = :panHash " +
+           "AND t.txnTs >= :start AND t.txnTs <= :end")
+    Long sumAmountByMerchantAndPanInWindow(@Param("merchantId") String merchantId,
+                                           @Param("panHash") String panHash,
+                                           @Param("start") LocalDateTime start,
+                                           @Param("end") LocalDateTime end);
 }

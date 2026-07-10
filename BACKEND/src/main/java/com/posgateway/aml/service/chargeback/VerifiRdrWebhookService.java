@@ -5,7 +5,7 @@ import com.posgateway.aml.entity.Alert;
 import com.posgateway.aml.entity.chargeback.ChargebackDispute;
 import com.posgateway.aml.entity.merchant.Merchant;
 import com.posgateway.aml.integration.verifi.VerifiRdrProperties;
-import com.posgateway.aml.integration.verifi.VerifiWebhookSignatureVerifier;
+import com.posgateway.aml.integration.verifi.VerifiRequestAuthenticator;
 import com.posgateway.aml.repository.AlertRepository;
 import com.posgateway.aml.repository.MerchantRepository;
 import com.posgateway.aml.repository.AerospikeMetricsRepository;
@@ -18,11 +18,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.Map;
 import java.util.Optional;
 
 /**
- * Processes Visa/Verifi RDR webhook callbacks and maps them to alerts, cases, and metrics.
+ * Processes Verifi API 3.0 notification callbacks and maps them to alerts, cases, and metrics.
  */
 @Service
 public class VerifiRdrWebhookService {
@@ -30,7 +31,6 @@ public class VerifiRdrWebhookService {
     private static final Logger log = LoggerFactory.getLogger(VerifiRdrWebhookService.class);
 
     private final VerifiRdrProperties properties;
-    private final VerifiWebhookSignatureVerifier signatureVerifier;
     private final ChargebackDisputeRepository disputeRepository;
     private final AlertRepository alertRepository;
     private final MerchantRepository merchantRepository;
@@ -39,7 +39,6 @@ public class VerifiRdrWebhookService {
     private final ObjectMapper objectMapper;
 
     public VerifiRdrWebhookService(VerifiRdrProperties properties,
-                                   VerifiWebhookSignatureVerifier signatureVerifier,
                                    ChargebackDisputeRepository disputeRepository,
                                    AlertRepository alertRepository,
                                    MerchantRepository merchantRepository,
@@ -47,7 +46,6 @@ public class VerifiRdrWebhookService {
                                    CaseCreationService caseCreationService,
                                    ObjectMapper objectMapper) {
         this.properties = properties;
-        this.signatureVerifier = signatureVerifier;
         this.disputeRepository = disputeRepository;
         this.alertRepository = alertRepository;
         this.merchantRepository = merchantRepository;
@@ -56,62 +54,41 @@ public class VerifiRdrWebhookService {
         this.objectMapper = objectMapper;
     }
 
-    public boolean isAuthenticated(Map<String, String> headers, Object body) {
-        if (!properties.isSignatureRequired()) {
-            return true;
-        }
-        if (signatureVerifier.verifyApiKey(headers, properties.getApiKey())) {
-            return true;
-        }
-        String signature = firstHeader(headers,
-                "X-Butter-Webhook-Signature",
-                "X-Verifi-Webhook-Signature",
-                "X-Webhook-Signature");
-        String createdAt = firstHeader(headers,
-                "X-Butter-Webhook-Created",
-                "X-Verifi-Webhook-Created",
-                "X-Webhook-Created");
-        return signatureVerifier.verifyHmacSha256(body, signature, createdAt, properties.getWebhookSecret());
-    }
-
     @Transactional
     public ChargebackDispute processWebhook(Map<String, String> headers, Map<String, Object> payload) {
         if (!properties.isEnabled()) {
             log.warn("Verifi RDR webhook received but verifi.rdr.enabled=false — processing anyway for audit");
         }
 
-        String dedupId = firstHeader(headers,
-                "X-Butter-Webhook-Deduplication-ID",
-                "X-Verifi-Deduplication-ID",
-                "X-Webhook-Deduplication-ID");
+        String dedupId = resolveDeduplicationId(headers, payload);
         if (dedupId != null) {
             Optional<ChargebackDispute> existing = disputeRepository.findByDeduplicationId(dedupId);
             if (existing.isPresent()) {
-                log.info("Duplicate Verifi RDR webhook ignored: {}", dedupId);
+                log.info("Duplicate Verifi notification ignored: {}", dedupId);
                 return existing.get();
             }
         }
 
-        String webhookType = firstHeader(headers,
-                "X-Butter-Webhook-Type",
-                "X-Verifi-Webhook-Type",
-                "X-Webhook-Type");
-        String notificationType = resolveNotificationType(webhookType, payload);
-
+        boolean verifiV3 = payload.containsKey("caseType");
         @SuppressWarnings("unchecked")
-        Map<String, Object> data = payload.get("data") instanceof Map
-                ? (Map<String, Object>) payload.get("data")
-                : payload;
+        Map<String, Object> data = verifiV3
+                ? payload
+                : (payload.get("data") instanceof Map ? (Map<String, Object>) payload.get("data") : payload);
+
+        String notificationType = resolveNotificationType(data, payload);
+        String caseEvent = asString(data.get("caseEvent"));
 
         ChargebackDispute dispute = new ChargebackDispute();
-        dispute.setExternalEventId(asString(payload.get("id")));
+        dispute.setExternalEventId(firstNonBlank(
+                asString(data.get("caseId")),
+                asString(payload.get("id"))));
         dispute.setDeduplicationId(dedupId);
         dispute.setNotificationType(notificationType);
         dispute.setScheme("visa");
 
-        populateFromPayload(dispute, data, payload);
+        populateFromPayload(dispute, data, payload, verifiV3);
 
-        Long merchantId = resolveMerchantId(dispute);
+        Long merchantId = resolveMerchantId(dispute, data);
         dispute.setMerchantId(merchantId);
         if (merchantId != null) {
             merchantRepository.findByMerchantId(merchantId)
@@ -127,10 +104,10 @@ public class VerifiRdrWebhookService {
             dispute.setRawPayload(payload.toString());
         }
 
-        Alert alert = createAlert(dispute);
+        Alert alert = createAlert(dispute, caseEvent);
         dispute.setAlertId(alert.getAlertId());
 
-        if (properties.isAutoCreateCases() && shouldOpenCase(dispute)) {
+        if (properties.isAutoCreateCases() && shouldOpenCase(dispute, caseEvent)) {
             caseCreationService.triggerCaseFromChargeback(
                     dispute.getMerchantId(),
                     dispute.getPspId(),
@@ -146,24 +123,77 @@ public class VerifiRdrWebhookService {
         return disputeRepository.save(dispute);
     }
 
-    private void populateFromPayload(ChargebackDispute dispute, Map<String, Object> data, Map<String, Object> root) {
-        @SuppressWarnings("unchecked")
+    private String resolveDeduplicationId(Map<String, String> headers, Map<String, Object> payload) {
+        String correlationId = VerifiRequestAuthenticator.correlationId(headers);
+        if (correlationId != null) {
+            return correlationId;
+        }
+        return firstNonBlank(
+                VerifiRequestAuthenticator.firstHeader(headers,
+                        "X-Butter-Webhook-Deduplication-ID",
+                        "X-Verifi-Deduplication-ID",
+                        "X-Webhook-Deduplication-ID"),
+                asString(payload.get("caseId")));
+    }
+
+    private void populateFromPayload(ChargebackDispute dispute, Map<String, Object> data,
+                                     Map<String, Object> root, boolean verifiV3) {
+        if (verifiV3) {
+            populateVerifiV3(dispute, data);
+            return;
+        }
+        populateLegacyPartner(dispute, data, root);
+    }
+
+    private void populateVerifiV3(ChargebackDispute dispute, Map<String, Object> data) {
+        dispute.setCaseId(asString(data.get("caseId")));
+        dispute.setCaseDate(parseDate(data.get("caseDate")));
+        dispute.setRdrStatus(firstNonBlank(
+                asString(data.get("outcome")),
+                mapCaseEventToStatus(asString(data.get("caseEvent")))));
+
+        BigDecimal amount = amountFromObject(data.get("transactionAmount"));
+        String currency = currencyFromObject(data.get("transactionAmount"));
+        if (amount == null) {
+            amount = amountFromObject(data.get("destinationAmount"));
+            currency = firstNonBlank(currency, currencyFromObject(data.get("destinationAmount")));
+        }
+        dispute.setCaseAmount(amount);
+        dispute.setCaseCurrency(currency);
+
+        dispute.setAcquirerReferenceNumber(asString(data.get("arn")));
+        dispute.setNetworkMerchantId(asString(data.get("cardAcceptorId")));
+        dispute.setNetworkTransactionId(asString(data.get("transactionId")));
+        dispute.setMerchantOrderId(asString(data.get("purchaseIdentifier")));
+        dispute.setReasonCode(asString(data.get("reasonCode")));
+        dispute.setCardBin(asString(data.get("cardBin")));
+        dispute.setCardLast4(asString(data.get("cardLast4")));
+
+        String outcome = asString(data.get("outcome"));
+        if ("ACCEPTED".equalsIgnoreCase(outcome)) {
+            dispute.setRefunded(true);
+        }
+
+        if (dispute.getReasonCode() != null) {
+            dispute.setReasonCategory(categorizeReasonCode(dispute.getReasonCode()));
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void populateLegacyPartner(ChargebackDispute dispute, Map<String, Object> data,
+                                       Map<String, Object> root) {
         Map<String, Object> visaRdr = data.get("visa_rdr") instanceof Map
                 ? (Map<String, Object>) data.get("visa_rdr")
                 : null;
-        @SuppressWarnings("unchecked")
         Map<String, Object> caseObj = data.get("case") instanceof Map
                 ? (Map<String, Object>) data.get("case")
                 : null;
-        @SuppressWarnings("unchecked")
         Map<String, Object> network = data.get("network") instanceof Map
                 ? (Map<String, Object>) data.get("network")
                 : null;
-        @SuppressWarnings("unchecked")
         Map<String, Object> card = data.get("card") instanceof Map
                 ? (Map<String, Object>) data.get("card")
                 : null;
-        @SuppressWarnings("unchecked")
         Map<String, Object> pspTxn = data.get("psp_transaction") instanceof Map
                 ? (Map<String, Object>) data.get("psp_transaction")
                 : null;
@@ -195,7 +225,6 @@ public class VerifiRdrWebhookService {
             dispute.setMerchantOrderId(asString(network.get("merchant_order_id")));
         }
 
-        @SuppressWarnings("unchecked")
         Map<String, Object> reason = visaRdr != null && visaRdr.get("reason") instanceof Map
                 ? (Map<String, Object>) visaRdr.get("reason")
                 : null;
@@ -219,31 +248,37 @@ public class VerifiRdrWebhookService {
         }
     }
 
-    private Alert createAlert(ChargebackDispute dispute) {
+    private Alert createAlert(ChargebackDispute dispute, String caseEvent) {
         Alert alert = new Alert();
         alert.setMerchantId(dispute.getMerchantId());
         alert.setAction("ALERT");
         alert.setStatus("open");
         alert.setSeverity(isFraudCategory(dispute) ? "CRITICAL" : "WARN");
-        alert.setReason(buildAlertReason(dispute));
+        alert.setReason(buildAlertReason(dispute, caseEvent));
         alert.setScore(dispute.getCaseAmount() != null ? dispute.getCaseAmount().doubleValue() : 0.0);
         return alertRepository.save(alert);
     }
 
-    private boolean shouldOpenCase(ChargebackDispute dispute) {
-        return "accepted".equalsIgnoreCase(dispute.getRdrStatus())
+    private boolean shouldOpenCase(ChargebackDispute dispute, String caseEvent) {
+        if ("DELETE".equalsIgnoreCase(caseEvent)) {
+            return false;
+        }
+        return "ACCEPTED".equalsIgnoreCase(dispute.getRdrStatus())
                 || isFraudCategory(dispute)
-                || "DISPUTE_ALERT".equals(dispute.getNotificationType())
-                || "PRE_DISPUTE".equals(dispute.getNotificationType());
+                || "FRAUD_NOTICE".equals(dispute.getNotificationType())
+                || "DISPUTE_NOTICE".equals(dispute.getNotificationType())
+                || "RDR_NOTICE".equals(dispute.getNotificationType());
     }
 
     private boolean isFraudCategory(ChargebackDispute dispute) {
         return "fraud".equalsIgnoreCase(dispute.getReasonCategory())
+                || "FRAUD_NOTICE".equals(dispute.getNotificationType())
                 || (dispute.getReasonCode() != null && dispute.getReasonCode().startsWith("10."));
     }
 
-    private String buildAlertReason(ChargebackDispute dispute) {
-        return "Verifi RDR " + dispute.getNotificationType()
+    private String buildAlertReason(ChargebackDispute dispute, String caseEvent) {
+        return "Verifi " + dispute.getNotificationType()
+                + (caseEvent != null ? " event=" + caseEvent : "")
                 + (dispute.getRdrStatus() != null ? " [" + dispute.getRdrStatus() + "]" : "")
                 + (dispute.getReasonCode() != null ? " reason=" + dispute.getReasonCode() : "");
     }
@@ -255,7 +290,7 @@ public class VerifiRdrWebhookService {
                 + ", ARN=" + dispute.getAcquirerReferenceNumber();
     }
 
-    private Long resolveMerchantId(ChargebackDispute dispute) {
+    private Long resolveMerchantId(ChargebackDispute dispute, Map<String, Object> data) {
         if (dispute.getMerchantOrderId() != null) {
             try {
                 return Long.parseLong(dispute.getMerchantOrderId().replaceAll("\\D", ""));
@@ -263,35 +298,43 @@ public class VerifiRdrWebhookService {
                 // fall through
             }
         }
+        String purchaseId = asString(data.get("purchaseIdentifier"));
+        if (purchaseId != null) {
+            try {
+                return Long.parseLong(purchaseId.replaceAll("\\D", ""));
+            } catch (NumberFormatException ignored) {
+                // fall through
+            }
+        }
         return null;
     }
 
-    private String resolveNotificationType(String webhookType, Map<String, Object> payload) {
-        if (webhookType != null) {
-            String normalized = webhookType.toLowerCase().replace('.', '_');
-            if (normalized.contains("rdr") || normalized.contains("verifi")) {
-                @SuppressWarnings("unchecked")
-                Map<String, Object> data = payload.get("data") instanceof Map
-                        ? (Map<String, Object>) payload.get("data")
-                        : payload;
-                String status = asString(data.get("status"));
-                if ("accepted".equalsIgnoreCase(status)) {
-                    return "RDR_RESOLUTION";
-                }
-                if ("declined".equalsIgnoreCase(status)) {
-                    return "RDR_DECLINED";
-                }
-                if (Boolean.TRUE.equals(data.get("refunded"))) {
-                    return "RDR_PREVENTION";
-                }
-                return "DISPUTE_ALERT";
-            }
+    private String resolveNotificationType(Map<String, Object> data, Map<String, Object> root) {
+        String caseType = asString(data.get("caseType"));
+        if (caseType != null) {
+            return caseType.toUpperCase();
         }
-        String explicit = asString(payload.get("notification_type"));
+        String explicit = asString(root.get("notification_type"));
         if (explicit != null) {
             return explicit.toUpperCase();
         }
-        return "DISPUTE_ALERT";
+        String webhookType = asString(root.get("type"));
+        if (webhookType != null) {
+            return webhookType.toUpperCase();
+        }
+        return "DISPUTE_NOTICE";
+    }
+
+    private String mapCaseEventToStatus(String caseEvent) {
+        if (caseEvent == null) {
+            return null;
+        }
+        return switch (caseEvent.toUpperCase()) {
+            case "TIMEOUT" -> "TIMEOUT";
+            case "DELETE" -> "DELETED";
+            case "FAILED" -> "FAILED";
+            default -> "PENDING";
+        };
     }
 
     private String categorizeReasonCode(String code) {
@@ -313,15 +356,18 @@ public class VerifiRdrWebhookService {
         return null;
     }
 
-    private String firstHeader(Map<String, String> headers, String... names) {
-        for (String name : names) {
-            String value = headers.get(name);
-            if (value == null) {
-                value = headers.get(name.toLowerCase());
-            }
-            if (value != null && !value.isBlank()) {
-                return value;
-            }
+    @SuppressWarnings("unchecked")
+    private BigDecimal amountFromObject(Object amountObj) {
+        if (amountObj instanceof Map<?, ?> map) {
+            return toBigDecimal(map.get("amount"));
+        }
+        return toBigDecimal(amountObj);
+    }
+
+    @SuppressWarnings("unchecked")
+    private String currencyFromObject(Object amountObj) {
+        if (amountObj instanceof Map<?, ?> map) {
+            return asString(map.get("currency"));
         }
         return null;
     }
@@ -360,8 +406,12 @@ public class VerifiRdrWebhookService {
         if (value == null) {
             return null;
         }
+        String text = value.toString();
         try {
-            return LocalDate.parse(value.toString());
+            if (text.contains("T")) {
+                return OffsetDateTime.parse(text).toLocalDate();
+            }
+            return LocalDate.parse(text);
         } catch (Exception e) {
             return null;
         }

@@ -14,7 +14,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 // @Slf4j removed
 // @RequiredArgsConstructor removed
-@PreAuthorize("hasAnyRole('ADMIN','COMPLIANCE_OFFICER','PSP_ADMIN','PSP_USER')")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN','COMPLIANCE_OFFICER','PSP_ADMIN','PSP_USER')")
 @RestController
 @RequestMapping("/compliance/kyc")
 public class KycReportController {

@@ -22,7 +22,7 @@ import java.util.Optional;
  */
 @RestController
 @RequestMapping("/psps/{pspId}/cbk/system-interruptions")
-@PreAuthorize("hasAnyRole('ADMIN','PSP_ADMIN','COMPLIANCE_OFFICER')")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN','PSP_ADMIN','COMPLIANCE_OFFICER')")
 public class PspSystemInterruptionController {
 
     private static final Logger log = LoggerFactory.getLogger(PspSystemInterruptionController.class);

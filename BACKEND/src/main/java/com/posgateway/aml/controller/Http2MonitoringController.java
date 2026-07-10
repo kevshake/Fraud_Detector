@@ -15,7 +15,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
  * HTTP/2 Monitoring Controller
  * Provides endpoints to monitor HTTP/2 status, health, and failover
  */
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN')")
 @RestController
 @RequestMapping("/http2")
 public class Http2MonitoringController {

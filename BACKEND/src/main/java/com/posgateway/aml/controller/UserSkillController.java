@@ -45,7 +45,7 @@ public class UserSkillController {
     }
 
     @GetMapping("/types/all")
-    @PreAuthorize("hasRole('ADMIN') or hasAuthority('MANAGE_SKILLS')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN') or hasAuthority('MANAGE_SKILLS')")
     @Operation(summary = "Get all skill types including inactive", description = "Returns all skill types (admin only)")
     public ResponseEntity<List<SkillTypeDTO>> getAllSkillTypesIncludingInactive() {
         List<SkillType> skillTypes = userSkillService.getAllSkillTypes();
@@ -62,7 +62,7 @@ public class UserSkillController {
     }
 
     @PostMapping("/types")
-    @PreAuthorize("hasRole('ADMIN') or hasAuthority('MANAGE_SKILLS')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN') or hasAuthority('MANAGE_SKILLS')")
     @Operation(summary = "Create new skill type")
     public ResponseEntity<SkillTypeDTO> createSkillType(@RequestBody CreateSkillTypeRequest request) {
         SkillType skillType = userSkillService.createSkillType(
@@ -73,7 +73,7 @@ public class UserSkillController {
     }
 
     @PutMapping("/types/{id}")
-    @PreAuthorize("hasRole('ADMIN') or hasAuthority('MANAGE_SKILLS')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN') or hasAuthority('MANAGE_SKILLS')")
     @Operation(summary = "Update skill type")
     public ResponseEntity<SkillTypeDTO> updateSkillType(
             @PathVariable Long id,
@@ -87,7 +87,7 @@ public class UserSkillController {
     }
 
     @DeleteMapping("/types/{id}")
-    @PreAuthorize("hasRole('ADMIN') or hasAuthority('MANAGE_SKILLS')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN') or hasAuthority('MANAGE_SKILLS')")
     @Operation(summary = "Deactivate skill type")
     public ResponseEntity<Void> deactivateSkillType(@PathVariable Long id) {
         userSkillService.deactivateSkillType(id);
@@ -110,7 +110,7 @@ public class UserSkillController {
     }
 
     @PostMapping("/users/{userId}")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('COMPLIANCE_OFFICER') or hasAuthority('MANAGE_SKILLS')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN') or hasRole('COMPLIANCE_OFFICER') or hasAuthority('MANAGE_SKILLS')")
     @Operation(summary = "Add skill to user")
     public ResponseEntity<UserSkillDTO> addSkillToUser(
             @PathVariable Long userId,
@@ -123,7 +123,7 @@ public class UserSkillController {
     }
 
     @PutMapping("/users/{userId}/skills/{skillId}")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('COMPLIANCE_OFFICER') or hasAuthority('MANAGE_SKILLS')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN') or hasRole('COMPLIANCE_OFFICER') or hasAuthority('MANAGE_SKILLS')")
     @Operation(summary = "Update user skill")
     public ResponseEntity<UserSkillDTO> updateUserSkill(
             @PathVariable Long userId,
@@ -137,7 +137,7 @@ public class UserSkillController {
     }
 
     @DeleteMapping("/users/{userId}/skills/{skillTypeId}")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('COMPLIANCE_OFFICER') or hasAuthority('MANAGE_SKILLS')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN') or hasRole('COMPLIANCE_OFFICER') or hasAuthority('MANAGE_SKILLS')")
     @Operation(summary = "Remove skill from user")
     public ResponseEntity<Void> removeSkillFromUser(
             @PathVariable Long userId,
@@ -147,7 +147,7 @@ public class UserSkillController {
     }
 
     @PostMapping("/users/skills/{userSkillId}/certify")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('COMPLIANCE_OFFICER') or hasAuthority('CERTIFY_SKILLS')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN') or hasRole('COMPLIANCE_OFFICER') or hasAuthority('CERTIFY_SKILLS')")
     @Operation(summary = "Certify a user skill")
     public ResponseEntity<UserSkillDTO> certifySkill(
             @PathVariable Long userSkillId,
@@ -161,7 +161,7 @@ public class UserSkillController {
     }
 
     @PostMapping("/users/skills/{userSkillId}/revoke-certification")
-    @PreAuthorize("hasRole('ADMIN') or hasAuthority('CERTIFY_SKILLS')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN') or hasAuthority('CERTIFY_SKILLS')")
     @Operation(summary = "Revoke skill certification")
     public ResponseEntity<UserSkillDTO> revokeCertification(@PathVariable Long userSkillId) {
         UserSkill userSkill = userSkillService.revokeCertification(userSkillId);

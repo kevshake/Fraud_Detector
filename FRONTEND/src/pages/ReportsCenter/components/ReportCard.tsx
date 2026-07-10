@@ -28,6 +28,8 @@ import {
   Settings as OperationalIcon,
   CheckCircle as ComplianceIcon,
   Analytics as AnalyticalIcon,
+  Star as StarIcon,
+  StarBorder as StarBorderIcon,
 } from "@mui/icons-material";
 import type {
   ReportDefinition,
@@ -40,6 +42,8 @@ interface ReportCardProps {
   onGenerate: (reportId: string, params: Record<string, unknown>, format: string) => void;
   onSchedule: (report: ReportDefinition) => void;
   isGenerating?: boolean;
+  isFavorite?: boolean;
+  onToggleFavorite?: () => void;
 }
 
 const TYPE_ICONS: Record<ReportType, typeof RegulatoryIcon> = {
@@ -77,6 +81,8 @@ export default function ReportCard({
   onGenerate,
   onSchedule,
   isGenerating = false,
+  isFavorite = false,
+  onToggleFavorite,
 }: ReportCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [parameters, setParameters] = useState<Record<string, unknown>>({});
@@ -154,6 +160,18 @@ export default function ReportCard({
               {report.description}
             </Typography>
           </Box>
+
+          {onToggleFavorite && (
+            <Tooltip title={isFavorite ? "Remove favorite" : "Add to favorites"}>
+              <IconButton size="small" onClick={onToggleFavorite} aria-label="toggle favorite">
+                {isFavorite ? (
+                  <StarIcon sx={{ color: "#C9A961" }} />
+                ) : (
+                  <StarBorderIcon sx={{ color: "text.secondary" }} />
+                )}
+              </IconButton>
+            </Tooltip>
+          )}
         </Box>
 
         {/* Tags & Type */}

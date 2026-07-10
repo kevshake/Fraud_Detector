@@ -12,6 +12,8 @@ public interface ChargebackDisputeRepository extends JpaRepository<ChargebackDis
 
     Optional<ChargebackDispute> findByDeduplicationId(String deduplicationId);
 
+    Optional<ChargebackDispute> findTopByCaseIdOrderByCreatedAtDesc(String caseId);
+
     List<ChargebackDispute> findByPspIdOrderByCreatedAtDesc(Long pspId);
 
     List<ChargebackDispute> findByMerchantIdOrderByCreatedAtDesc(Long merchantId);

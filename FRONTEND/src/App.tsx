@@ -33,6 +33,7 @@ const PspsListPage = lazy(() => import("./pages/Psps/PspsListPage"));
 const PspConfigPage = lazy(() => import("./pages/Psps/PspConfigPage"));
 const LimitsAmlPage = lazy(() => import("./pages/LimitsAml/LimitsAmlPage"));
 const BillingPage = lazy(() => import("./pages/Billing/BillingPage"));
+const ChargebacksPage = lazy(() => import("./pages/Chargebacks/ChargebacksPage"));
 
 function PageLoader() {
   return (
@@ -85,6 +86,7 @@ function App() {
                             <Route path="settings" element={<SettingsPage />} />
                             <Route path="users/*" element={<UsersPage />} />
                             <Route path="reports" element={<ReportsCenterPage />} />
+                            <Route path="chargebacks" element={<ChargebacksPage />} />
                             <Route path="reports-center" element={<Navigate to="/reports" replace />} />
                             <Route path="audit" element={<AuditLogsPage />} />
                             <Route path="rules-generation" element={<RulesGenerationPage />} />

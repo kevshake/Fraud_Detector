@@ -1,67 +1,149 @@
-# Visa / Verifi RDR Integration
+# Visa / Verifi API 3.0 Integration
 
-## Endpoints
+Reference: **Verifi API 3.0 v08.07.01** (April 2026). Merchants host endpoints; Verifi calls inbound via HTTPS POST with JWT authentication.
 
-| Method | Path | Auth | Purpose |
-|--------|------|------|---------|
-| POST | `/api/v1/integrations/verifi/rdr` | HMAC or API key | Primary RDR webhook |
-| POST | `/api/v1/chargeback/verifi/rdr` | HMAC or API key | Alias path |
-| GET | `/api/v1/integrations/verifi/rdr/health` | Public | Health / config probe |
-| GET | `/api/v1/chargeback/disputes` | Session | List ingested disputes |
-| GET | `/api/v1/chargeback/disputes/{id}` | Session | Dispute detail |
+## Merchant endpoints (register base URL in Verifi portal)
+
+Configure base URL as `https://your-host/api/v1/integrations/verifi`. Verifi appends resource paths:
+
+| Verifi resource | Method | Our path | Purpose |
+|-----------------|--------|----------|---------|
+| `/notifications` | POST | `/api/v1/integrations/verifi/notifications` | All notification case types |
+| `/decisions` | POST | `/api/v1/integrations/verifi/decisions` | Real-time RDR accept/decline (2s SLA) |
+| `/ping` | POST | `/api/v1/integrations/verifi/ping` | Connectivity / auth validation |
+
+Legacy aliases (non-spec, retained for backward compatibility):
+
+| Method | Path | Notes |
+|--------|------|-------|
+| POST | `/api/v1/integrations/verifi/rdr` | Alias → same handler as `/notifications` |
+| POST | `/api/v1/chargeback/verifi/rdr` | Alias → same handler as `/notifications` |
+| POST | `/api/v1/integrations/verifi/decision` | Alias → same handler as `/decisions` |
+| GET | `/api/v1/integrations/verifi/rdr/health` | Health probe |
+
+Authenticated read API for ingested disputes: `GET /api/v1/chargeback/disputes`.
 
 ## Configuration
 
 ```properties
 verifi.rdr.enabled=true
-verifi.rdr.webhook-secret=<shared HMAC secret>
-verifi.rdr.api-key=<optional X-Api-Key fallback>
-verifi.rdr.callback-url=https://your-host/api/v1/integrations/verifi/rdr
+verifi.rdr.webhook-secret=<32-char shared secret for JWS HS256>
+verifi.rdr.partner-id=<Verifi partnerId for Ping response>
+verifi.rdr.client-id=<Verifi clientId for Ping response>
+verifi.rdr.callback-url=https://your-host/api/v1/integrations/verifi
 verifi.rdr.signature-required=true
 verifi.rdr.auto-create-cases=true
 ```
 
-Environment variables: `VERIFI_RDR_ENABLED`, `VERIFI_RDR_WEBHOOK_SECRET`, `VERIFI_RDR_API_KEY`, `VERIFI_RDR_CALLBACK_URL`.
+Environment variables: `VERIFI_RDR_ENABLED`, `VERIFI_RDR_WEBHOOK_SECRET`, `VERIFI_RDR_PARTNER_ID`, `VERIFI_RDR_CLIENT_ID`, `VERIFI_RDR_CALLBACK_URL`.
 
-## Notification handling
+## Authentication (per spec §Getting Started)
 
-The webhook service normalizes partner payloads into `chargeback_disputes` and:
+Verifi sends `Authorization: Bearer <JWS>` (or JWE) on every inbound request.
 
-1. Deduplicates via `X-Butter-Webhook-Deduplication-ID` / `X-Verifi-Deduplication-ID`
-2. Creates an `alerts` row for analyst visibility
-3. Optionally opens/updates a `compliance_cases` row (`CHARGEBACK` alert type)
-4. Increments Aerospike merchant chargeback counters (when merchant resolves)
+**JWS validation (implemented):**
 
-Supported notification types (derived from headers + body):
+1. Split token into `header.payload.signature`
+2. Verify `alg` is `HS256`
+3. Compute `HMAC-SHA256(base64url(header) + '.' + base64url(payload), sharedSecret)`
+4. Validate `jti` uniqueness within 360 seconds, `iat` within ±300s, `exp` not expired
 
-- `DISPUTE_ALERT` — pre-dispute / case opened
-- `RDR_PREVENTION` — auto-refund / liability accepted before chargeback
-- `RDR_RESOLUTION` — terminal accepted outcome
-- `RDR_DECLINED` — rule did not match; dispute proceeds
+**Request headers from Verifi:**
 
-Payload shapes supported:
+| Header | Purpose |
+|--------|---------|
+| `Authorization` | Bearer JWS or JWE token |
+| `x-verifi-api-version` | `3.0` — return HTTP 501 if unsupported |
+| `x-verifi-correlation-id` | Unique request ID (used for deduplication) |
+| `x-verifi-retry-count` | Retry attempt counter (notifications) |
 
-- Butter/Verifi `verifi.rdr` object (case, network, card, psp_transaction)
-- PayNext-style `data.visa_rdr` sub-object (`status`, `case_id`, `reason`)
+Legacy Butter/PSP partner HMAC (`jsonBody + "+" + createdAt`) and `X-Api-Key` remain as dev fallbacks when `signature-required=false` or for non-Verifi partners.
 
-## Signature verification
+## Notification callback flow
 
-HMAC-SHA256 over `jsonBody + "+" + createdAt` header (Butter/Verifi partner pattern).
-Headers checked: `X-Butter-Webhook-Signature`, `X-Verifi-Webhook-Signature`, `X-Webhook-Signature`.
+```
+Issuer → Visa/Verifi → POST /notifications (Bearer JWS)
+                              ↓
+                    Validate JWS + API version
+                              ↓
+                    Map payload → chargeback_disputes
+                              ↓
+                    Create alert (+ optional compliance case)
+                              ↓
+                    HTTP 200 empty body
+```
 
-## Gaps vs full Verifi certification
+### Supported notification case types (`caseType`)
+
+| caseType | caseEvent values | Handled? |
+|----------|------------------|----------|
+| `RDR_NOTICE` | NEW, DELETE, TIMEOUT | Yes — ingested; `outcome` ACCEPTED/DECLINED mapped |
+| `DISPUTE_NOTICE` | NEW, DELETE | Yes |
+| `FRAUD_NOTICE` | NEW, UPDATE, DELETE, REACTIVATE | Yes |
+| `CE_NOTICE` | NEW, DELETE, FAILED, TIMEOUT | Yes |
+| `EXCEPTION_NOTICE` | NEW, UPDATE, DELETE | Stored if received (spec: not yet live) |
+
+### Key payload fields (Verifi API 3.0)
+
+| Spec field | Mapped to |
+|------------|-----------|
+| `caseId` | `case_id`, dedup fallback |
+| `caseType` | `notification_type` |
+| `caseEvent` | alert reason / case-open logic |
+| `outcome` | `rdr_status` (RDR_NOTICE) |
+| `transactionAmount` | `case_amount` / `case_currency` |
+| `arn` | `acquirer_reference_number` |
+| `cardAcceptorId` | `network_merchant_id` |
+| `transactionId` | `network_transaction_id` |
+| `purchaseIdentifier` | `merchant_order_id` |
+| `reasonCode` | `reason_code` |
+| `cardBin`, `cardLast4` | `card_bin`, `card_last4` |
+
+Legacy Butter/PayNext nested shapes (`data.visa_rdr`, `case`, `network`) still supported.
+
+## Decision API
+
+Verifi POSTs to `/decisions` with `decisionId`, `caseType=DISPUTE`, `caseAmount`, etc.
+
+**Response format (spec):**
+
+```json
+{
+  "outcome": "ACCEPTED",
+  "statusCode": "103",
+  "reason": "Merchant reason text",
+  "refundAmount": { "amount": 10.12, "currency": "USD" }
+}
+```
+
+Declined: `outcome=DECLINED`, `statusCode` one of `957` (general), `950` (account closed), `951` (already refunded).
+
+Current rule engine: auto-accept low-value (&lt;500) non-fraud; decline fraud (`10.x` reason codes).
+
+## HTTP status codes
+
+| Code | When |
+|------|------|
+| 200 | Success (notifications: empty body) |
+| 401 | JWS/signature validation failed |
+| 501 | `x-verifi-api-version` ≠ 3.0 |
+| 500 | Processing error |
+
+## Remaining certification gaps
 
 | Gap | Notes |
 |-----|-------|
-| **Decision API** | Not implemented. Merchants needing real-time accept/decline responses must integrate Verifi Decision API separately (sub-2s SLA). |
-| **Notifications API outbound responses** | We ingest webhooks only; we do not POST decision responses back to Verifi. |
-| **BIN/CAID enrollment** | Enrollment and rule configuration happen in Verifi portal / acquirer — not in this app. |
-| **Merchant MID mapping** | Network `merchant_id` → internal `merchants` mapping relies on `merchant_order_id` parsing; dedicated MID lookup table not yet seeded. |
-| **SFTP daily extract** | Batch reconciliation file ingestion not implemented. |
-| **CDRN** | Cardholder Dispute Resolution Network is a separate Verifi product — not wired here. |
-| **Certification test cases** | No automated certification test suite; manual webhook replay required. |
-| **3DS / fraud score passthrough** | RDR case enrichment with issuer 3DS data not implemented. |
+| **JWE (RSA) auth** | JWS implemented; JWE nested JWT requires RSA private key — not yet wired |
+| **Order Insight `/orders`** | Separate product — not implemented |
+| **BIN/CAID enrollment lookup** | `acquirerBin` + `cardAcceptorId` not used for merchant resolution yet |
+| **Merchant MID mapping** | Relies on `purchaseIdentifier` parsing; no dedicated MID table |
+| **SFTP daily extract** | Batch reconciliation not implemented |
+| **CDRN** | Separate Verifi product |
+| **Decision API integration testing** | Verifi test portal supports Order Insight + Notifications only (spec §Integration Testing) |
+| **Notification retry handling** | Spec retry (6 attempts / 30 min) marked future release |
+| **Firewall allowlisting** | Verifi source IPs: `198.241.206.21`, `198.241.207.21` |
+| **Automated certification tests** | Manual replay via Verifi One test portal required |
 
 ## Frontend
 
-Chargeback disputes are exposed via `GET /chargeback/disputes` for the Reports Center chargeback category. A dedicated chargeback operations page is not yet present.
+Chargeback disputes exposed via `GET /chargeback/disputes` for Reports Center.

@@ -16,7 +16,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/aml/detection")
-@PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER', 'ANALYST', 'INVESTIGATOR')")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'COMPLIANCE_OFFICER', 'ANALYST', 'INVESTIGATOR')")
 public class AmlDetectionController {
 
     private final AmlScenarioDetectionService amlDetectionService;

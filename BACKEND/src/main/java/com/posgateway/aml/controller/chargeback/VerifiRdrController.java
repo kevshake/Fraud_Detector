@@ -1,6 +1,7 @@
 package com.posgateway.aml.controller.chargeback;
 
-import com.posgateway.aml.entity.chargeback.ChargebackDispute;
+import com.posgateway.aml.integration.verifi.VerifiRdrProperties;
+import com.posgateway.aml.integration.verifi.VerifiRequestAuthenticator;
 import com.posgateway.aml.service.chargeback.VerifiRdrWebhookService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -8,55 +9,52 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Visa/Verifi Rapid Dispute Resolution (RDR) webhook endpoint.
- * <p>
- * Register {@code POST /api/v1/integrations/verifi/rdr} with Verifi or your PSP partner.
- * Authenticated via HMAC signature or {@code X-Api-Key} header (see {@code verifi.rdr.*}).
+ * Legacy alias for Verifi notification ingestion.
+ * Official Verifi API 3.0 path is {@link VerifiNotificationController} at {@code /notifications}.
  */
 @RestController
-@RequestMapping("/integrations/verifi/rdr")
+@RequestMapping({"/integrations/verifi/rdr", "/chargeback/verifi/rdr"})
 public class VerifiRdrController {
 
     private static final Logger log = LoggerFactory.getLogger(VerifiRdrController.class);
 
     private final VerifiRdrWebhookService webhookService;
+    private final VerifiRdrProperties properties;
+    private final VerifiRequestAuthenticator authenticator;
 
-    public VerifiRdrController(VerifiRdrWebhookService webhookService) {
+    public VerifiRdrController(VerifiRdrWebhookService webhookService,
+                               VerifiRdrProperties properties,
+                               VerifiRequestAuthenticator authenticator) {
         this.webhookService = webhookService;
+        this.properties = properties;
+        this.authenticator = authenticator;
     }
 
     @PostMapping
-    public ResponseEntity<Map<String, Object>> receiveRdrWebhook(
+    public ResponseEntity<Void> receiveRdrWebhook(
             @RequestHeader Map<String, String> headers,
             @RequestBody Map<String, Object> payload) {
 
-        if (!webhookService.isAuthenticated(headers, payload)) {
-            log.warn("Verifi RDR webhook rejected: invalid signature or API key");
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("status", "rejected", "reason", "invalid_signature"));
+        if (!authenticator.isApiVersionSupported(headers)) {
+            return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+        }
+        if (!authenticator.isAuthenticated(headers, payload, properties)) {
+            log.warn("Verifi RDR webhook rejected: invalid signature");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
         try {
-            ChargebackDispute dispute = webhookService.processWebhook(headers, payload);
-            Map<String, Object> body = new LinkedHashMap<>();
-            body.put("status", "accepted");
-            body.put("disputeId", dispute.getId());
-            body.put("notificationType", dispute.getNotificationType());
-            body.put("rdrStatus", dispute.getRdrStatus());
-            body.put("alertId", dispute.getAlertId());
-            return ResponseEntity.ok(body);
+            webhookService.processWebhook(headers, payload);
+            return ResponseEntity.ok().build();
         } catch (Exception e) {
             log.error("Failed to process Verifi RDR webhook", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("status", "error", "message", "processing_failed"));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
-    /** Health probe for Verifi partner connectivity checks. */
     @GetMapping("/health")
     public ResponseEntity<Map<String, String>> health() {
         return ResponseEntity.ok(Map.of("status", "ok", "integration", "verifi-rdr"));

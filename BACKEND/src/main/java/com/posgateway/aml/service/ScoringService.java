@@ -24,7 +24,7 @@ public class ScoringService {
     private final RestClientService restClientService;
     private final com.posgateway.aml.service.risk.SchemeSimulatorService schemeSimulatorService;
     private final RedisTemplate<String, Object> redisTemplate;
-    private final com.posgateway.aml.service.rules.DroolsRulesService droolsRulesService;
+    private final com.posgateway.aml.service.rules.RulesExecutionService rulesExecutionService;
     private final com.posgateway.aml.service.deeplearning.DL4JAnomalyService dl4jAnomalyService;
     private final com.posgateway.aml.client.aml.AmlMicroserviceClient amlMicroserviceClient;
 
@@ -44,13 +44,13 @@ public class ScoringService {
     public ScoringService(RestClientService restClientService,
             com.posgateway.aml.service.risk.SchemeSimulatorService schemeSimulatorService,
             RedisTemplate<String, Object> redisTemplate,
-            @org.springframework.beans.factory.annotation.Autowired(required = false) com.posgateway.aml.service.rules.DroolsRulesService droolsRulesService,
+            com.posgateway.aml.service.rules.RulesExecutionService rulesExecutionService,
             @org.springframework.beans.factory.annotation.Autowired(required = false) com.posgateway.aml.service.deeplearning.DL4JAnomalyService dl4jAnomalyService,
             com.posgateway.aml.client.aml.AmlMicroserviceClient amlMicroserviceClient) {
         this.restClientService = restClientService;
         this.schemeSimulatorService = schemeSimulatorService;
         this.redisTemplate = redisTemplate;
-        this.droolsRulesService = droolsRulesService;
+        this.rulesExecutionService = rulesExecutionService;
         this.dl4jAnomalyService = dl4jAnomalyService;
         this.amlMicroserviceClient = amlMicroserviceClient;
     }
@@ -141,8 +141,8 @@ public class ScoringService {
         }
 
         if (!scoringEnabled) {
-            logger.debug("Scoring service disabled, returning default score");
-            return new ScoringResult(txnId, 0.0, 0L);
+            logger.debug("Scoring service disabled, evaluating rules only");
+            return evaluateRulesOnly(txnId, features, assessment);
         }
 
         logger.debug("Scoring transaction {} with {} features", txnId, features.size());
@@ -176,27 +176,12 @@ public class ScoringService {
                 // Add ML score to riskDetails as requested
                 riskDetails.put("ml_score", score);
 
-                // --- KIE DROOLS RULES ENGINE INTEGRATION (PHASE 4) ---
-                if (droolsRulesService != null) {
-                    com.posgateway.aml.rules.RuleEvaluationResult ruleResult = droolsRulesService.evaluate(txnId,
-                            features, score);
+                // --- Unified rules engine (SpEL from DB + Drools DRL) ---
+                com.posgateway.aml.rules.RuleEvaluationResult ruleResult =
+                        rulesExecutionService.evaluateRules(txnId, features, score);
 
-                    // Add rule details to risk response
-                    riskDetails.put("rule_decision", ruleResult.getDecision());
-                    riskDetails.put("rules_triggered", ruleResult.getTriggeredRules());
-                    riskDetails.put("rule_reasons", ruleResult.getReasons());
-                    riskDetails.put("sar_required", ruleResult.isSarRequired());
-
-                    // CRITICAL: Regulatory Rules Override ML Score
-                    if ("BLOCK".equals(ruleResult.getDecision())) {
-                        score = 1.0; // Force High Risk
-                        logger.warn("Regulatory Rule BLOCK override for txn {}: {}", txnId, ruleResult.getReasons());
-                    } else if ("HOLD".equals(ruleResult.getDecision()) && score < 0.7) {
-                        score = 0.85; // Force Review if Model missed it
-                        logger.info("Regulatory Rule HOLD override for txn {}: {}", txnId, ruleResult.getReasons());
-                    }
-                }
-                // -----------------------------------------------------
+                applyRuleResultToScore(ruleResult, riskDetails);
+                score = resolveScoreAfterRules(score, ruleResult);
 
                 // --- DL4J DEEP ANOMALY DETECTION (PHASE 5) ---
                 if (dl4jAnomalyService != null) {
@@ -239,15 +224,56 @@ public class ScoringService {
 
             logger.warn("Empty response from scoring service for transaction {}", txnId);
             long latencyMs = System.currentTimeMillis() - startTime;
-
-            riskDetails.put("ml_score", 0.0);
-            return new ScoringResult(txnId, 0.0, latencyMs, riskDetails);
+            return evaluateRulesOnly(txnId, features, assessment, latencyMs);
 
         } catch (Exception e) {
             logger.error("Error scoring transaction {}: {}", txnId, e.getMessage());
             long latencyMs = System.currentTimeMillis() - startTime;
-            return new ScoringResult(txnId, 0.0, latencyMs);
+            return evaluateRulesOnly(txnId, features, assessment, latencyMs);
         }
+    }
+
+    private ScoringResult evaluateRulesOnly(Long txnId, Map<String, Object> features,
+            com.posgateway.aml.service.risk.SchemeSimulatorService.MerchantRiskAssessment assessment) {
+        return evaluateRulesOnly(txnId, features, assessment, 0L);
+    }
+
+    private ScoringResult evaluateRulesOnly(Long txnId, Map<String, Object> features,
+            com.posgateway.aml.service.risk.SchemeSimulatorService.MerchantRiskAssessment assessment,
+            long latencyMs) {
+        Map<String, Object> riskDetails = new HashMap<>();
+        if (assessment != null) {
+            riskDetails.putAll(assessment.toRiskDetails());
+        }
+        double score = 0.0;
+        com.posgateway.aml.rules.RuleEvaluationResult ruleResult =
+                rulesExecutionService.evaluateRules(txnId, features, score);
+        applyRuleResultToScore(ruleResult, riskDetails);
+        score = resolveScoreAfterRules(score, ruleResult);
+        riskDetails.put("ml_score", score);
+        return new ScoringResult(txnId, score, latencyMs, riskDetails);
+    }
+
+    private void applyRuleResultToScore(com.posgateway.aml.rules.RuleEvaluationResult ruleResult,
+                                        Map<String, Object> riskDetails) {
+        riskDetails.put("rule_decision", ruleResult.getDecision());
+        riskDetails.put("rules_triggered", ruleResult.getTriggeredRules());
+        riskDetails.put("rule_reasons", ruleResult.getReasons());
+        riskDetails.put("sar_required", ruleResult.isSarRequired());
+        riskDetails.put("ctr_required", ruleResult.isCtrRequired());
+    }
+
+    private double resolveScoreAfterRules(double score, com.posgateway.aml.rules.RuleEvaluationResult ruleResult) {
+        if ("BLOCK".equals(ruleResult.getDecision())) {
+            return 1.0;
+        }
+        if ("HOLD".equals(ruleResult.getDecision()) && score < 0.7) {
+            return 0.85;
+        }
+        if ("REVIEW".equals(ruleResult.getDecision()) && score < 0.5) {
+            return 0.65;
+        }
+        return score;
     }
 
     private Double extractDouble(Object value) {

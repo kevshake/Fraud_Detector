@@ -44,7 +44,7 @@ public class RegulatorySubmissionController {
      * GET /api/reports/submissions
      */
     @GetMapping("/submissions")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
     public ResponseEntity<Page<RegulatorySubmissionDTO>> listSubmissions(
             @RequestParam(required = false) Long pspId,
             @RequestParam(required = false) String status,
@@ -85,7 +85,7 @@ public class RegulatorySubmissionController {
      * GET /api/reports/submissions/{id}
      */
     @GetMapping("/submissions/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
     public ResponseEntity<RegulatorySubmissionDTO> getSubmission(@PathVariable Long id) {
         logger.debug("Get submission by ID: {}", id);
         
@@ -98,7 +98,7 @@ public class RegulatorySubmissionController {
      * GET /api/reports/submissions/{id}/status
      */
     @GetMapping("/submissions/{id}/status")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
     public ResponseEntity<Map<String, Object>> getSubmissionStatus(@PathVariable Long id) {
         logger.debug("Get submission status: {}", id);
         
@@ -123,7 +123,7 @@ public class RegulatorySubmissionController {
      * POST /api/reports/{id}/prepare
      */
     @PostMapping("/{id}/prepare")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
     public ResponseEntity<RegulatorySubmissionDTO> prepareSubmission(@PathVariable Long id,
                                                                       @RequestBody Map<String, String> request,
                                                                       Authentication authentication) {
@@ -144,7 +144,7 @@ public class RegulatorySubmissionController {
      * POST /api/reports/{id}/submit
      */
     @PostMapping("/{id}/submit")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
     public ResponseEntity<RegulatorySubmissionDTO> submitToRegulator(@PathVariable Long id,
                                                                      @RequestBody RegulatorySubmissionRequest request,
                                                                      Authentication authentication) {
@@ -178,7 +178,7 @@ public class RegulatorySubmissionController {
      * POST /api/reports/{id}/submit/fincen
      */
     @PostMapping("/{id}/submit/fincen")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
     public ResponseEntity<RegulatorySubmissionDTO> submitToFinCEN(@PathVariable Long id,
                                                                   Authentication authentication) {
         logger.info("Submit to FinCEN for report: {}", id);
@@ -196,7 +196,7 @@ public class RegulatorySubmissionController {
      * POST /api/reports/{id}/submit/fca
      */
     @PostMapping("/{id}/submit/fca")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
     public ResponseEntity<RegulatorySubmissionDTO> submitToFCA(@PathVariable Long id,
                                                                Authentication authentication) {
         logger.info("Submit to FCA for report: {}", id);
@@ -214,7 +214,7 @@ public class RegulatorySubmissionController {
      * POST /api/reports/{id}/submit/ofac
      */
     @PostMapping("/{id}/submit/ofac")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
     public ResponseEntity<RegulatorySubmissionDTO> submitToOFAC(@PathVariable Long id,
                                                                 Authentication authentication) {
         logger.info("Submit to OFAC for report: {}", id);
@@ -232,7 +232,7 @@ public class RegulatorySubmissionController {
      * PUT /api/reports/submissions/{id}/status
      */
     @PutMapping("/submissions/{id}/status")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
     public ResponseEntity<RegulatorySubmissionDTO> updateSubmissionStatus(@PathVariable Long id,
                                                                           @RequestBody Map<String, String> request,
                                                                           Authentication authentication) {
@@ -252,7 +252,7 @@ public class RegulatorySubmissionController {
      * POST /api/reports/submissions/{id}/approve
      */
     @PostMapping("/submissions/{id}/approve")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'PSP_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'PSP_ADMIN')")
     public ResponseEntity<RegulatorySubmissionDTO> approveSubmission(@PathVariable Long id,
                                                                       Authentication authentication) {
         logger.info("Approve submission: {}", id);
@@ -269,7 +269,7 @@ public class RegulatorySubmissionController {
      * POST /api/reports/submissions/{id}/reject
      */
     @PostMapping("/submissions/{id}/reject")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'PSP_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'PSP_ADMIN')")
     public ResponseEntity<RegulatorySubmissionDTO> rejectSubmission(@PathVariable Long id,
                                                                      @RequestBody(required = false) Map<String, String> request,
                                                                      Authentication authentication) {
@@ -287,7 +287,7 @@ public class RegulatorySubmissionController {
      * POST /api/reports/submissions/{id}/amend
      */
     @PostMapping("/submissions/{id}/amend")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
     public ResponseEntity<RegulatorySubmissionDTO> amendSubmission(@PathVariable Long id,
                                                                     @RequestBody Map<String, String> request,
                                                                     Authentication authentication) {
@@ -306,7 +306,7 @@ public class RegulatorySubmissionController {
      * GET /api/reports/submissions/overdue
      */
     @GetMapping("/submissions/overdue")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
     public ResponseEntity<List<RegulatorySubmissionDTO>> getOverdueSubmissions() {
         logger.debug("Get overdue submissions");
         
@@ -319,7 +319,7 @@ public class RegulatorySubmissionController {
      * GET /api/reports/submissions/at-risk
      */
     @GetMapping("/submissions/at-risk")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
     public ResponseEntity<List<RegulatorySubmissionDTO>> getAtRiskSubmissions(
             @RequestParam(defaultValue = "7") int daysThreshold) {
         
@@ -334,7 +334,7 @@ public class RegulatorySubmissionController {
      * DELETE /api/reports/submissions/{id}
      */
     @DeleteMapping("/submissions/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'PSP_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'PSP_ADMIN')")
     public ResponseEntity<Map<String, Object>> deleteSubmission(@PathVariable Long id) {
         logger.info("Delete submission: {}", id);
         
@@ -351,7 +351,7 @@ public class RegulatorySubmissionController {
      * GET /api/reports/submissions/reference/{reference}/status
      */
     @GetMapping("/submissions/reference/{reference}/status")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
     public ResponseEntity<RegulatorySubmissionDTO> trackSubmissionStatus(@PathVariable String reference) {
         logger.debug("Track submission status: {}", reference);
         
@@ -364,7 +364,7 @@ public class RegulatorySubmissionController {
      * GET /api/reports/submissions/statistics
      */
     @GetMapping("/submissions/statistics")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'PSP_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'PSP_ADMIN')")
     public ResponseEntity<Map<String, Object>> getSubmissionStatistics(
             @RequestParam(required = false) Long pspId) {
         
@@ -411,7 +411,7 @@ public class RegulatorySubmissionController {
      * GET /api/reports/regulators
      */
     @GetMapping("/regulators")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN', 'ANALYST')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN', 'ANALYST')")
     public ResponseEntity<List<Map<String, String>>> getAvailableRegulators() {
         logger.debug("Get available regulators");
         

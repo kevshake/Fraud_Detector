@@ -33,7 +33,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
  * down, slow, or returns null (circuit-breaker tripped) we fall through to the
  * existing in-process {@link FraudDetectionOrchestrator} pipeline unchanged.
  */
-@PreAuthorize("hasAnyRole('ADMIN','COMPLIANCE_OFFICER','PSP_ADMIN','PSP_USER')")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN','COMPLIANCE_OFFICER','PSP_ADMIN','PSP_USER')")
 @RestController
 @RequestMapping("/aml")
 public class AmlCheckController {

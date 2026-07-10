@@ -14,7 +14,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
  * Batch Controller
  * Provides endpoints for batch processing operations
  */
-@PreAuthorize("hasAnyRole('ADMIN','COMPLIANCE_OFFICER','PSP_ADMIN','PSP_USER')")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN','COMPLIANCE_OFFICER','PSP_ADMIN','PSP_USER')")
 @RestController
 @RequestMapping("/batch")
 public class BatchController {

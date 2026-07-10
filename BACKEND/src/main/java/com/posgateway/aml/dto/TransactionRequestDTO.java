@@ -32,6 +32,8 @@ public class TransactionRequestDTO {
     private String acquirerResponse;
 
     private String direction; // INBOUND, OUTBOUND
+    private String ipAddress;
+    private String countryCode;
 
     // Getters and Setters
     public String getMerchantId() {
@@ -104,6 +106,22 @@ public class TransactionRequestDTO {
 
     public void setDirection(String direction) {
         this.direction = direction;
+    }
+
+    public String getIpAddress() {
+        return ipAddress;
+    }
+
+    public void setIpAddress(String ipAddress) {
+        this.ipAddress = ipAddress;
+    }
+
+    public String getCountryCode() {
+        return countryCode;
+    }
+
+    public void setCountryCode(String countryCode) {
+        this.countryCode = countryCode;
     }
 }
 

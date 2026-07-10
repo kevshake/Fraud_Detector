@@ -148,6 +148,7 @@ export default function Sidebar() {
             icon: <ChartsIcon />,
             path: "/reports",
           },
+          { id: "chargebacks", label: "Chargebacks", icon: <ChartsIcon />, path: "/chargebacks" },
           { id: "audit", label: "Audit Logs", icon: <AuditIcon />, path: "/audit" },
         ],
       },

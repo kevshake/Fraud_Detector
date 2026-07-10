@@ -21,7 +21,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
  * Provides user context information for Grafana dashboards
  * Used for role-based access control and PSP filtering
  */
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN')")
 @RestController
 @RequestMapping("/grafana")
 public class GrafanaUserContextController {
