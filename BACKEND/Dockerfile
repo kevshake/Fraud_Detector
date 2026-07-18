@@ -1,5 +1,5 @@
 # Build stage
-FROM maven:3.9-eclipse-temurin-17-alpine AS builder
+FROM maven:3.9-eclipse-temurin-25-alpine AS builder
 
 WORKDIR /build
 
@@ -12,7 +12,10 @@ COPY src ./src
 RUN mvn clean package -Dmaven.test.skip=true
 
 # Production stage
-FROM eclipse-temurin:17-jre-alpine
+# Java 25 (LTS) JRE — enables virtual threads AND removes synchronized pinning (JEP 491),
+# so virtual threads never pin their carrier inside synchronized blocks. Bytecode target is
+# 21 (see pom.xml); running 21 bytecode on a 25 runtime is fully supported.
+FROM eclipse-temurin:25-jre-alpine
 
 WORKDIR /app
 

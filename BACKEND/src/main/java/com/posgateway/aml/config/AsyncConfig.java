@@ -1,72 +1,110 @@
 package com.posgateway.aml.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.task.SimpleAsyncTaskExecutor;
 import org.springframework.scheduling.annotation.EnableAsync;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.util.concurrent.Executor;
 
+/**
+ * Async executor configuration.
+ *
+ * <p>All executors here back {@code @Async} paths that are dominated by <b>blocking I/O</b>
+ * (DB reads/writes, sanctions/screening HTTP calls, Kafka publishing, metering events), so each
+ * task now runs on a <b>virtual thread</b> (Java 21+, via {@code spring.threads.virtual.enabled}
+ * and these {@link SimpleAsyncTaskExecutor}s with {@code setVirtualThreads(true)}). Virtual
+ * threads are cheap to create and park while blocked, so we no longer size a bounded platform
+ * pool with a big queue.
+ *
+ * <p>The only guard we keep is a <b>concurrency limit</b> — a semaphore that bounds how many
+ * tasks run at once so a burst cannot exhaust the HikariCP connection pool or a rate-limited
+ * external API. When the limit is reached the (also-virtual) submitting thread parks briefly,
+ * giving natural backpressure. Limits are tunable via properties; they are ceilings on
+ * downstream pressure, not thread-pool sizes.
+ */
 @Configuration
 @EnableAsync
 public class AsyncConfig {
 
+    @Value("${async.aml.concurrency:2000}")
+    private int amlConcurrency;
+
+    @Value("${async.background.concurrency:200}")
+    private int backgroundConcurrency;
+
+    @Value("${async.transaction.concurrency:1000}")
+    private int transactionConcurrency;
+
+    @Value("${async.metering.concurrency:500}")
+    private int meteringConcurrency;
+
+    @Value("${async.default.concurrency:1000}")
+    private int defaultConcurrency;
+
+    /** Grace period (ms) to let in-flight fire-and-forget tasks finish on shutdown. */
+    @Value("${async.default.termination-timeout-ms:20000}")
+    private long defaultTerminationTimeoutMs;
+
+    /** Build a virtual-thread-per-task executor with a downstream concurrency guard. */
+    private Executor virtualExecutor(String threadNamePrefix, int concurrencyLimit) {
+        SimpleAsyncTaskExecutor executor = new SimpleAsyncTaskExecutor(threadNamePrefix);
+        executor.setVirtualThreads(true);
+        executor.setConcurrencyLimit(concurrencyLimit);
+        return executor;
+    }
+
+    /**
+     * Default executor for <b>unqualified</b> {@code @Async} methods (audit logging, notifications,
+     * email, workflow automation, API-usage tracking, case enrichment, …).
+     *
+     * <p>This bean is required for those paths to actually run on virtual threads. Spring Boot's
+     * auto-configured virtual default executor (named {@code applicationTaskExecutor}/
+     * {@code taskExecutor}) is annotated {@code @ConditionalOnMissingBean(Executor.class)} — and
+     * because this app defines several custom {@code Executor} beans it <b>backs off</b>. Without
+     * a replacement, {@code @EnableAsync} falls back to a plain platform-thread
+     * {@link SimpleAsyncTaskExecutor}, silently defeating virtual threads for every bare
+     * {@code @Async}. Registering this bean under the well-known names restores the virtual default.
+     *
+     * <p>Unlike the domain executors it also sets a task-termination timeout so a deploy/restart
+     * waits briefly for in-flight audit/notification tasks instead of dropping them.
+     */
+    @Bean(name = {"applicationTaskExecutor", "taskExecutor"})
+    public Executor applicationTaskExecutor() {
+        SimpleAsyncTaskExecutor executor = new SimpleAsyncTaskExecutor("App-VT-");
+        executor.setVirtualThreads(true);
+        executor.setConcurrencyLimit(defaultConcurrency);
+        executor.setTaskTerminationTimeout(defaultTerminationTimeoutMs);
+        return executor;
+    }
+
     @Bean(name = "amlTaskExecutor")
     public Executor taskExecutor() {
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        // Configuration for High Throughput (target 30K req/sec support)
-        executor.setCorePoolSize(50);
-        executor.setMaxPoolSize(200);
-        executor.setQueueCapacity(50000); // 50K buffer
-        executor.setThreadNamePrefix("AML-Executor-");
-        executor.initialize();
-        return executor;
+        return virtualExecutor("AML-VT-", amlConcurrency);
     }
 
     @Bean(name = "backgroundTaskExecutor")
     public Executor backgroundTaskExecutor() {
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(10);
-        executor.setMaxPoolSize(20);
-        executor.setQueueCapacity(1000);
-        executor.setThreadNamePrefix("BG-Executor-");
-        executor.initialize();
-        return executor;
+        return virtualExecutor("BG-VT-", backgroundConcurrency);
     }
 
     /**
-     * Dedicated pool for asynchronous transaction fraud processing.
-     * AsyncFraudDetectionOrchestrator#processTransactionAsync is annotated
-     * {@code @Async("transactionExecutor")}; without this bean every ingest
-     * request that fell through to the async (non-ultra) path failed with
-     * NoSuchBeanDefinitionException AFTER the transaction had already been
-     * persisted, surfacing as a 500 to the caller.
+     * Dedicated executor for asynchronous transaction fraud processing.
+     * {@code AsyncFraudDetectionOrchestrator#processTransactionAsync} is annotated
+     * {@code @Async("transactionExecutor")}.
      */
     @Bean(name = "transactionExecutor")
     public Executor transactionExecutor() {
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(25);
-        executor.setMaxPoolSize(100);
-        executor.setQueueCapacity(20000);
-        executor.setThreadNamePrefix("Txn-Executor-");
-        executor.initialize();
-        return executor;
+        return virtualExecutor("Txn-VT-", transactionConcurrency);
     }
 
     /**
-     * Dedicated pool for billing/metering event publishing.
-     * MeteringEventPublisher methods are annotated {@code @Async("meteringExecutor")};
-     * without this bean each fire-and-forget metering event raised an
-     * NoSuchBeanDefinitionException on the publishing thread.
+     * Dedicated executor for billing/metering event publishing.
+     * {@code MeteringEventPublisher} methods are annotated {@code @Async("meteringExecutor")}.
      */
     @Bean(name = "meteringExecutor")
     public Executor meteringExecutor() {
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(8);
-        executor.setMaxPoolSize(32);
-        executor.setQueueCapacity(10000);
-        executor.setThreadNamePrefix("Metering-Executor-");
-        executor.initialize();
-        return executor;
+        return virtualExecutor("Metering-VT-", meteringConcurrency);
     }
 }
