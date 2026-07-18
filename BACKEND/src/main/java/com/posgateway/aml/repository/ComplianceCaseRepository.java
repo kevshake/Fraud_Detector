@@ -3,6 +3,7 @@ package com.posgateway.aml.repository;
 import com.posgateway.aml.entity.compliance.ComplianceCase;
 import com.posgateway.aml.model.CasePriority;
 import com.posgateway.aml.model.CaseStatus;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -18,14 +19,19 @@ import java.util.List;
 public interface ComplianceCaseRepository extends JpaRepository<ComplianceCase, Long> {
 
     /**
-     * Find cases by status (Paginated)
+     * Find cases by status (Paginated).
+     * Fetch-joins the single-valued associations the case-list endpoint serializes
+     * (assignedTo, queue) so a page renders without a per-case N+1 (safe with pagination
+     * because both are @ManyToOne, not collections).
      */
+    @EntityGraph(attributePaths = {"assignedTo", "queue"})
     org.springframework.data.domain.Page<ComplianceCase> findByStatus(CaseStatus status,
             org.springframework.data.domain.Pageable pageable);
 
     /**
-     * Find all cases (Paginated)
+     * Find all cases (Paginated). See {@link #findByStatus} for the assignedTo/queue fetch join.
      */
+    @EntityGraph(attributePaths = {"assignedTo", "queue"})
     org.springframework.data.domain.Page<ComplianceCase> findAll(org.springframework.data.domain.Pageable pageable);
 
     /**
@@ -103,6 +109,14 @@ public interface ComplianceCaseRepository extends JpaRepository<ComplianceCase, 
     // Find cases by status list
     List<ComplianceCase> findByStatusIn(List<CaseStatus> statuses);
 
+    /** Archival candidates — bounded query instead of a full-table findAll() scan. */
+    List<ComplianceCase> findByArchivedFalseAndStatusInAndUpdatedAtBefore(
+            List<CaseStatus> statuses, java.time.LocalDateTime cutoff);
+
+    /** Retention candidates (closed + older than the limit). */
+    List<ComplianceCase> findByStatusInAndUpdatedAtBefore(
+            List<CaseStatus> statuses, java.time.LocalDateTime cutoff);
+
     // Find cases by queue and status
     List<ComplianceCase> findByQueueAndStatus(com.posgateway.aml.entity.compliance.CaseQueue queue, CaseStatus status);
 
@@ -116,14 +130,18 @@ public interface ComplianceCaseRepository extends JpaRepository<ComplianceCase, 
     List<ComplianceCase> findByPspIdAndStatusNot(Long pspId, CaseStatus status);
 
     /**
-     * Find cases by PSP and Status (Paginated)
+     * Find cases by PSP and Status (Paginated). See {@link #findByStatus} for the
+     * assignedTo/queue fetch join that avoids the case-list N+1.
      */
+    @EntityGraph(attributePaths = {"assignedTo", "queue"})
     org.springframework.data.domain.Page<ComplianceCase> findByPspIdAndStatus(Long pspId, CaseStatus status,
             org.springframework.data.domain.Pageable pageable);
 
     /**
-     * Find all cases for PSP (Paginated)
+     * Find all cases for PSP (Paginated). See {@link #findByStatus} for the
+     * assignedTo/queue fetch join that avoids the case-list N+1.
      */
+    @EntityGraph(attributePaths = {"assignedTo", "queue"})
     org.springframework.data.domain.Page<ComplianceCase> findByPspId(Long pspId,
             org.springframework.data.domain.Pageable pageable);
 

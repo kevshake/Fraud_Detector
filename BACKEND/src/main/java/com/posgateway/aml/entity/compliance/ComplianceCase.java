@@ -1,5 +1,8 @@
 package com.posgateway.aml.entity.compliance;
 
+import com.fasterxml.jackson.annotation.JsonIdentityInfo;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.ObjectIdGenerators;
 import com.posgateway.aml.entity.User;
 import com.posgateway.aml.model.CasePriority;
 import com.posgateway.aml.model.CaseStatus;
@@ -25,6 +28,10 @@ import java.util.Set;
         @Index(name = "idx_case_created", columnList = "createdAt")
 })
 @Audited
+// Break serialization cycles from the self-referential relatedCases @ManyToMany (and any
+// bidirectional links): on re-encounter Jackson emits the id reference instead of recursing,
+// preventing StackOverflow when these entities are serialized directly by the controllers.
+@JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "id")
 public class ComplianceCase {
 
     @Id
@@ -84,17 +91,24 @@ public class ComplianceCase {
     private CaseQueue queue;
 
     // NEW: Case relationships
+    // @JsonIgnore: these lazy collections are server-managed and are NOT consumed off the
+    // case entity by any client (evidence/timeline/notes/alerts are served by dedicated
+    // endpoints). Serializing them forced a per-case lazy load — an N+1 that fanned out to
+    // 5 extra SELECTs for every case in a page. Java access (getAlerts(), etc.) is unaffected.
     @ManyToMany
     @JoinTable(name = "case_relationships", joinColumns = @JoinColumn(name = "case_id"), inverseJoinColumns = @JoinColumn(name = "related_case_id"))
     @Audited
+    @JsonIgnore
     private Set<ComplianceCase> relatedCases;
 
     // NEW: Evidence and documentation
     @OneToMany(mappedBy = "complianceCase", cascade = CascadeType.ALL, orphanRemoval = true)
     @Audited(targetAuditMode = org.hibernate.envers.RelationTargetAuditMode.NOT_AUDITED)
+    @JsonIgnore
     private List<CaseEvidence> evidence;
 
     @OneToMany(mappedBy = "complianceCase", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
     private List<CaseNote> notes;
 
     // NEW: Decision tracking
@@ -110,10 +124,12 @@ public class ComplianceCase {
 
     // NEW: Alerts triggering this case
     @OneToMany(mappedBy = "complianceCase", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
     private List<CaseAlert> alerts;
 
     // NEW: Decisions made on this case
     @OneToMany(mappedBy = "complianceCase", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
     private List<CaseDecision> decisions;
 
     @Column(nullable = false, updatable = false)
