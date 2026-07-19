@@ -9,6 +9,7 @@ import com.posgateway.aml.repository.chargeback.ChargebackDisputeRepository;
 import com.posgateway.aml.repository.MerchantScreeningResultRepository;
 import com.posgateway.aml.repository.risk.HighRiskCountryRepository;
 import com.posgateway.aml.service.cache.FeatureCacheService;
+import com.posgateway.aml.service.compliance.CashStructuringDetectionService;
 import org.apache.commons.text.similarity.LevenshteinDistance;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,6 +41,7 @@ public class RuleFeatureEnrichmentService {
     private final ChargebackDisputeRepository chargebackDisputeRepository;
     private final FeatureCacheService featureCacheService;
     private final MerchantScreeningResultRepository merchantScreeningResultRepository;
+    private final CashStructuringDetectionService cashStructuringDetectionService;
     private final LevenshteinDistance levenshteinDistance = new LevenshteinDistance();
 
     public RuleFeatureEnrichmentService(TransactionRepository transactionRepository,
@@ -47,13 +49,15 @@ public class RuleFeatureEnrichmentService {
                                         HighRiskCountryRepository highRiskCountryRepository,
                                         ChargebackDisputeRepository chargebackDisputeRepository,
                                         FeatureCacheService featureCacheService,
-                                        MerchantScreeningResultRepository merchantScreeningResultRepository) {
+                                        MerchantScreeningResultRepository merchantScreeningResultRepository,
+                                        CashStructuringDetectionService cashStructuringDetectionService) {
         this.transactionRepository = transactionRepository;
         this.merchantRepository = merchantRepository;
         this.highRiskCountryRepository = highRiskCountryRepository;
         this.chargebackDisputeRepository = chargebackDisputeRepository;
         this.featureCacheService = featureCacheService;
         this.merchantScreeningResultRepository = merchantScreeningResultRepository;
+        this.cashStructuringDetectionService = cashStructuringDetectionService;
     }
 
     public void enrich(TransactionEntity transaction, Map<String, Object> features) {
@@ -73,10 +77,12 @@ public class RuleFeatureEnrichmentService {
         features.put("merchant_id", merchantId);
         features.put("pan_hash", panHash);
         features.put("direction", normalizeDirection(transaction.getDirection()));
-        features.put("country_code", resolveCountryCode(transaction, features));
+        String countryCode = resolveCountryCode(transaction, features);
+        features.put("country_code", countryCode);
         features.put("origin_country", features.get("country_code"));
         features.put("destination_country", transaction.getMerchantCountry());
         features.put("channel", transaction.getChannelType() != null ? transaction.getChannelType() : "POS");
+        features.put("country_high_risk", isConfiguredHighRiskCountry(countryCode));
 
         if (transaction.getKrs() != null) features.put("krs_score", transaction.getKrs());
         if (transaction.getTrs() != null) features.put("trs_score", transaction.getTrs());
@@ -84,15 +90,15 @@ public class RuleFeatureEnrichmentService {
 
         enrichVelocityAndHistory(transaction, features, now, merchantId, panHash, amountCents);
         enrichAdvancedVelocityRatios(transaction, features, now, panHash, merchantId);
-        enrichStructuringSignals(transaction, features, now, panHash, amountCents);
+        enrichStructuringSignals(transaction, features);
         enrichFanInFanOut(transaction, features, now, panHash, merchantId);
         enrichRoundValueMetrics(features, panHash, now);
-        enrichChargebackMetrics(transaction, features, merchantId);
+        enrichChargebackMetrics(transaction, features, merchantId, now);
         enrichBlacklistHits(transaction, features);
         enrichMerchantProfile(transaction, features, merchantId);
         enrichMerchantScreeningHits(features, merchantId);
         enrichIpMetrics(transaction, features, now);
-        enrichNameSimilarity(features, panHash, merchantId);
+        enrichNameSimilarity(features, panHash, merchantId, now);
     }
 
     private void enrichVelocityAndHistory(TransactionEntity transaction, Map<String, Object> features,
@@ -116,9 +122,8 @@ public class RuleFeatureEnrichmentService {
                     panHash, now.minusYears(10), now);
             features.put("is_first_transaction", panCountAll != null && panCountAll <= 1);
 
-            LocalDateTime lastTxn = transactionRepository.findLastTransactionTimeByPan(panHash);
-            if (lastTxn != null && transaction.getTxnTs() != null
-                    && lastTxn.isBefore(transaction.getTxnTs().minusSeconds(1))) {
+            LocalDateTime lastTxn = transactionRepository.findLastTransactionTimeByPanBefore(panHash, now);
+            if (lastTxn != null) {
                 long daysSince = ChronoUnit.DAYS.between(lastTxn, now);
                 features.put("days_since_last_activity", Math.max(0, daysSince));
             } else if (panCountAll != null && panCountAll <= 1) {
@@ -159,7 +164,7 @@ public class RuleFeatureEnrichmentService {
                 }
             }
 
-            Double avg30d = transactionRepository.avgAmountByPanInTimeWindow(panHash, thirtyDaysAgo, now);
+            Double avg30d = transactionRepository.avgAmountByPanBefore(panHash, thirtyDaysAgo, now);
             if (avg30d != null && avg30d > 0) {
                 double spike = amountCents / avg30d;
                 features.put("avg_amount_spike_ratio", spike);
@@ -191,9 +196,11 @@ public class RuleFeatureEnrichmentService {
         Long sum1h = transactionRepository.sumAmountByPanInTimeWindow(panHash, oneHourAgo, now);
         Long sum24h = transactionRepository.sumAmountByPanInTimeWindow(panHash, oneDayAgo, now);
         if (sum24h != null && sum24h > 0 && sum1h != null) {
+            // Both sides in cents (was: numerator divided by 100 while denominator stayed in
+            // cents, making the ratio 100x too small so a >N spike rule could never fire).
             double prior23h = (sum24h - sum1h) / 23.0;
             if (prior23h > 0) {
-                features.put("volume_ratio_t1_t2", (sum1h / 100.0) / prior23h);
+                features.put("volume_ratio_t1_t2", (double) sum1h / prior23h);
             }
         }
 
@@ -204,17 +211,25 @@ public class RuleFeatureEnrichmentService {
             if (dailyAvg > 0) {
                 features.put("txn_count_window_ratio", count1h / dailyAvg);
             }
-            features.put("daily_txn_count_ratio", count24h / Math.max(1.0, dailyAvg * 24));
+            // (removed a "daily_txn_count_ratio = count24h / (dailyAvg*24)" line that was a
+            //  constant 1.0 by construction; the real day-over-day ratio is computed below.)
         }
 
         Long countYesterday = transactionRepository.countByPanInTimeWindow(panHash, twoDaysAgo, oneDayAgo);
         Long countToday = transactionRepository.countByPanInTimeWindow(panHash, oneDayAgo, now);
-        if (countYesterday != null && countYesterday > 0 && countToday != null) {
-            features.put("daily_txn_count_ratio", (double) countToday / countYesterday);
+        if (countToday != null) {
+            if (countYesterday != null && countYesterday > 0) {
+                features.put("daily_txn_count_ratio", (double) countToday / countYesterday);
+            } else if (countToday > 0) {
+                // No activity 24-48h ago but active today → dormant-reactivation spike.
+                features.put("daily_txn_count_ratio", (double) countToday);
+            } else {
+                features.put("daily_txn_count_ratio", 0.0);
+            }
         }
 
-        Double avg7d = transactionRepository.avgAmountByPanInTimeWindow(panHash, sevenDaysAgo, now);
-        Double avg1d = transactionRepository.avgAmountByPanInTimeWindow(panHash, oneDayAgo, now);
+        Double avg7d = transactionRepository.avgAmountByPanBefore(panHash, sevenDaysAgo, now);
+        Double avg1d = transactionRepository.avgAmountByPanBefore(panHash, oneDayAgo, now);
         if (avg7d != null && avg7d > 0 && avg1d != null) {
             features.put("avg_amount_window_ratio", avg1d / avg7d);
             features.put("daily_avg_amount_ratio", avg1d / avg7d);
@@ -239,8 +254,8 @@ public class RuleFeatureEnrichmentService {
             }
         }
 
-        List<TransactionEntity> recent = transactionRepository.findRecentByPanHash(panHash,
-                org.springframework.data.domain.PageRequest.of(0, 100));
+        List<TransactionEntity> recent = transactionRepository.findRecentByPanHashBefore(
+                panHash, now, org.springframework.data.domain.PageRequest.of(0, 100));
         long circular = recent.stream()
                 .filter(t -> t.getTxnTs() != null && !t.getTxnTs().isBefore(sevenDaysAgo))
                 .map(TransactionEntity::getMerchantId)
@@ -266,29 +281,22 @@ public class RuleFeatureEnrichmentService {
         }
     }
 
-    private void enrichStructuringSignals(TransactionEntity transaction, Map<String, Object> features,
-                                          LocalDateTime now, String panHash, Long amountCents) {
-        if (panHash == null || amountCents == null) {
-            return;
-        }
-        double amount = amountCents / 100.0;
-        double threshold = 9000.0;
-        boolean justBelow = amount >= threshold * 0.9 && amount < threshold;
-        features.put("structuring_amount_band", justBelow);
-
-        if (justBelow) {
-            LocalDateTime dayAgo = now.minus(24, ChronoUnit.HOURS);
-            Long repeats = transactionRepository.countByAccountAndAmountRangeAndPeriod(
-                    panHash,
-                    java.math.BigDecimal.valueOf(threshold * 0.9),
-                    java.math.BigDecimal.valueOf(threshold),
-                    dayAgo, now);
-            features.put("structuring_repeat_count_24h", repeats != null ? repeats : 0L);
-            features.put("is_structuring_suspected", repeats != null && repeats >= 3);
-        } else {
-            features.put("structuring_repeat_count_24h", 0L);
-            features.put("is_structuring_suspected", false);
-        }
+    private void enrichStructuringSignals(TransactionEntity transaction, Map<String, Object> features) {
+        CashStructuringDetectionService.Assessment assessment =
+                cashStructuringDetectionService.assess(transaction);
+        features.put("cash_transaction", transaction.isCashTransaction());
+        features.put("structuring_evaluation_status", assessment.status());
+        features.put("structuring_repeat_count_24h", assessment.transactionCount24h());
+        features.put("is_structuring_suspected", assessment.structuringSuspected());
+        features.put("ctr_required", assessment.ctrRequired());
+        features.put("regulatory_cash_evidence", assessment.evidence());
+        Object amountUsd = assessment.evidence().get("amountUsd");
+        Object floorUsd = assessment.evidence().get("structuringFloorUsd");
+        features.put("structuring_amount_band",
+                amountUsd instanceof java.math.BigDecimal amount
+                        && floorUsd instanceof java.math.BigDecimal floor
+                        && amount.compareTo(floor) >= 0
+                        && amount.compareTo((java.math.BigDecimal) assessment.evidence().get("ctrThresholdUsd")) < 0);
     }
 
     private void enrichFanInFanOut(TransactionEntity transaction, Map<String, Object> features,
@@ -324,8 +332,8 @@ public class RuleFeatureEnrichmentService {
                 // skip
             }
         }
-        List<TransactionEntity> recent = transactionRepository.findRecentByPanHash(panHash,
-                org.springframework.data.domain.PageRequest.of(0, 30));
+        List<TransactionEntity> recent = transactionRepository.findRecentByPanHashBefore(
+                panHash, now, org.springframework.data.domain.PageRequest.of(0, 30));
         for (TransactionEntity t : recent) {
             if (t.getMerchantId() != null) {
                 try {
@@ -374,13 +382,14 @@ public class RuleFeatureEnrichmentService {
         }
     }
 
-    private void enrichNameSimilarity(Map<String, Object> features, String panHash, String merchantId) {
+    private void enrichNameSimilarity(Map<String, Object> features, String panHash, String merchantId,
+                                      LocalDateTime now) {
         if (panHash == null) {
             return;
         }
         List<String> names = new ArrayList<>();
-        List<TransactionEntity> recent = transactionRepository.findRecentByPanHash(panHash,
-                org.springframework.data.domain.PageRequest.of(0, 20));
+        List<TransactionEntity> recent = transactionRepository.findRecentByPanHashBefore(
+                panHash, now, org.springframework.data.domain.PageRequest.of(0, 20));
         for (TransactionEntity t : recent) {
             if (t.getMerchantId() == null) {
                 continue;
@@ -416,8 +425,8 @@ public class RuleFeatureEnrichmentService {
 
     private long countPriorWithCountry(String panHash, String countryCode, Long excludeTxnId,
                                        LocalDateTime from, LocalDateTime to) {
-        return transactionRepository.findRecentByPanHash(panHash,
-                        org.springframework.data.domain.PageRequest.of(0, 200))
+        return transactionRepository.findRecentByPanHashBefore(
+                        panHash, to, org.springframework.data.domain.PageRequest.of(0, 200))
                 .stream()
                 .filter(t -> excludeTxnId == null || !excludeTxnId.equals(t.getTxnId()))
                 .filter(t -> t.getTxnTs() != null && !t.getTxnTs().isBefore(from) && !t.getTxnTs().isAfter(to))
@@ -427,8 +436,8 @@ public class RuleFeatureEnrichmentService {
 
     private long countPriorWithCurrency(String panHash, String currency, Long excludeTxnId,
                                         LocalDateTime from, LocalDateTime to) {
-        return transactionRepository.findRecentByPanHash(panHash,
-                        org.springframework.data.domain.PageRequest.of(0, 200))
+        return transactionRepository.findRecentByPanHashBefore(
+                        panHash, to, org.springframework.data.domain.PageRequest.of(0, 200))
                 .stream()
                 .filter(t -> excludeTxnId == null || !excludeTxnId.equals(t.getTxnId()))
                 .filter(t -> t.getTxnTs() != null && !t.getTxnTs().isBefore(from) && !t.getTxnTs().isAfter(to))
@@ -441,8 +450,8 @@ public class RuleFeatureEnrichmentService {
             return;
         }
         LocalDateTime sevenDaysAgo = now.minus(7, ChronoUnit.DAYS);
-        List<TransactionEntity> recent = transactionRepository.findRecentByPanHash(panHash,
-                org.springframework.data.domain.PageRequest.of(0, 50));
+        List<TransactionEntity> recent = transactionRepository.findRecentByPanHashBefore(
+                panHash, now, org.springframework.data.domain.PageRequest.of(0, 50));
         List<TransactionEntity> window = recent.stream()
                 .filter(t -> t.getTxnTs() != null && !t.getTxnTs().isBefore(sevenDaysAgo))
                 .toList();
@@ -466,21 +475,24 @@ public class RuleFeatureEnrichmentService {
         return cents != null && cents % 100 == 0;
     }
 
-    private void enrichChargebackMetrics(TransactionEntity transaction, Map<String, Object> features, String merchantId) {
+    private void enrichChargebackMetrics(TransactionEntity transaction, Map<String, Object> features,
+                                         String merchantId, LocalDateTime now) {
         if (merchantId == null) {
             return;
         }
         try {
             Long mid = Long.parseLong(merchantId);
             List<ChargebackDispute> disputes = chargebackDisputeRepository.findByMerchantIdOrderByCreatedAtDesc(mid);
-            LocalDateTime thirtyDaysAgo = LocalDateTime.now().minus(30, ChronoUnit.DAYS);
+            LocalDateTime thirtyDaysAgo = now.minus(30, ChronoUnit.DAYS);
             long cb30d = disputes.stream()
-                    .filter(d -> d.getCreatedAt() != null && d.getCreatedAt().isAfter(thirtyDaysAgo))
+                    .filter(d -> d.getCreatedAt() != null
+                            && !d.getCreatedAt().isBefore(thirtyDaysAgo)
+                            && d.getCreatedAt().isBefore(now))
                     .count();
             features.put("merchant_chargeback_count_30d", cb30d);
 
             Long txnCount30d = transactionRepository.countByMerchantInTimeWindow(
-                    merchantId, thirtyDaysAgo, LocalDateTime.now());
+                    merchantId, thirtyDaysAgo, now);
             if (txnCount30d != null && txnCount30d > 0) {
                 features.put("merchant_chargeback_ratio", (double) cb30d / txnCount30d);
             }
@@ -549,6 +561,11 @@ public class RuleFeatureEnrichmentService {
     }
 
     private void enrichFromMerchant(Merchant merchant, Map<String, Object> features) {
+        // Merchant Category Code — enables MCC-specific rules (SpEL `#features['mcc']` /
+        // `#tx.mcc`, or DRL/dynamic `mcc` field), combinable with AND/OR like any other field.
+        if (merchant.getMcc() != null) {
+            features.put("mcc", merchant.getMcc());
+        }
         String country = merchant.getCountry();
         if (country != null) {
             boolean highRisk = highRiskCountryRepository.findByCountryCode(country.toUpperCase()).isPresent();
@@ -564,6 +581,14 @@ public class RuleFeatureEnrichmentService {
         features.put("counterparty_screening_hit", false);
         features.put("anonymous_payment_screening_hit", false);
         features.put("adverse_media_hit", false);
+    }
+
+    private boolean isConfiguredHighRiskCountry(String countryCode) {
+        if (countryCode == null || countryCode.isBlank()) return false;
+        // Fail-closed: let a lookup outage propagate (matching enrichFromMerchant's
+        // unguarded high-risk-country lookup at ~:566) instead of silently swallowing
+        // the failure and recording country_high_risk as a benign "false".
+        return highRiskCountryRepository.existsByCountryCode(countryCode.toUpperCase());
     }
 
     private void enrichIpMetrics(TransactionEntity transaction, Map<String, Object> features, LocalDateTime now) {

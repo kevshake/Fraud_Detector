@@ -71,6 +71,26 @@ public class AmlMicroserviceClient {
                     .retrieve()
                     .bodyToMono(AmlScoreResponse.class)
                     .block(Duration.ofMillis(properties.getReadTimeoutMs() + 100L));
+        } catch (org.springframework.web.reactive.function.client.WebClientResponseException e) {
+            if (e.getStatusCode().is4xxClientError()) {
+                // A 4xx is a request/contract problem (e.g. missing pspId), NOT a sign the
+                // service is unhealthy. Return null so the caller runs the local pipeline,
+                // but do NOT rethrow: rethrowing would burn a retry and record a failure on
+                // the shared circuit breaker, which could open it and disable the healthy
+                // Aerospike enrichment reads (velocity/device/IP/risk-profile).
+                log.warn("AML microservice score() rejected as {} for txnId={} pspId={}: {}",
+                        e.getStatusCode(),
+                        req != null ? req.transactionId() : null,
+                        req != null ? req.pspId() : null,
+                        e.getMessage());
+                return null;
+            }
+            log.warn("AML microservice score() failed ({}) for txnId={} pspId={}: {}",
+                    e.getStatusCode(),
+                    req != null ? req.transactionId() : null,
+                    req != null ? req.pspId() : null,
+                    e.getMessage());
+            throw e; // 5xx / server-side → let retry + circuit breaker react
         } catch (Exception e) {
             log.warn("AML microservice score() failed for txnId={} pspId={}: {}",
                     req != null ? req.transactionId() : null,

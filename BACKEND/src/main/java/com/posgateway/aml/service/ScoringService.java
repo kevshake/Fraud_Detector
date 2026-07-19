@@ -71,22 +71,34 @@ public class ScoringService {
                     features.getOrDefault("merchantId", ""));
             String customerId = (String) features.getOrDefault("customer_id",
                     features.getOrDefault("customerId", ""));
+            // The microservice namespaces its Aerospike cache by pspId and REQUIRES it: a
+            // null pspId is a 400 that would both never hit the cache AND count as a failure
+            // on the shared "amlMicroservice" circuit breaker (which also guards the velocity/
+            // device/IP enrichment reads). pspId is carried in the feature map by
+            // FeatureExtractionService; only attempt the L1 read when we actually have it.
+            Long pspId = null;
+            Object rawPspId = features.getOrDefault("pspId", features.get("psp_id"));
+            if (rawPspId instanceof Number pspNum) {
+                pspId = pspNum.longValue();
+            }
             try {
-                var req = new com.posgateway.aml.client.aml.AmlScoreRequest(
-                        txnId != null ? "TXN-" + txnId : null,
-                        null, // pspId — resolved at controller level
-                        merchantId,
-                        null, // amount — not needed for cache check
-                        null, null, null, null, customerId, null);
-                var resp = amlMicroserviceClient.score(req);
+                var resp = pspId == null ? null : amlMicroserviceClient.score(
+                        new com.posgateway.aml.client.aml.AmlScoreRequest(
+                                txnId != null ? "TXN-" + txnId : null,
+                                pspId,
+                                merchantId,
+                                null, // amount — not needed for cache check
+                                null, null, null, null, customerId, null));
                 if (resp != null && resp.cacheLayer() != null
                         && "L1_AEROSPIKE".equals(resp.cacheLayer())) {
                     logger.debug("Aerospike L1 cache HIT for txn {} — score={}, indicators={}",
                             txnId, resp.riskScore(), resp.indicators());
                     Map<String, Object> riskDetails = new HashMap<>();
-                    riskDetails.put("ml_score", resp.riskScore());
+                    double cachedScore = resp.riskScore();
+                    riskDetails.put("ml_score", cachedScore);
                     riskDetails.put("cache_layer", resp.cacheLayer());
                     riskDetails.put("source", resp.source());
+                    riskDetails.put("model_explanation_status", "UNAVAILABLE_CACHE_RESULT");
                     if (resp.indicators() != null && !resp.indicators().isEmpty()) {
                         riskDetails.put("microservice_indicators", resp.indicators());
                         for (String ind : resp.indicators()) {
@@ -97,7 +109,11 @@ public class ScoringService {
                             }
                         }
                     }
-                    return new ScoringResult(txnId, resp.riskScore(), resp.processingTimeMs(), riskDetails);
+                    com.posgateway.aml.rules.RuleEvaluationResult ruleResult =
+                            rulesExecutionService.evaluateRules(txnId, features, cachedScore);
+                    applyRuleResultToScore(ruleResult, riskDetails);
+                    cachedScore = resolveScoreAfterRules(cachedScore, ruleResult);
+                    return new ScoringResult(txnId, cachedScore, resp.processingTimeMs(), riskDetails);
                 }
             } catch (Exception e) {
                 logger.debug("Aerospike L1 cache check failed for txn {}: {} — falling through",
@@ -165,7 +181,10 @@ public class ScoringService {
             }
 
             if (response != null) {
-                Double score = extractDouble(response.get("score"));
+                Double score = extractOptionalDouble(response.get("score"));
+                if (score == null) {
+                    throw new IllegalStateException("Scoring response did not contain a numeric score");
+                }
                 Long latencyMs = extractLong(response.get("latency_ms"));
 
                 // Use our own latency if service doesn't provide it
@@ -175,6 +194,7 @@ public class ScoringService {
 
                 // Add ML score to riskDetails as requested
                 riskDetails.put("ml_score", score);
+                copyModelEvidence(response, riskDetails);
 
                 // --- Unified rules engine (SpEL from DB + Drools DRL) ---
                 com.posgateway.aml.rules.RuleEvaluationResult ruleResult =
@@ -184,7 +204,7 @@ public class ScoringService {
                 score = resolveScoreAfterRules(score, ruleResult);
 
                 // --- DL4J DEEP ANOMALY DETECTION (PHASE 5) ---
-                if (dl4jAnomalyService != null) {
+                if (dl4jAnomalyService != null && dl4jAnomalyService.isEnabled()) {
                     try {
                         com.posgateway.aml.service.deeplearning.DL4JAnomalyService.AnomalyResult anomalyResult = dl4jAnomalyService
                                 .detectAnomaly(txnId, features);
@@ -204,6 +224,11 @@ public class ScoringService {
                         }
                     } catch (Exception e) {
                         logger.error("DL4J Anomaly Detection failed for txn {}", txnId, e);
+                        riskDetails.put("anomaly_status", "UNAVAILABLE");
+                        riskDetails.put("requires_enhanced_review", true);
+                        forceHoldUnlessBlocked(riskDetails,
+                                "ANOMALY_MODEL_UNAVAILABLE: manual review required");
+                        score = Math.max(score, 0.85);
                     }
                 }
                 // -----------------------------------------------------
@@ -224,12 +249,12 @@ public class ScoringService {
 
             logger.warn("Empty response from scoring service for transaction {}", txnId);
             long latencyMs = System.currentTimeMillis() - startTime;
-            return evaluateRulesOnly(txnId, features, assessment, latencyMs);
+            return evaluateRulesWithScoringUnavailable(txnId, features, assessment, latencyMs);
 
         } catch (Exception e) {
             logger.error("Error scoring transaction {}: {}", txnId, e.getMessage());
             long latencyMs = System.currentTimeMillis() - startTime;
-            return evaluateRulesOnly(txnId, features, assessment, latencyMs);
+            return evaluateRulesWithScoringUnavailable(txnId, features, assessment, latencyMs);
         }
     }
 
@@ -251,7 +276,52 @@ public class ScoringService {
         applyRuleResultToScore(ruleResult, riskDetails);
         score = resolveScoreAfterRules(score, ruleResult);
         riskDetails.put("ml_score", score);
+        riskDetails.put("model_explanation_status", "NOT_APPLICABLE_RULES_ONLY");
         return new ScoringResult(txnId, score, latencyMs, riskDetails);
+    }
+
+    private ScoringResult evaluateRulesWithScoringUnavailable(
+            Long txnId,
+            Map<String, Object> features,
+            com.posgateway.aml.service.risk.SchemeSimulatorService.MerchantRiskAssessment assessment,
+            long latencyMs) {
+        ScoringResult rulesOnly = evaluateRulesOnly(txnId, features, assessment, latencyMs);
+        Map<String, Object> riskDetails = rulesOnly.getRiskDetails();
+        forceHoldUnlessBlocked(riskDetails, "ML_SCORING_UNAVAILABLE: manual review required");
+        riskDetails.put("model_explanation_status", "UNAVAILABLE");
+        return new ScoringResult(txnId, Math.max(rulesOnly.getScore(), 0.85), latencyMs, riskDetails);
+    }
+
+    private void copyModelEvidence(Map<String, Object> response, Map<String, Object> riskDetails) {
+        copyIfPresent(response, riskDetails, "model_version");
+        copyIfPresent(response, riskDetails, "explanation");
+        copyIfPresent(response, riskDetails, "feature_contributions");
+        copyIfPresent(response, riskDetails, "feature_importance");
+        boolean explanationAvailable = riskDetails.containsKey("explanation")
+                || riskDetails.containsKey("feature_contributions")
+                || riskDetails.containsKey("feature_importance");
+        riskDetails.put("model_explanation_status", explanationAvailable ? "AVAILABLE" : "UNAVAILABLE");
+    }
+
+    private void copyIfPresent(Map<String, Object> source, Map<String, Object> target, String key) {
+        Object value = source.get(key);
+        if (value != null) {
+            target.put(key, value);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void forceHoldUnlessBlocked(Map<String, Object> riskDetails, String reason) {
+        if (!"BLOCK".equals(riskDetails.get("rule_decision"))) {
+            riskDetails.put("rule_decision", "HOLD");
+        }
+        java.util.List<String> reasons = riskDetails.get("rule_reasons") instanceof java.util.List<?>
+                ? new java.util.ArrayList<>((java.util.List<String>) riskDetails.get("rule_reasons"))
+                : new java.util.ArrayList<>();
+        if (!reasons.contains(reason)) {
+            reasons.add(reason);
+        }
+        riskDetails.put("rule_reasons", reasons);
     }
 
     private void applyRuleResultToScore(com.posgateway.aml.rules.RuleEvaluationResult ruleResult,
@@ -261,6 +331,7 @@ public class ScoringService {
         riskDetails.put("rule_reasons", ruleResult.getReasons());
         riskDetails.put("sar_required", ruleResult.isSarRequired());
         riskDetails.put("ctr_required", ruleResult.isCtrRequired());
+        riskDetails.put("regulatory_evidence", ruleResult.getRegulatoryEvidence());
     }
 
     private double resolveScoreAfterRules(double score, com.posgateway.aml.rules.RuleEvaluationResult ruleResult) {
@@ -276,20 +347,17 @@ public class ScoringService {
         return score;
     }
 
-    private Double extractDouble(Object value) {
-        // Early return for null
+    private Double extractOptionalDouble(Object value) {
         if (value == null) {
-            return 0.0;
+            return null;
         }
-        // Optimize instanceof check - Number is faster than individual type checks
         if (value instanceof Number) {
             return ((Number) value).doubleValue();
         }
-        // Fallback to string parsing only if not a Number
         try {
             return Double.parseDouble(value.toString());
         } catch (NumberFormatException e) {
-            return 0.0;
+            return null;
         }
     }
 

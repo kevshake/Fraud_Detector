@@ -22,6 +22,12 @@ public class DynamicRuleConverter {
         FIELD_MAP.put("countryCode", "countryCode");
         FIELD_MAP.put("merchant_id", "merchantId");
         FIELD_MAP.put("merchantId", "merchantId");
+        // MCC targeting: e.g. {"field":"mcc","operator":"EQUALS","value":"5411"} or
+        // {"field":"mcc","operator":"IN","value":["5411","5812","7995"]}. Combine with
+        // other conditions under "all"/"any" groups for AND/OR logic.
+        FIELD_MAP.put("mcc", "mcc");
+        FIELD_MAP.put("merchantCategoryCode", "mcc");
+        FIELD_MAP.put("merchant_category_code", "mcc");
         FIELD_MAP.put("currency", "currency");
         FIELD_MAP.put("channel", "channel");
         FIELD_MAP.put("pan_hash", "panHash");

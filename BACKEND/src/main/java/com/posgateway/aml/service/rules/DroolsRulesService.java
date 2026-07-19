@@ -29,14 +29,12 @@ import java.util.Map;
  * Drools Rules Engine Service for AML Regulatory Compliance.
  * 
  * Provides deterministic rule evaluation for:
- * - CTR thresholds ($10,000+)
- * - SAR structuring detection
- * - OFAC/sanctioned country blocks
+ * - Configured regulatory compliance decisions
  * - ML score thresholds
  * - Velocity-based rules
  * - Dynamic Rules from Database (RuleDefinition)
  * 
- * Results cached in Aerospike for audit trails and fast retrieval.
+ * Results cached in Redis for short-lived decision retrieval.
  */
 @Service
 public class DroolsRulesService {
@@ -120,7 +118,7 @@ public class DroolsRulesService {
 
     /**
      * Evaluate transaction against all AML rules.
-     * Uses Drools for rule evaluation, caches results in Aerospike.
+     * Uses Drools for rule evaluation and caches results in Redis.
      */
     public RuleEvaluationResult evaluate(Long txnId, Map<String, Object> features, Double mlScore) {
         long startTime = System.currentTimeMillis();
@@ -169,7 +167,7 @@ public class DroolsRulesService {
 
 
     private TransactionFact buildTransactionFact(Long txnId, Map<String, Object> features, Double mlScore) {
-        return new TransactionFact(
+        TransactionFact fact = new TransactionFact(
                 txnId,
                 (String) features.getOrDefault("merchant_id", "UNKNOWN"),
                 toBigDecimal(features.get("amount")),
@@ -184,11 +182,21 @@ public class DroolsRulesService {
                 toDouble(features.get("betweenness")),
                 toLong(features.get("connectionCount")),
                 toLong(features.get("pan_txn_count_1h")),
+                toLong(features.get("pan_txn_count_24h")),
+                toBoolean(features.get("cash_transaction")),
+                toBoolean(features.get("country_high_risk")),
                 toDouble(features.get("pan_txn_amount_sum_24h")),
                 toDouble(features.get("merchant_txn_amount_sum_24h")),
                 toDouble(features.get("krs_score")),
                 toDouble(features.get("cra_score")),
                 toDouble(features.get("trs_score")));
+        // MCC is enriched into the feature map from the merchant profile; expose it on the
+        // fact so DRL/dynamic rules can target specific merchant category codes.
+        Object mcc = features.get("mcc");
+        if (mcc != null) {
+            fact.setMcc(String.valueOf(mcc));
+        }
+        return fact;
     }
 
     private int evaluateRules(TransactionFact fact) {
@@ -214,37 +222,51 @@ public class DroolsRulesService {
     private int evaluateProgrammaticRules(TransactionFact fact) {
         int rulesTriggered = 0;
 
-        // Rule 1: CTR Threshold - $10,000 USD
-        if (fact.getAmount().compareTo(new BigDecimal("10000")) >= 0 &&
-                "USD".equals(fact.getCurrency())) {
-            fact.setCtrRequired(true);
-            fact.addTriggeredRule("CTR_THRESHOLD_10K");
-            fact.addReason("Transaction exceeds $10,000 CTR reporting threshold");
-            rulesTriggered++;
-        }
-
-        // Rule 2: SAR Structuring Detection (multiple transactions just under
-        // threshold)
-        if (fact.getAmount().compareTo(new BigDecimal("9000")) >= 0 &&
-                fact.getAmount().compareTo(new BigDecimal("10000")) < 0 &&
-                fact.getPanTxnCount1h() >= 3) {
-            fact.setSarRequired(true);
-            fact.setDecision("HOLD");
-            fact.addTriggeredRule("SAR_STRUCTURING_DETECTION");
-            fact.addReason("Potential structuring: multiple high-value transactions just under CTR threshold");
-            rulesTriggered++;
-        }
-
-        // Rule 3: OFAC High-Risk Country Block
-        if (fact.isHighRiskCountry()) {
+        if (fact.getMlScore() > 0.9) {
             fact.setDecision("BLOCK");
-            fact.setSarRequired(true);
-            fact.addTriggeredRule("OFAC_HIGH_RISK_COUNTRY");
-            fact.addReason("Transaction involves OFAC sanctioned or high-risk country: " + fact.getCountryCode());
+            fact.addTriggeredRule("ML_SCORE_HIGH_RISK");
+            fact.addReason(String.format("ML risk score exceeds 0.9 threshold: %.3f", fact.getMlScore()));
+            rulesTriggered++;
+        } else if (fact.getMlScore() > 0.7 && !"BLOCK".equals(fact.getDecision())) {
+            fact.setDecision("HOLD");
+            fact.addTriggeredRule("ML_SCORE_MEDIUM_RISK");
+            fact.addReason(String.format("ML risk score requires review: %.3f", fact.getMlScore()));
             rulesTriggered++;
         }
-        
-        // ... (Programmatic fallback covers critical rules properly)
+
+        if (fact.getBetweenness() > 0.5 && !"BLOCK".equals(fact.getDecision())) {
+            fact.setDecision("HOLD");
+            fact.addTriggeredRule("HIGH_BETWEENNESS_HUB");
+            fact.addReason(String.format(
+                    "Merchant has high betweenness centrality (potential hub): %.3f",
+                    fact.getBetweenness()));
+            rulesTriggered++;
+        }
+
+        if (fact.getPageRank() > 0.8 && fact.isHighValueTransaction()) {
+            fact.setSarRequired(true);
+            fact.addTriggeredRule("HIGH_INFLUENCE_HIGH_VALUE");
+            fact.addReason(String.format(
+                    "High-influence merchant (PageRank: %.3f) with high-value transaction",
+                    fact.getPageRank()));
+            rulesTriggered++;
+        }
+
+        if (fact.getPanTxnCount1h() > 10 && !"BLOCK".equals(fact.getDecision())) {
+            fact.setDecision("HOLD");
+            fact.addTriggeredRule("VELOCITY_BREACH_1H");
+            fact.addReason("Card velocity breach: " + fact.getPanTxnCount1h() + " transactions in 1 hour");
+            rulesTriggered++;
+        }
+
+        if (fact.getMerchantAmountSum24h() > 100000 && !"BLOCK".equals(fact.getDecision())) {
+            fact.setDecision("HOLD");
+            fact.addTriggeredRule("HIGH_MERCHANT_VOLUME_24H");
+            fact.addReason(String.format(
+                    "Merchant 24h volume exceeds $100,000: $%.2f",
+                    fact.getMerchantAmountSum24h()));
+            rulesTriggered++;
+        }
 
         return rulesTriggered;
     }
@@ -286,5 +308,10 @@ public class DroolsRulesService {
         } catch (Exception e) {
             return 0L;
         }
+    }
+
+    private boolean toBoolean(Object value) {
+        if (value instanceof Boolean booleanValue) return booleanValue;
+        return value != null && Boolean.parseBoolean(value.toString());
     }
 }

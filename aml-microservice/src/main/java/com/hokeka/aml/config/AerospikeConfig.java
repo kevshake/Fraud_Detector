@@ -23,11 +23,18 @@ public class AerospikeConfig {
         try {
             ClientPolicy policy = new ClientPolicy();
             policy.timeout = 2000;
+            // Do NOT hard-fail bean creation if Aerospike isn't reachable at startup (common
+            // when the service and Aerospike boot in parallel). With failIfNotConnected=false
+            // the client is created anyway and its cluster-tend thread connects once Aerospike
+            // is up, so the cache self-heals — no "cache-less until manual restart" window.
+            // Every read/write is already guarded by isConnected(), so an unconnected client
+            // simply behaves as a cache miss.
+            policy.failIfNotConnected = false;
             AerospikeClient client = new AerospikeClient(policy, host, port);
-            log.info("Aerospike client connected to {}:{}", host, port);
+            log.info("Aerospike client initialized for {}:{} (connected={})", host, port, client.isConnected());
             return client;
         } catch (Exception e) {
-            log.warn("Aerospike connection failed ({}:{}): {} - running without cache", host, port, e.getMessage());
+            log.warn("Aerospike client init failed ({}:{}): {} - running without cache", host, port, e.getMessage());
             return null;
         }
     }

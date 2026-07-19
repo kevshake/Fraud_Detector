@@ -21,6 +21,8 @@ public class TransactionFact {
     private final LocalDateTime txnTime;
     private final String channel;
     private final String panHash;
+    private final boolean cashTransaction;
+    private final boolean highRiskCountry;
 
     // ML/Graph scores (from XGBoost and Neo4j GDS)
     private final Double mlScore;
@@ -31,6 +33,7 @@ public class TransactionFact {
 
     // Velocity features
     private final Long panTxnCount1h;
+    private final Long panTxnCount24h;
     private final Double panAmountSum24h;
     private final Double merchantAmountSum24h;
 
@@ -38,6 +41,12 @@ public class TransactionFact {
     private final Double krs;
     private final Double cra;
     private final Double trs;
+
+    // Merchant Category Code — set post-construction from the enriched feature map (kept out
+    // of the 22-arg constructor to avoid rippling every call site). Lets rules target specific
+    // MCCs, e.g. Drools `TransactionFact(mcc == "5411")` or SpEL `#tx.mcc == '5411'`,
+    // combinable with AND/OR like any other field.
+    private String mcc;
 
     // Mutable decision fields (set by rules)
     private String decision = "ALLOW";
@@ -49,7 +58,8 @@ public class TransactionFact {
     public TransactionFact(Long txnId, String merchantId, BigDecimal amount, String currency,
             String countryCode, LocalDateTime txnTime, String channel, String panHash,
             Double mlScore, Double pageRank, Long communityId, Double betweenness,
-            Long connectionCount, Long panTxnCount1h, Double panAmountSum24h,
+            Long connectionCount, Long panTxnCount1h, Long panTxnCount24h,
+            boolean cashTransaction, boolean highRiskCountry, Double panAmountSum24h,
             Double merchantAmountSum24h, Double krs, Double cra, Double trs) {
         this.txnId = txnId;
         this.merchantId = merchantId;
@@ -59,12 +69,15 @@ public class TransactionFact {
         this.txnTime = txnTime != null ? txnTime : LocalDateTime.now();
         this.channel = channel;
         this.panHash = panHash;
+        this.cashTransaction = cashTransaction;
+        this.highRiskCountry = highRiskCountry;
         this.mlScore = mlScore != null ? mlScore : 0.0;
         this.pageRank = pageRank != null ? pageRank : 0.0;
         this.communityId = communityId != null ? communityId : 0L;
         this.betweenness = betweenness != null ? betweenness : 0.0;
         this.connectionCount = connectionCount != null ? connectionCount : 0L;
         this.panTxnCount1h = panTxnCount1h != null ? panTxnCount1h : 0L;
+        this.panTxnCount24h = panTxnCount24h != null ? panTxnCount24h : 0L;
         this.panAmountSum24h = panAmountSum24h != null ? panAmountSum24h : 0.0;
         this.merchantAmountSum24h = merchantAmountSum24h != null ? merchantAmountSum24h : 0.0;
         this.krs = krs != null ? krs : 0.0;
@@ -105,6 +118,14 @@ public class TransactionFact {
         return panHash;
     }
 
+    public boolean isCashTransaction() {
+        return cashTransaction;
+    }
+
+    public boolean isHighRiskCountry() {
+        return highRiskCountry;
+    }
+
     public Double getMlScore() {
         return mlScore;
     }
@@ -129,6 +150,10 @@ public class TransactionFact {
         return panTxnCount1h;
     }
 
+    public Long getPanTxnCount24h() {
+        return panTxnCount24h;
+    }
+
     public Double getPanAmountSum24h() {
         return panAmountSum24h;
     }
@@ -147,6 +172,14 @@ public class TransactionFact {
 
     public Double getTrs() {
         return trs;
+    }
+
+    public String getMcc() {
+        return mcc;
+    }
+
+    public void setMcc(String mcc) {
+        this.mcc = mcc;
     }
 
     // Decision methods (used by rules)
@@ -193,11 +226,6 @@ public class TransactionFact {
     // Helper methods for rules
     public double getAmountAsDouble() {
         return amount.doubleValue();
-    }
-
-    public boolean isHighRiskCountry() {
-        // OFAC sanctioned and high-risk countries
-        return List.of("KP", "IR", "SY", "CU", "RU", "BY").contains(countryCode);
     }
 
     public boolean isHighValueTransaction() {
