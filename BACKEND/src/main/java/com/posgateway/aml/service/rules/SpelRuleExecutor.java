@@ -43,7 +43,7 @@ public class SpelRuleExecutor {
      */
     public boolean evaluate(RuleDefinition rule, TransactionFact fact, Map<String, Object> features) {
         if (rule.getRuleExpression() == null || rule.getRuleExpression().isBlank()) {
-            return false;
+            throw new RuleEvaluationException("Rule expression is blank");
         }
 
         try {
@@ -58,8 +58,12 @@ public class SpelRuleExecutor {
             return result != null && result;
 
         } catch (Exception e) {
-            logger.warn("Error evaluating SpEL rule '{}': {}", rule.getName(), e.getMessage());
-            return false;
+            logger.error("Error evaluating SpEL rule '{}': {}", rule.getName(), e.getMessage());
+            if (e instanceof RuleEvaluationException evaluationException) {
+                throw evaluationException;
+            }
+            throw new RuleEvaluationException(
+                    "Could not evaluate rule '" + rule.getName() + "'", e);
         }
     }
 
@@ -70,12 +74,21 @@ public class SpelRuleExecutor {
         try {
             return objectMapper.readValue(parametersJson, new TypeReference<>() {});
         } catch (Exception e) {
-            logger.debug("Could not parse rule parameters JSON: {}", e.getMessage());
-            return Collections.emptyMap();
+            throw new RuleEvaluationException("Rule parameters are not valid JSON", e);
         }
     }
 
     public void clearCache() {
         expressionCache.clear();
+    }
+
+    public static class RuleEvaluationException extends RuntimeException {
+        public RuleEvaluationException(String message) {
+            super(message);
+        }
+
+        public RuleEvaluationException(String message, Throwable cause) {
+            super(message, cause);
+        }
     }
 }

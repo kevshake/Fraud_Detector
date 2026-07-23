@@ -9,7 +9,8 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "chargeback_disputes")
-@Data
+@lombok.Getter
+@lombok.Setter
 public class ChargebackDispute {
 
     @Id

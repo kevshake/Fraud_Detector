@@ -30,6 +30,71 @@ export interface ReportPreviewResponse {
   summary?: Record<string, unknown>;
 }
 
+interface ReportExecutionDto {
+  id?: number;
+  executionId: string;
+  reportId?: number;
+  reportName?: string;
+  reportCode?: string;
+  parameters?: Record<string, unknown>;
+  status: string;
+  fileFormats?: string[];
+  fileSizes?: Record<string, number>;
+  startedAt?: string;
+  completedAt?: string;
+  createdAt?: string;
+  errorMessage?: string;
+  triggeredByName?: string;
+}
+
+export interface ReportScheduleResponse {
+  id: number;
+  reportId: number;
+  reportName: string;
+  reportCode: string;
+  scheduleName: string;
+  frequency: string;
+  timezone: string;
+  exportFormats: string[];
+  nextRunAt?: string;
+  isActive: boolean;
+}
+
+const normalizeExportFormat = (format?: string): ExportFormat => {
+  const normalized = (format || "PDF").toUpperCase();
+  if (["EXCEL", "XLS", "XLSX"].includes(normalized)) return "Excel";
+  return normalized === "CSV" ? "CSV" : "PDF";
+};
+
+const mapExecutionDto = (dto: ReportExecutionDto): ReportInstance => {
+  const requestedFormat = typeof dto.parameters?.outputFormat === "string"
+    ? dto.parameters.outputFormat : dto.fileFormats?.[0];
+  const format = normalizeExportFormat(requestedFormat);
+  const fileSizeKey = format === "Excel" ? "XLSX" : format.toUpperCase();
+  const statusMap: Record<string, ReportInstance["status"]> = {
+    PENDING: "scheduled",
+    RUNNING: "generating",
+    COMPLETED: "completed",
+    FAILED: "failed",
+    CANCELLED: "failed",
+  };
+  return {
+    id: String(dto.id ?? dto.executionId),
+    executionId: dto.executionId,
+    reportId: String(dto.reportId ?? dto.reportCode ?? ""),
+    reportCode: dto.reportCode,
+    reportName: dto.reportName ?? dto.reportCode ?? "Report",
+    status: statusMap[dto.status] ?? "draft",
+    parameters: dto.parameters ?? {},
+    createdAt: dto.createdAt ?? dto.startedAt ?? new Date().toISOString(),
+    completedAt: dto.completedAt,
+    fileSize: dto.fileSizes?.[fileSizeKey],
+    format,
+    errorMessage: dto.errorMessage,
+    createdBy: dto.triggeredByName ?? "System",
+  };
+};
+
 // Report History Query Params
 export interface ReportHistoryParams {
   page?: number;
@@ -161,10 +226,19 @@ export const useReportPreview = (
         throw new ReportApiError("Report ID and parameters are required", 400);
       }
       try {
-        return await apiClient.post<ReportPreviewResponse>("reports/preview", { 
-          reportId, 
-          parameters 
+        const dto = await apiClient.post<{
+          columns?: Array<Record<string, unknown>>;
+          data?: Record<string, unknown>[];
+          totalCount?: number;
+        }>("reports/preview", {
+          reportType: reportId,
+          parameters,
         });
+        return {
+          columns: (dto.columns ?? []).map((column) => String(column.name ?? column.label ?? "")),
+          data: dto.data ?? [],
+          totalRows: dto.totalCount ?? 0,
+        };
       } catch (error) {
         return handleApiError(error);
       }
@@ -200,9 +274,10 @@ export const useReportHistory = (
     queryKey: ["reports", "history", queryParams],
     queryFn: async () => {
       try {
-        return await apiClient.get<PageResponse<ReportInstance>>(
+        const page = await apiClient.get<PageResponse<ReportExecutionDto>>(
           `reports/history${queryString ? `?${queryString}` : ""}`
         );
+        return { ...page, content: page.content.map(mapExecutionDto) };
       } catch (error) {
         return handleApiError(error);
       }
@@ -223,7 +298,8 @@ export const useReportInstance = (
     queryKey: ["reports", "instance", instanceId],
     queryFn: async () => {
       try {
-        return await apiClient.get<ReportInstance>(`reports/${instanceId}`);
+        const dto = await apiClient.get<ReportExecutionDto>(`reports/${instanceId}`);
+        return mapExecutionDto(dto);
       } catch (error) {
         return handleApiError(error);
       }
@@ -245,12 +321,12 @@ export const useReportInstance = (
 /**
  * Get scheduled reports
  */
-export const useScheduledReports = (options?: Partial<UseQueryOptions<ReportInstance[], ReportApiError>>) => {
-  return useQuery<ReportInstance[], ReportApiError>({
+export const useScheduledReports = (options?: Partial<UseQueryOptions<PageResponse<ReportScheduleResponse>, ReportApiError>>) => {
+  return useQuery<PageResponse<ReportScheduleResponse>, ReportApiError>({
     queryKey: ["reports", "scheduled"],
     queryFn: async () => {
       try {
-        return await apiClient.get<ReportInstance[]>("reports/schedule");
+        return await apiClient.get<PageResponse<ReportScheduleResponse>>("reports/schedule");
       } catch (error) {
         return handleApiError(error);
       }
@@ -349,11 +425,12 @@ export const useGenerateReport = () => {
     mutationFn: async (request) => {
       try {
         // Backend ReportGenerateRequest expects reportType (= report_code) + outputFormat
-        return await apiClient.post<ReportInstance>("reports/generate", {
+        const dto = await apiClient.post<ReportExecutionDto>("reports/generate", {
           reportType: request.reportId,
           parameters: request.parameters,
           outputFormat: request.format,
         });
+        return mapExecutionDto(dto);
       } catch (error) {
         return handleApiError(error);
       }
@@ -368,52 +445,41 @@ export const useGenerateReport = () => {
 };
 
 /**
- * Schedule report with optimistic updates
+ * Schedule report using the backend ReportScheduleRequest contract.
  */
 export const useScheduleReport = () => {
   const queryClient = useQueryClient();
 
   return useMutation<
-    ReportInstance, 
-    ReportApiError, 
-    { reportId: string; schedule: ScheduleConfig; parameters: Record<string, unknown> }
+    ReportScheduleResponse,
+    ReportApiError,
+    { reportId: number; schedule: ScheduleConfig; parameters: Record<string, unknown> }
   >({
     mutationFn: async (request) => {
       try {
-        return await apiClient.post<ReportInstance>("reports/schedule", request);
+        const { schedule } = request;
+        const dateRangeByFrequency: Record<ScheduleConfig["frequency"], string> = {
+          daily: "PREVIOUS_DAY",
+          weekly: "PREVIOUS_WEEK",
+          monthly: "PREVIOUS_MONTH",
+          quarterly: "PREVIOUS_QUARTER",
+          yearly: "PREVIOUS_YEAR",
+        };
+        return await apiClient.post<ReportScheduleResponse>("reports/schedule", {
+          reportId: request.reportId,
+          scheduleName: `Scheduled report ${request.reportId} - ${schedule.frequency}`,
+          frequency: schedule.frequency.toUpperCase(),
+          timeOfDay: schedule.time ?? "08:00",
+          dayOfWeek: schedule.dayOfWeek,
+          dayOfMonth: schedule.dayOfMonth,
+          timezone: schedule.timezone,
+          defaultParameters: request.parameters,
+          dateRangeType: dateRangeByFrequency[schedule.frequency],
+          emailRecipients: schedule.recipients,
+          exportFormats: schedule.formats.map((format) => format === "Excel" ? "XLSX" : format),
+        });
       } catch (error) {
         return handleApiError(error);
-      }
-    },
-    onMutate: async (newSchedule) => {
-      // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ["reports", "scheduled"] });
-
-      // Snapshot previous value
-      const previousScheduled = queryClient.getQueryData<ReportInstance[]>(["reports", "scheduled"]);
-
-      // Optimistically update
-      queryClient.setQueryData<ReportInstance[]>(["reports", "scheduled"], (old) => {
-        const optimisticInstance: ReportInstance = {
-          id: `temp-${Date.now()}`,
-          reportId: newSchedule.reportId,
-          reportName: "Scheduled Report",
-          status: "scheduled",
-          parameters: newSchedule.parameters,
-          createdAt: new Date().toISOString(),
-          format: newSchedule.schedule.formats[0] || "PDF",
-          createdBy: "current-user",
-        };
-        return old ? [optimisticInstance, ...old] : [optimisticInstance];
-      });
-
-      return { previousScheduled } as { previousScheduled: ReportInstance[] | undefined };
-    },
-    onError: (_err, _newSchedule, context) => {
-      // Rollback on error
-      const ctx = context as { previousScheduled: ReportInstance[] | undefined } | undefined;
-      if (ctx?.previousScheduled) {
-        queryClient.setQueryData(["reports", "scheduled"], ctx.previousScheduled);
       }
     },
     onSettled: () => {

@@ -122,12 +122,12 @@ public class BehavioralAnalyticsService {
      * Get peer group for merchant
      */
     private List<Merchant> getPeerGroup(Merchant merchant) {
-        // Peer group: same MCC code
-        return merchantRepository.findAll().stream()
-                .filter(m -> merchant.getMcc().equals(m.getMcc()))
-                .filter(m -> !m.getMerchantId().equals(merchant.getMerchantId()))
-                .limit(20) // Top 20 peers
-                .toList();
+        // Peer group: same MCC code, excluding the subject merchant, DB-side limited to 20.
+        // Replaces findAll() + in-memory filter/limit.
+        return merchantRepository.findPeersByMcc(
+                merchant.getMcc(),
+                merchant.getMerchantId(),
+                org.springframework.data.domain.PageRequest.of(0, 20));
     }
 
     /**

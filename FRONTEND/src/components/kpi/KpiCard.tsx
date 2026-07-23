@@ -1,8 +1,10 @@
+import { memo } from 'react'
 import { motion } from 'framer-motion'
 import { ArrowDown, ArrowUp, type LucideIcon } from 'lucide-react'
 import GlassCard, { type GlassCardGlowVariant } from '../Common/GlassCard'
 import Sparkline, { type SparklineGlow } from './Sparkline'
 import { cn } from '../../lib/utils'
+import { withAlpha } from '../../theme/tokens'
 
 export interface KpiTrend {
   value: number
@@ -33,7 +35,7 @@ const GLOW_BY_VARIANT: Partial<Record<GlassCardGlowVariant, SparklineGlow>> = {
   gold: 'gold',
 }
 
-export default function KpiCard({
+function KpiCard({
   title,
   subtitle = 'Today',
   value,
@@ -41,7 +43,7 @@ export default function KpiCard({
   iconBg,
   trend,
   sparklineData,
-  sparklineColor = '#C9A96E',
+  sparklineColor = 'var(--gold)',
   sparklineGlow,
   loading = false,
   error = false,
@@ -68,9 +70,9 @@ export default function KpiCard({
           <div className="flex items-start justify-between gap-1.5">
             <div
               className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg"
-              style={{ backgroundColor: iconBg }}
+              style={{ backgroundColor: withAlpha(iconBg, 0.16), border: `1px solid ${withAlpha(iconBg, 0.35)}` }}
             >
-              <Icon size={15} color="#FFFFFF" />
+              <Icon size={15} color={iconBg} />
             </div>
             <div className="min-w-0 text-right">
               <p className="truncate text-[10px] font-medium leading-tight text-white/80">{title}</p>
@@ -116,3 +118,5 @@ export default function KpiCard({
     </motion.div>
   )
 }
+
+export default memo(KpiCard)

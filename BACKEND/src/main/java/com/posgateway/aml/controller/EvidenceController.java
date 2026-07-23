@@ -32,26 +32,30 @@ public class EvidenceController {
     private final CaseEvidenceRepository caseEvidenceRepository;
     private final ComplianceCaseRepository complianceCaseRepository;
     private final UserRepository userRepository;
+    private final com.posgateway.aml.service.security.PspIsolationService pspIsolationService;
 
     @Autowired
     public EvidenceController(EvidenceStorageService evidenceStorageService,
             CaseEvidenceRepository caseEvidenceRepository,
             ComplianceCaseRepository complianceCaseRepository,
-            UserRepository userRepository) {
+            UserRepository userRepository,
+            com.posgateway.aml.service.security.PspIsolationService pspIsolationService) {
         this.evidenceStorageService = evidenceStorageService;
         this.caseEvidenceRepository = caseEvidenceRepository;
         this.complianceCaseRepository = complianceCaseRepository;
         this.userRepository = userRepository;
+        this.pspIsolationService = pspIsolationService;
     }
 
     @PostMapping("/{caseId}/evidence")
     public ResponseEntity<CaseEvidence> uploadEvidence(@PathVariable Long caseId,
             @RequestParam("file") MultipartFile file,
-            @RequestParam("description") String description,
-            @RequestParam("uploadedBy") Long uploadedBy) { // Simplified User ID
+            @RequestParam("description") String description) {
         try {
             ComplianceCase cCase = complianceCaseRepository.findById(caseId)
                     .orElseThrow(() -> new IllegalArgumentException("Case not found"));
+            // Tenant isolation: only this case's PSP (or a platform admin) may attach evidence.
+            pspIsolationService.validateCaseAccess(cCase);
 
             // Store file physically
             EvidenceStorageService.StoredFile storedFile = evidenceStorageService.storeEvidence(file);
@@ -62,9 +66,11 @@ public class EvidenceController {
             evidence.setFileName(storedFile.getOriginalFilename());
             evidence.setStoragePath(storedFile.getStoredFilename()); // Storing filename as relative path
             evidence.setFileType(extractFileType(file.getContentType(), storedFile.getOriginalFilename()));
-            // Get User entity from uploadedBy ID
-            User user = userRepository.findById(uploadedBy)
-                    .orElseThrow(() -> new IllegalArgumentException("User not found"));
+            // Uploader is the authenticated principal — never a client-supplied id (was forgeable).
+            User user = pspIsolationService.getCurrentUser();
+            if (user == null) {
+                return ResponseEntity.status(401).build();
+            }
             evidence.setUploadedBy(user);
             evidence.setDescription(description);
             evidence.setUploadedAt(LocalDateTime.now());
@@ -79,6 +85,9 @@ public class EvidenceController {
 
     @GetMapping("/{caseId}/evidence")
     public ResponseEntity<List<CaseEvidence>> listEvidence(@PathVariable Long caseId) {
+        ComplianceCase cCase = complianceCaseRepository.findById(caseId)
+                .orElseThrow(() -> new IllegalArgumentException("Case not found"));
+        pspIsolationService.validateCaseAccess(cCase);
         List<CaseEvidence> evidenceList = caseEvidenceRepository.findByComplianceCase_Id(caseId);
         return ResponseEntity.ok(evidenceList);
     }
@@ -91,6 +100,8 @@ public class EvidenceController {
         if (!evidence.getComplianceCase().getId().equals(caseId)) {
             return ResponseEntity.badRequest().build();
         }
+        // Tenant isolation: only the owning PSP (or a platform admin) may download.
+        pspIsolationService.validateCaseAccess(evidence.getComplianceCase());
 
         try {
             Path filePath = evidenceStorageService.loadEvidence(evidence.getStoragePath());

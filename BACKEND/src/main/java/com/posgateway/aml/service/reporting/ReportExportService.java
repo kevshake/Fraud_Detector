@@ -24,6 +24,7 @@ import org.springframework.stereotype.Service;
 
 import java.awt.Color;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -32,6 +33,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 /**
  * Report Export Service
@@ -147,6 +150,153 @@ public class ReportExportService {
         byte[] bytes = csv.toString().getBytes(StandardCharsets.UTF_8);
         logger.info("CSV generated: {} bytes", bytes.length);
         return bytes;
+    }
+
+    // -------------------------------------------------------------------------
+    // XLSX export
+    // -------------------------------------------------------------------------
+
+    /** Produce a standards-compliant Office Open XML workbook without relabelling CSV bytes. */
+    public byte[] exportToXLSX(List<Map<String, Object>> reportData, String reportName) {
+        logger.info("Generating XLSX for report '{}' with {} rows", reportName, reportData.size());
+        try (ByteArrayOutputStream out = new ByteArrayOutputStream();
+             ZipOutputStream zip = new ZipOutputStream(out, StandardCharsets.UTF_8)) {
+            putZipEntry(zip, "[Content_Types].xml", contentTypesXml());
+            putZipEntry(zip, "_rels/.rels", packageRelationshipsXml());
+            putZipEntry(zip, "docProps/core.xml", corePropertiesXml(reportName));
+            putZipEntry(zip, "xl/workbook.xml", workbookXml());
+            putZipEntry(zip, "xl/_rels/workbook.xml.rels", workbookRelationshipsXml());
+            putZipEntry(zip, "xl/styles.xml", stylesXml());
+            putZipEntry(zip, "xl/worksheets/sheet1.xml", worksheetXml(reportData));
+            zip.finish();
+            return out.toByteArray();
+        } catch (IOException e) {
+            throw new RuntimeException("XLSX generation failed: " + e.getMessage(), e);
+        }
+    }
+
+    private String worksheetXml(List<Map<String, Object>> rows) {
+        List<String> columns = rows.isEmpty() ? List.of() : List.copyOf(rows.get(0).keySet());
+        StringBuilder xml = new StringBuilder(4096);
+        xml.append("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>")
+                .append("<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">")
+                .append("<sheetViews><sheetView workbookViewId=\"0\"><pane ySplit=\"1\" topLeftCell=\"A2\" activePane=\"bottomLeft\" state=\"frozen\"/></sheetView></sheetViews>")
+                .append("<sheetData>");
+        if (!columns.isEmpty()) {
+            xml.append("<row r=\"1\">");
+            for (int col = 0; col < columns.size(); col++) {
+                appendInlineStringCell(xml, cellReference(col, 1), formatColumnName(columns.get(col)), 1);
+            }
+            xml.append("</row>");
+            for (int rowIndex = 0; rowIndex < rows.size(); rowIndex++) {
+                int excelRow = rowIndex + 2;
+                xml.append("<row r=\"").append(excelRow).append("\">");
+                Map<String, Object> row = rows.get(rowIndex);
+                for (int col = 0; col < columns.size(); col++) {
+                    appendXlsxCell(xml, cellReference(col, excelRow), row.get(columns.get(col)));
+                }
+                xml.append("</row>");
+            }
+        }
+        return xml.append("</sheetData><autoFilter ref=\"A1:")
+                .append(columns.isEmpty() ? "A1" : cellReference(columns.size() - 1, Math.max(rows.size() + 1, 1)))
+                .append("\"/></worksheet>").toString();
+    }
+
+    private void appendXlsxCell(StringBuilder xml, String reference, Object value) {
+        if (value == null) {
+            xml.append("<c r=\"").append(reference).append("\"/>");
+        } else if (value instanceof Boolean bool) {
+            xml.append("<c r=\"").append(reference).append("\" t=\"b\"><v>")
+                    .append(bool ? '1' : '0').append("</v></c>");
+        } else if (value instanceof Number number && isFinite(number)) {
+            xml.append("<c r=\"").append(reference).append("\" t=\"n\"><v>")
+                    .append(number).append("</v></c>");
+        } else {
+            appendInlineStringCell(xml, reference, formatValue(value), 0);
+        }
+    }
+
+    private void appendInlineStringCell(StringBuilder xml, String reference, String value, int style) {
+        xml.append("<c r=\"").append(reference).append("\" t=\"inlineStr\"");
+        if (style > 0) xml.append(" s=\"").append(style).append("\"");
+        xml.append("><is><t xml:space=\"preserve\">").append(escapeXml(value))
+                .append("</t></is></c>");
+    }
+
+    private boolean isFinite(Number number) {
+        if (number instanceof Double value) return Double.isFinite(value);
+        if (number instanceof Float value) return Float.isFinite(value);
+        return true;
+    }
+
+    private String cellReference(int zeroBasedColumn, int row) {
+        StringBuilder letters = new StringBuilder();
+        int column = zeroBasedColumn + 1;
+        while (column > 0) {
+            int remainder = (column - 1) % 26;
+            letters.insert(0, (char) ('A' + remainder));
+            column = (column - 1) / 26;
+        }
+        return letters.append(row).toString();
+    }
+
+    private void putZipEntry(ZipOutputStream zip, String path, String value) throws IOException {
+        zip.putNextEntry(new ZipEntry(path));
+        zip.write(value.getBytes(StandardCharsets.UTF_8));
+        zip.closeEntry();
+    }
+
+    private String contentTypesXml() {
+        return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+                + "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">"
+                + "<Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/>"
+                + "<Default Extension=\"xml\" ContentType=\"application/xml\"/>"
+                + "<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>"
+                + "<Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>"
+                + "<Override PartName=\"/xl/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml\"/>"
+                + "<Override PartName=\"/docProps/core.xml\" ContentType=\"application/vnd.openxmlformats-package.core-properties+xml\"/>"
+                + "</Types>";
+    }
+
+    private String packageRelationshipsXml() {
+        return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+                + "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">"
+                + "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"xl/workbook.xml\"/>"
+                + "<Relationship Id=\"rId2\" Type=\"http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties\" Target=\"docProps/core.xml\"/>"
+                + "</Relationships>";
+    }
+
+    private String workbookXml() {
+        return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+                + "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">"
+                + "<sheets><sheet name=\"Report\" sheetId=\"1\" r:id=\"rId1\"/></sheets></workbook>";
+    }
+
+    private String workbookRelationshipsXml() {
+        return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+                + "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">"
+                + "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>"
+                + "<Relationship Id=\"rId2\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles\" Target=\"styles.xml\"/>"
+                + "</Relationships>";
+    }
+
+    private String stylesXml() {
+        return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+                + "<styleSheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">"
+                + "<fonts count=\"2\"><font><sz val=\"11\"/><name val=\"Calibri\"/></font><font><b/><color rgb=\"FFFFFFFF\"/><sz val=\"11\"/><name val=\"Calibri\"/></font></fonts>"
+                + "<fills count=\"3\"><fill><patternFill patternType=\"none\"/></fill><fill><patternFill patternType=\"gray125\"/></fill><fill><patternFill patternType=\"solid\"><fgColor rgb=\"FF8B4049\"/><bgColor indexed=\"64\"/></patternFill></fill></fills>"
+                + "<borders count=\"1\"><border><left/><right/><top/><bottom/><diagonal/></border></borders>"
+                + "<cellStyleXfs count=\"1\"><xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\"/></cellStyleXfs>"
+                + "<cellXfs count=\"2\"><xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\"/><xf numFmtId=\"0\" fontId=\"1\" fillId=\"2\" borderId=\"0\" xfId=\"0\" applyFont=\"1\" applyFill=\"1\"/></cellXfs>"
+                + "</styleSheet>";
+    }
+
+    private String corePropertiesXml(String reportName) {
+        return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+                + "<cp:coreProperties xmlns:cp=\"http://schemas.openxmlformats.org/package/2006/metadata/core-properties\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\">"
+                + "<dc:title>" + escapeXml(reportName) + "</dc:title><dc:creator>" + PLATFORM_NAME
+                + "</dc:creator></cp:coreProperties>";
     }
 
     // -------------------------------------------------------------------------

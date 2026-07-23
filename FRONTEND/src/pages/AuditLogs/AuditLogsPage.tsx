@@ -6,6 +6,8 @@ import TwBadge from "../../components/Common/TwBadge";
 import TwPagination from "../../components/Common/TwPagination";
 import { TwInput, TwSelect } from "../../components/Common/TwInput";
 import { Download, Loader2, RotateCcw } from "lucide-react";
+import { Link } from "react-router-dom";
+import { normalizeRecordType, recordPath } from "../../lib/recordLinks";
 
 const actionBadge: Record<string, "danger" | "success" | "info" | "warning" | "default"> = {
   DELETE: "danger",
@@ -102,7 +104,7 @@ export default function AuditLogsPage() {
       </div>
 
       {/* Filters */}
-      <div className="mb-3 rounded-lg border border-white/10 bg-[#0f1a2e] p-4">
+      <div className="mb-3 rounded-lg border border-white/10 bg-[var(--surface-2)] p-4">
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6">
           <TwInput
             type="date"
@@ -152,7 +154,7 @@ export default function AuditLogsPage() {
       </div>
 
       {/* Table */}
-      <div className="overflow-hidden rounded-lg border border-white/10 bg-[#0f1a2e]">
+      <div className="overflow-hidden rounded-lg border border-white/10 bg-[var(--surface-2)]">
         <div className="overflow-auto" style={{ maxHeight: "calc(100vh - 380px)" }}>
           {isLoading ? (
             <div className="flex items-center justify-center py-16">
@@ -162,7 +164,7 @@ export default function AuditLogsPage() {
           ) : (
             <table className="w-full border-collapse">
               <thead className="sticky top-0 z-10">
-                <tr className="border-b border-white/10 bg-[#0f1a2e]">
+                <tr className="border-b border-white/10 bg-[var(--surface-2)]">
                   <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">Timestamp</th>
                   <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">PSP</th>
                   <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">User</th>
@@ -176,17 +178,21 @@ export default function AuditLogsPage() {
                 {content.map((log: any) => (
                   <tr key={log.id} className="transition-colors hover:bg-white/[0.02]">
                     <td className="whitespace-nowrap px-4 py-3 text-sm text-white">
-                      {new Date(log.timestamp).toLocaleString()}
+                      <Link to={`/records/AUDIT_LOG/${log.id}`} className="hover:text-gold">{new Date(log.timestamp).toLocaleString()}</Link>
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-sm text-glass-muted">
-                      {log.pspId ? (log.pspId === 0 ? "System" : `PSP #${log.pspId}`) : "System"}
+                      {log.pspId && log.pspId !== 0 ? <Link to={`/records/PSP/${log.pspId}`} className="hover:text-gold">PSP #{log.pspId}</Link> : "System"}
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-sm text-white">{log.username}</td>
                     <td className="whitespace-nowrap px-4 py-3">
                       <TwBadge variant={badgeForAction(log.actionType)}>{log.actionType}</TwBadge>
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-sm text-white/80">{log.entityType}</td>
-                    <td className="whitespace-nowrap px-4 py-3 font-mono text-sm text-white/80">{log.entityId}</td>
+                    <td className="whitespace-nowrap px-4 py-3 font-mono text-sm text-white/80">
+                      {log.entityType && recordPath(normalizeRecordType(log.entityType), log.entityId)
+                        ? <Link to={recordPath(normalizeRecordType(log.entityType), log.entityId)!} className="hover:text-gold">{log.entityId}</Link>
+                        : log.entityId}
+                    </td>
                     <td className="max-w-xs truncate px-4 py-3 text-sm text-glass-muted">
                       {log.reason || log.details || <span className="text-glass-muted/50">N/A</span>}
                     </td>

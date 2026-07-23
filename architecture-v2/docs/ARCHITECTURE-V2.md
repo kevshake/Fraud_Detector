@@ -1,5 +1,15 @@
 # High-Performance AML Architecture V2
 
+> **Implementation note (July 2026):** This document includes target-state performance work. The current platform keeps Aerospike in the independently deployed `aml-microservice`, accessed by BACKEND through HTTP delegation for sanctions and other hot lookups. PostgreSQL is the source of record. Redis and ClickHouse sections below are target-state designs unless deployment configuration explicitly enables them.
+
+> **Implemented event topology:** transaction scoring is synchronous and authoritative. PostgreSQL commits business data and Kafka events through `event_outbox`; `transactions.raw` feeds idempotent Redis and Neo4j projections, `alerts.generated` feeds reporting, and case topics feed reporting/notifications. The older `transactions.enriched`, `features.updates`, `transactions.decisions`, and `cases.events` names below describe an earlier target design and are not active runtime topics. See `docs/features/EVENT_PIPELINE.md`.
+
+## Multi-Asset Intelligence Plane
+
+The implemented Customer 360 plane normalizes banking, securities, e-money, and crypto accounts and transactions before explainable scenario evaluation. PostgreSQL stores customer identities, linked asset accounts, normalized activity, evidence-bearing risk signals, and alert provenance. A vendor-neutral blockchain analytics gateway isolates provider-specific APIs and fails closed when unavailable.
+
+Every non-`ALLOW` assessment enters the existing PSP-scoped alert queue. Investigator escalation continues through the existing compliance case, timeline, and regulatory reporting workflow. Aerospike ownership does not move into BACKEND as part of this design.
+
 ## Executive Summary
 
 This document describes the redesigned high-performance architecture for the Fraud Detector AML system, targeting:

@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Compliance Calendar Service
@@ -27,14 +28,17 @@ public class ComplianceCalendarService {
     private final ComplianceDeadlineRepository deadlineRepository;
     private final SuspiciousActivityReportRepository sarRepository;
     private final NotificationService notificationService;
+    private final com.posgateway.aml.service.security.PspIsolationService pspIsolationService;
 
     @Autowired
     public ComplianceCalendarService(ComplianceDeadlineRepository deadlineRepository,
             SuspiciousActivityReportRepository sarRepository,
-            NotificationService notificationService) {
+            NotificationService notificationService,
+            com.posgateway.aml.service.security.PspIsolationService pspIsolationService) {
         this.deadlineRepository = deadlineRepository;
         this.sarRepository = sarRepository;
         this.notificationService = notificationService;
+        this.pspIsolationService = pspIsolationService;
     }
 
     /**
@@ -72,19 +76,36 @@ public class ComplianceCalendarService {
     /**
      * Check SAR filing deadlines
      */
-    @Scheduled(cron = "0 0 9 * * *") // Daily at 9 AM
+    @Scheduled(cron = "${compliance.sar-deadline-check-cron:0 */15 * * * *}")
     @Transactional
     public void checkSarFilingDeadlines() {
-        LocalDateTime warningDate = LocalDateTime.now().plusDays(3);
-        List<SuspiciousActivityReport> sarsDueSoon = sarRepository
-                .findByFilingDeadlineBeforeAndStatusNot(warningDate,
-                        com.posgateway.aml.model.SarStatus.FILED);
+        LocalDateTime now = LocalDateTime.now();
+        List<com.posgateway.aml.model.SarStatus> openStatuses = List.of(
+                com.posgateway.aml.model.SarStatus.DRAFT,
+                com.posgateway.aml.model.SarStatus.PENDING_REVIEW,
+                com.posgateway.aml.model.SarStatus.APPROVED);
+        List<SuspiciousActivityReport> candidates = sarRepository
+                .findByStatusInAndFilingDeadlineBefore(openStatuses, now.plusDays(7));
 
-        if (!sarsDueSoon.isEmpty()) {
-            logger.warn("Found {} SARs with upcoming filing deadlines", sarsDueSoon.size());
-            // Send notifications
-            String message = String.format("Alert: %d SARs are due for filing within 7 days.", sarsDueSoon.size());
-            notificationService.sendSystemAlert("compliance-deadlines", message);
+        for (SuspiciousActivityReport sar : candidates) {
+            if (sar.getFilingDeadline() == null) continue;
+            if (now.isAfter(sar.getFilingDeadline())) {
+                sar.setDeadlineBreached(true);
+                if (sar.getDeadlineBreachNotifiedAt() == null) {
+                    notificationService.sendSystemAlert("compliance-deadlines",
+                            "BREACH: " + sar.getSarReference() + " missed its filing deadline "
+                                    + sar.getFilingDeadline() + " under policy " + sar.getDeadlinePolicyCode());
+                    sar.setDeadlineBreachNotifiedAt(now);
+                }
+            } else if (sar.getDeadlineWarningAt() != null
+                    && !now.isBefore(sar.getDeadlineWarningAt())
+                    && sar.getDeadlineWarningSentAt() == null) {
+                notificationService.sendSystemAlert("compliance-deadlines",
+                        "Due soon: " + sar.getSarReference() + " must be filed by "
+                                + sar.getFilingDeadline() + " under policy " + sar.getDeadlinePolicyCode());
+                sar.setDeadlineWarningSentAt(now);
+            }
+            sarRepository.save(sar);
         }
     }
 
@@ -106,6 +127,32 @@ public class ComplianceCalendarService {
         return deadlineRepository.save(deadline);
     }
 
+    @Transactional
+    public ComplianceDeadline upsertSourceDeadline(String deadlineType, LocalDateTime deadlineDate,
+            String description, String jurisdiction, Long pspId, String sourceType, Long sourceId) {
+        ComplianceDeadline deadline = deadlineRepository.findBySourceTypeAndSourceId(sourceType, sourceId)
+                .orElseGet(ComplianceDeadline::new);
+        deadline.setDeadlineType(deadlineType);
+        deadline.setDeadlineDate(deadlineDate);
+        deadline.setDescription(description);
+        deadline.setJurisdiction(jurisdiction);
+        deadline.setPspId(pspId);
+        deadline.setSourceType(sourceType);
+        deadline.setSourceId(sourceId);
+        deadline.setCompleted(false);
+        deadline.setCompletedAt(null);
+        return deadlineRepository.save(deadline);
+    }
+
+    @Transactional
+    public void completeSourceDeadline(String sourceType, Long sourceId) {
+        deadlineRepository.findBySourceTypeAndSourceId(sourceType, sourceId).ifPresent(deadline -> {
+            deadline.setCompleted(true);
+            deadline.setCompletedAt(LocalDateTime.now());
+            deadlineRepository.save(deadline);
+        });
+    }
+
     // Backwards-compatible overload (platform-wide).
     @Transactional
     public ComplianceDeadline createDeadline(String deadlineType, LocalDateTime deadlineDate,
@@ -120,6 +167,8 @@ public class ComplianceCalendarService {
     public void markDeadlineCompleted(Long deadlineId) {
         ComplianceDeadline deadline = deadlineRepository.findById(deadlineId)
                 .orElseThrow(() -> new IllegalArgumentException("Deadline not found"));
+        // Tenant isolation: only the deadline's own PSP (or a platform admin) may complete it.
+        pspIsolationService.validatePspAccess(deadline.getPspId());
         deadline.setCompleted(true);
         deadline.setCompletedAt(LocalDateTime.now());
         deadlineRepository.save(deadline);

@@ -71,6 +71,14 @@ public class Merchant {
     @Column(name = "contact_email", length = 200)
     private String contactEmail;
 
+    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.WRITE_ONLY)
+    @Convert(converter = com.posgateway.aml.entity.converter.VersionedAesGcmStringConverter.class)
+    @Column(name = "cbk_settlement_account_number", columnDefinition = "TEXT")
+    private String cbkSettlementAccountNumber;
+
+    @Column(name = "cbk_economic_sector_code", length = 100)
+    private String cbkEconomicSectorCode;
+
     // Address
     @Column(name = "address_street", length = 500)
     private String addressStreet;
@@ -124,6 +132,12 @@ public class Merchant {
 
     @Column(name = "last_edd_review_at")
     private LocalDateTime lastEddReviewAt;
+
+    @Column(name = "last_corporate_intelligence_at")
+    private LocalDateTime lastCorporateIntelligenceAt;
+
+    @Column(name = "next_corporate_intelligence_due")
+    private LocalDateTime nextCorporateIntelligenceDue;
 
     // Enhanced Dashboard Fields
     @Column(name = "kyc_status", length = 50)
@@ -329,6 +343,28 @@ public class Merchant {
         this.contactEmail = contactEmail;
     }
 
+    public String getCbkSettlementAccountNumber() {
+        return cbkSettlementAccountNumber;
+    }
+
+    public void setCbkSettlementAccountNumber(String cbkSettlementAccountNumber) {
+        this.cbkSettlementAccountNumber = normalizeNullable(cbkSettlementAccountNumber);
+    }
+
+    public String getCbkEconomicSectorCode() {
+        return cbkEconomicSectorCode;
+    }
+
+    public void setCbkEconomicSectorCode(String cbkEconomicSectorCode) {
+        this.cbkEconomicSectorCode = normalizeNullable(cbkEconomicSectorCode);
+    }
+
+    @Transient
+    @com.fasterxml.jackson.annotation.JsonProperty("cbkSettlementAccountConfigured")
+    public boolean isCbkSettlementAccountConfigured() {
+        return cbkSettlementAccountNumber != null && !cbkSettlementAccountNumber.isBlank();
+    }
+
     public String getAddressStreet() {
         return addressStreet;
     }
@@ -441,6 +477,22 @@ public class Merchant {
         this.lastEddReviewAt = lastEddReviewAt;
     }
 
+    public LocalDateTime getLastCorporateIntelligenceAt() {
+        return lastCorporateIntelligenceAt;
+    }
+
+    public void setLastCorporateIntelligenceAt(LocalDateTime lastCorporateIntelligenceAt) {
+        this.lastCorporateIntelligenceAt = lastCorporateIntelligenceAt;
+    }
+
+    public LocalDateTime getNextCorporateIntelligenceDue() {
+        return nextCorporateIntelligenceDue;
+    }
+
+    public void setNextCorporateIntelligenceDue(LocalDateTime nextCorporateIntelligenceDue) {
+        this.nextCorporateIntelligenceDue = nextCorporateIntelligenceDue;
+    }
+
     public String getKycStatus() {
         return kycStatus;
     }
@@ -511,6 +563,10 @@ public class Merchant {
 
     public void setBeneficialOwners(List<BeneficialOwner> beneficialOwners) {
         this.beneficialOwners = beneficialOwners;
+    }
+
+    private String normalizeNullable(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     public static MerchantBuilder builder() {

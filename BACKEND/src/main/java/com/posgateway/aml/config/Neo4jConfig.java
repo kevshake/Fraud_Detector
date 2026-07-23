@@ -43,8 +43,8 @@ public class Neo4jConfig {
                 AuthTokens.basic(neo4jUsername, neo4jPassword));
     }
 
-    @Bean
-    public Neo4jTransactionManager transactionManager(Driver driver,
+    @Bean(name = "neo4jTransactionManager")
+    public Neo4jTransactionManager neo4jTransactionManager(Driver driver,
             DatabaseSelectionProvider databaseSelectionProvider) {
         return new Neo4jTransactionManager(driver, databaseSelectionProvider);
     }

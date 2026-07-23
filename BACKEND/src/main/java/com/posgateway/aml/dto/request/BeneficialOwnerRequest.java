@@ -1,5 +1,6 @@
 package com.posgateway.aml.dto.request;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.validation.constraints.*;
 
 import java.time.LocalDate;
@@ -103,6 +104,13 @@ public class BeneficialOwnerRequest {
 
     public void setOwnershipPercentage(Integer ownershipPercentage) {
         this.ownershipPercentage = ownershipPercentage;
+    }
+
+    @JsonIgnore
+    @AssertTrue(message = "Either national ID or passport number is required")
+    public boolean isIdentityDocumentProvided() {
+        return (nationalId != null && !nationalId.isBlank())
+                || (passportNumber != null && !passportNumber.isBlank());
     }
 
     public static BeneficialOwnerRequestBuilder builder() {

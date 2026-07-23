@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 
-import { NavLink, useLocation } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 
 import {
 
@@ -40,6 +40,18 @@ import {
 
   Menu,
 
+  ContactRound,
+
+  CandlestickChart,
+
+  Smartphone,
+
+  WalletCards,
+
+  LogOut,
+
+  UserRound,
+
   type LucideIcon,
 
 } from 'lucide-react'
@@ -47,10 +59,11 @@ import {
 import HokekaLogo from '../branding/HokekaLogo'
 
 import { cn } from '../../lib/utils'
+import { useAuth } from '../../contexts/AuthContext'
 
 
 
-const BADGE_RED = '#b31b24'
+const BADGE_ALERT = 'var(--danger)'
 
 
 
@@ -143,8 +156,14 @@ export default function HokekaSidebar({
 }: HokekaSidebarProps) {
 
   const location = useLocation()
+  const navigate = useNavigate()
+  const { logout } = useAuth()
 
   const [collapsed, setCollapsed] = useState(false)
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false)
+  const normalizedRole = userRole.replaceAll(' ', '_').toUpperCase()
+  const isPspUser = normalizedRole.startsWith('PSP_')
+  const canManagePspUsers = normalizedRole === 'PSP_ADMIN'
 
 
 
@@ -161,6 +180,14 @@ export default function HokekaSidebar({
           { label: 'Dashboard', icon: LayoutDashboard, to: '/dashboard' },
 
           { label: 'Live Monitoring', icon: Activity, to: '/transaction-monitoring' },
+
+          { label: 'Customer 360', icon: ContactRound, to: '/customer-360' },
+
+          { label: 'Market Surveillance', icon: CandlestickChart, to: '/market-surveillance' },
+
+          { label: 'Mobile Money', icon: Smartphone, to: '/mobile-money' },
+
+          { label: 'Wallet Intelligence', icon: WalletCards, to: '/wallet-intelligence' },
 
           {
 
@@ -228,7 +255,15 @@ export default function HokekaSidebar({
 
         label: 'ADMINISTRATION',
 
-        items: [
+        items: isPspUser ? [
+
+          { label: 'My Organization', icon: Building2, to: '/organization' },
+
+          ...(canManagePspUsers ? [{ label: 'Users', icon: Users, to: '/users' }] : []),
+
+          { label: 'Settings', icon: Settings, to: '/settings' },
+
+        ] : [
 
           { label: 'Merchants', icon: Store, to: '/merchants' },
 
@@ -244,7 +279,7 @@ export default function HokekaSidebar({
 
     ],
 
-    [alertCount, caseCount],
+    [alertCount, caseCount, canManagePspUsers, isPspUser],
 
   )
 
@@ -280,7 +315,7 @@ export default function HokekaSidebar({
 
       className={cn(
 
-        'relative z-10 flex h-full flex-shrink-0 flex-col border-r border-glass-border bg-glass-panel backdrop-blur-glass transition-[width] duration-200',
+        'relative z-10 flex h-full flex-shrink-0 flex-col border-r border-glass-border bg-glass-panel/98 shadow-[8px_0_28px_rgba(0,0,0,0.35)] backdrop-blur-glass transition-[width] duration-200',
 
         collapsed ? 'w-[72px] min-w-[72px]' : 'w-[280px] min-w-[280px]',
 
@@ -292,7 +327,7 @@ export default function HokekaSidebar({
 
         className={cn(
 
-          'flex h-[72px] flex-shrink-0 border-b border-glass-border bg-[#0e0606]',
+          'flex h-[72px] flex-shrink-0 border-b border-glass-border bg-charcoal-alt',
 
           collapsed
 
@@ -316,7 +351,7 @@ export default function HokekaSidebar({
 
           className={cn(
 
-            'flex flex-shrink-0 items-center justify-center rounded-lg bg-[#1a1212] text-white/65 transition-colors hover:bg-[#251818] hover:text-white',
+            'flex flex-shrink-0 items-center justify-center rounded-lg border border-glass-border bg-burgundy-850 text-ink-muted transition-all hover:border-gold/50 hover:bg-burgundy-800 hover:text-ink',
 
             collapsed ? 'h-8 w-8' : 'h-9 w-9',
 
@@ -388,9 +423,9 @@ export default function HokekaSidebar({
 
                         <span
 
-                          className="flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold leading-none text-white"
+                          className="flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold leading-none text-charcoal"
 
-                          style={{ backgroundColor: BADGE_RED }}
+                          style={{ backgroundColor: BADGE_ALERT }}
 
                         >
 
@@ -400,7 +435,7 @@ export default function HokekaSidebar({
 
                       )}
 
-                      <span className="rounded-full bg-burgundy-850/70 px-1.5 py-0.5 text-[9px] font-medium leading-none text-white/45">
+                      <span className="rounded-full bg-burgundy-850/70 px-1.5 py-0.5 text-[9px] font-medium leading-none text-white/60">
 
                         {group.items.length}
 
@@ -482,9 +517,9 @@ export default function HokekaSidebar({
 
                                 <span
 
-                                  className="flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold leading-none text-white"
+                                  className="flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold leading-none text-charcoal"
 
-                                  style={{ backgroundColor: BADGE_RED }}
+                                  style={{ backgroundColor: BADGE_ALERT }}
 
                                 >
 
@@ -502,9 +537,9 @@ export default function HokekaSidebar({
 
                             <span
 
-                              className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-semibold leading-none text-white"
+                              className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-semibold leading-none text-charcoal"
 
-                              style={{ backgroundColor: BADGE_RED }}
+                              style={{ backgroundColor: BADGE_ALERT }}
 
                             >
 
@@ -536,11 +571,47 @@ export default function HokekaSidebar({
 
 
 
-      <div className="border-t border-glass-border px-3 py-3">
+      <div className="relative border-t border-glass-border px-3 py-3">
+
+        {accountMenuOpen && (
+
+          <div className={cn(
+
+            'absolute bottom-[68px] z-30 rounded-lg border border-glass-border bg-burgundy-850 p-1 shadow-editorial',
+
+            collapsed ? 'left-2 w-48' : 'left-3 right-3',
+
+          )}>
+
+            <button type="button" onClick={() => { setAccountMenuOpen(false); navigate('/profile') }}
+
+              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-white/80 hover:bg-burgundy-850/70 hover:text-white">
+
+              <UserRound size={16} /> My Profile
+
+            </button>
+
+            <button type="button" onClick={() => { setAccountMenuOpen(false); void logout() }}
+
+              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-red-300 hover:bg-red-950/40 hover:text-red-200">
+
+              <LogOut size={16} /> Log out
+
+            </button>
+
+          </div>
+
+        )}
 
         <button
 
           type="button"
+
+          aria-label="Open account menu"
+
+          aria-expanded={accountMenuOpen}
+
+          onClick={() => setAccountMenuOpen((open) => !open)}
 
           title={collapsed ? userName : undefined}
 
@@ -554,7 +625,7 @@ export default function HokekaSidebar({
 
         >
 
-          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-burgundy-700 to-gold text-sm font-semibold text-white">
+          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-gold/40 bg-burgundy-800 text-sm font-semibold text-gold">
 
             {userName.charAt(0).toUpperCase()}
 
@@ -572,7 +643,7 @@ export default function HokekaSidebar({
 
                 </div>
 
-                <div className="truncate text-[10px] leading-tight text-white/45">
+                <div className="truncate text-[10px] leading-tight text-white/60">
 
                   {userEmail ?? userRole}
 

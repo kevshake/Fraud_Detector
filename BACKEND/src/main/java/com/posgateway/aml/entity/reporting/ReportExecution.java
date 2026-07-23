@@ -56,6 +56,21 @@ public class ReportExecution {
     @Column(name = "filters_applied", columnDefinition = "jsonb")
     private Map<String, Object> filtersApplied;
 
+    /** Immutable source selection and record provenance used to generate this report. */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "source_context", columnDefinition = "jsonb")
+    private Map<String, Object> sourceContext;
+
+    /** Calculations derived from the exact emitted result rows. */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "calculation_summary", columnDefinition = "jsonb")
+    private Map<String, Object> calculationSummary;
+
+    /** Deduplicated record links found in the source result set. */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "record_links", columnDefinition = "jsonb")
+    private List<Map<String, Object>> recordLinks;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     private ExecutionStatus status = ExecutionStatus.PENDING;
@@ -179,6 +194,30 @@ public class ReportExecution {
 
     public void setFiltersApplied(Map<String, Object> filtersApplied) {
         this.filtersApplied = filtersApplied;
+    }
+
+    public Map<String, Object> getSourceContext() {
+        return sourceContext;
+    }
+
+    public void setSourceContext(Map<String, Object> sourceContext) {
+        this.sourceContext = sourceContext;
+    }
+
+    public Map<String, Object> getCalculationSummary() {
+        return calculationSummary;
+    }
+
+    public void setCalculationSummary(Map<String, Object> calculationSummary) {
+        this.calculationSummary = calculationSummary;
+    }
+
+    public List<Map<String, Object>> getRecordLinks() {
+        return recordLinks;
+    }
+
+    public void setRecordLinks(List<Map<String, Object>> recordLinks) {
+        this.recordLinks = recordLinks;
     }
 
     public ExecutionStatus getStatus() {

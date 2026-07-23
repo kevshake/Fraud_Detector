@@ -29,7 +29,7 @@ import {
   Delete as DeleteIcon,
 } from "@mui/icons-material";
 
-const ACCENT = "#8B4049";
+const ACCENT = "var(--gold)";
 
 export interface ColDef {
   field: string;
@@ -139,7 +139,7 @@ export default function CrudTab({
           sx={{
             backgroundColor: ACCENT,
             textTransform: "none",
-            "&:hover": { backgroundColor: "#6b313a" },
+            "&:hover": { backgroundColor: "var(--surface-3)" },
           }}
         >
           Add
@@ -158,7 +158,7 @@ export default function CrudTab({
       >
         <Table size="small">
           <TableHead>
-            <TableRow sx={{ backgroundColor: "rgba(0,0,0,0.02)" }}>
+            <TableRow sx={{ backgroundColor: "var(--surface-3)" }}>
               {columns.map((col) => (
                 <TableCell key={col.field} sx={{ color: "text.secondary", fontWeight: 600 }}>
                   {col.header}
@@ -195,7 +195,7 @@ export default function CrudTab({
                     <IconButton
                       size="small"
                       onClick={() => handleDelete(row)}
-                      sx={{ color: "#e74c3c" }}
+                      sx={{ color: "var(--danger)" }}
                     >
                       <DeleteIcon fontSize="small" />
                     </IconButton>
@@ -229,7 +229,7 @@ export default function CrudTab({
             onClick={handleSave}
             variant="contained"
             disabled={saving}
-            sx={{ backgroundColor: ACCENT, "&:hover": { backgroundColor: "#6b313a" } }}
+            sx={{ backgroundColor: ACCENT, "&:hover": { backgroundColor: "var(--surface-3)" } }}
           >
             {saving ? <CircularProgress size={18} sx={{ color: "white" }} /> : editing ? "Update" : "Create"}
           </Button>

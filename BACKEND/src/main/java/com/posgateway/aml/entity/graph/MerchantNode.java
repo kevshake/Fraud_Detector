@@ -163,6 +163,13 @@ public class MerchantNode {
     }
 
     public void addTransactionWith(MerchantNode target, Double amount, Long txnCount) {
+        for (MerchantRelationship relationship : transactsWith) {
+            if (relationship.getTarget() != null
+                    && relationship.getTarget().getMerchantId().equals(target.getMerchantId())) {
+                relationship.addTransaction(amount);
+                return;
+            }
+        }
         this.transactsWith.add(new MerchantRelationship(target, amount, txnCount));
     }
 }

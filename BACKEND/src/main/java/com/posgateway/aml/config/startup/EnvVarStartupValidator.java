@@ -20,7 +20,7 @@ import java.util.function.Predicate;
 
 /**
  * Validates required environment variables at startup, prints a clear status banner,
- * and writes a `.env.missing` stub at the working directory listing every required
+ * and writes a `.env.missing` manifest at the working directory listing every required
  * env var that is unset or empty so operators can fill it in and restart.
  *
  * Triggered on ApplicationReadyEvent so the full Spring Environment is available.
@@ -29,7 +29,7 @@ import java.util.function.Predicate;
  *   - OK         : env var resolved to a non-blank value
  *   - WARN       : resolved but to an insecure dev/placeholder fallback (in production this is a problem)
  *   - MISSING    : required for the active profile and resolved to blank — logged loudly, written to .env.missing
- *   - SKIP       : feature toggle disables this var (e.g. AEROSPIKE_PASSWORD when aerospike.enabled=false)
+ *   - SKIP       : the feature toggle associated with the variable is disabled
  *
  * The validator never fails the boot — the user explicitly asked for log-based prompts so they can
  * fill in missing values without the JVM crashing on a cryptic SQLException downstream.
@@ -92,20 +92,28 @@ public class EnvVarStartupValidator implements ApplicationListener<ApplicationRe
         // so the external Postgres env vars don't apply.
         Predicate<Environment> externalDbRequired = e ->
                 !Arrays.asList(e.getActiveProfiles()).contains("h2");
-        Predicate<Environment> aerospikeEnabled = e ->
-                Boolean.parseBoolean(e.getProperty("aerospike.enabled", "false"));
         Predicate<Environment> neo4jEnabled = e ->
                 Boolean.parseBoolean(e.getProperty("neo4j.enabled", "false"));
         Predicate<Environment> kafkaEnabled = e ->
                 Boolean.parseBoolean(e.getProperty("kafka.enabled", "true"));
-        Predicate<Environment> sumsubEnabled = e ->
-                Boolean.parseBoolean(e.getProperty("sumsub.enabled", "false"));
         Predicate<Environment> sanctionsEnabled = e ->
                 Boolean.parseBoolean(e.getProperty("sanctions.download.enabled", "false"));
         Predicate<Environment> scoringEnabled = e ->
-                Boolean.parseBoolean(e.getProperty("scoring.service.enabled", "true"));
+                Boolean.parseBoolean(e.getProperty("scoring.service.enabled", "false"));
+        Predicate<Environment> corporateRegistryEnabled = e ->
+                Boolean.parseBoolean(e.getProperty("corporate.registry.enabled", "false"));
+        Predicate<Environment> fixEnabled = e ->
+                Boolean.parseBoolean(e.getProperty("fix.enabled", "false"));
         Predicate<Environment> aiRuleGeneratorEnabled = e ->
                 Boolean.parseBoolean(e.getProperty("ai.rule-generator.enabled", "false"));
+        Predicate<Environment> verifiHs256Enabled = e ->
+                Boolean.parseBoolean(e.getProperty("verifi.rdr.enabled", "false"))
+                        && Boolean.parseBoolean(e.getProperty("verifi.rdr.signature-required", "true"))
+                        && "HS256".equalsIgnoreCase(e.getProperty("verifi.rdr.auth-mode", "HS256"));
+        Predicate<Environment> verifiRsaEnabled = e ->
+                Boolean.parseBoolean(e.getProperty("verifi.rdr.enabled", "false"))
+                        && Boolean.parseBoolean(e.getProperty("verifi.rdr.signature-required", "true"))
+                        && "RSA".equalsIgnoreCase(e.getProperty("verifi.rdr.auth-mode", "HS256"));
         // Regulator clients: required only when (a) we're on prod and (b) the
         // matching `regulators.<name>.enabled` flag is true. Disabled regulators
         // never block boot.
@@ -134,6 +142,10 @@ public class EnvVarStartupValidator implements ApplicationListener<ApplicationRe
                                 "MUST be a long random string in production — without it audit-log " +
                                 "checksums are forgeable. AuditLogService refuses to boot on prod when blank."),
 
+                EnvVarSpec.requiredIf("PII_LOOKUP_HMAC_KEY", isProduction,
+                        "Stable keyed lookup secret for UBO passport and national-ID hashes. " +
+                                "Use at least 32 random characters."),
+
                 // --- Password reset token pepper ---
                 EnvVarSpec.requiredIf("AUTH_PASSWORD_RESET_PEPPER", isProduction,
                         "Pepper mixed into password-reset token hashes by PasswordResetService. " +
@@ -148,14 +160,7 @@ public class EnvVarStartupValidator implements ApplicationListener<ApplicationRe
                 EnvVarSpec.recommended("AML_MICROSERVICE_BASE_URL",
                         "Base URL of the aml-microservice (e.g. http://aml-microservice:8080). Used by BACKEND " +
                                 "to delegate transaction lookups and AML checks. If unset, integration falls " +
-                                "back to a circuit-broken stub and live monitoring will degrade."),
-
-                // --- Aerospike (only when enabled — Aerospike now lives in the microservice) ---
-                EnvVarSpec.requiredWhen("AEROSPIKE_HOSTS", aerospikeEnabled,
-                        "Aerospike seed hosts (host:port,host:port). Only required if aerospike.enabled=true. " +
-                                "Aerospike is being migrated to the aml-microservice — BACKEND should not need this."),
-                EnvVarSpec.requiredWhen("AEROSPIKE_PASSWORD", aerospikeEnabled,
-                        "Aerospike password. Only required if aerospike.enabled=true."),
+                                "back to PostgreSQL, Redis, sanctions-client, and rules-engine paths."),
 
                 // --- Neo4j (graph) ---
                 EnvVarSpec.requiredWhen("NEO4J_URI", neo4jEnabled,
@@ -167,11 +172,18 @@ public class EnvVarStartupValidator implements ApplicationListener<ApplicationRe
                 EnvVarSpec.requiredWhen("KAFKA_BOOTSTRAP_SERVERS", kafkaEnabled,
                         "Kafka bootstrap servers. Required if kafka.enabled=true."),
 
-                // --- KYC vendor (Sumsub) ---
-                EnvVarSpec.requiredWhen("SUMSUB_API_KEY", sumsubEnabled,
-                        "Sumsub API key for KYC verification. Required if sumsub.enabled=true."),
-                EnvVarSpec.requiredWhen("SUMSUB_API_SECRET", sumsubEnabled,
-                        "Sumsub API secret. Required if sumsub.enabled=true."),
+                // KYC vendor (Sumsub) removed: screening runs entirely on the platform's
+                // own independent sanctions engine (aml-microservice). No external KYC
+                // vendor env vars are required or consulted.
+
+                // --- Corporate registry and adverse media ---
+                EnvVarSpec.requiredWhen("OPENCORPORATES_API_TOKEN", corporateRegistryEnabled,
+                        "OpenCorporates API token. Required when corporate.registry.enabled=true."),
+                EnvVarSpec.recommended("ADVERSE_MEDIA_ENABLED",
+                        "Enables GDELT DOC 2.0 adverse-media lead collection. Provider failure is retained as "
+                                + "UNAVAILABLE evidence and prevents an automatic clear."),
+                EnvVarSpec.requiredWhen("FIX_SETTINGS_PATH", fixEnabled,
+                        "Path to the credentialed QuickFIX/J session file. Required when fix.enabled=true."),
 
                 // --- Sanctions / OpenSanctions ---
                 EnvVarSpec.recommended("SANCTIONS_DOWNLOAD_ENABLED",
@@ -201,6 +213,14 @@ public class EnvVarStartupValidator implements ApplicationListener<ApplicationRe
                         "Anthropic API key for the AI rule generator. " +
                                 "Required when ai.rule-generator.enabled=true. " +
                                 "Without it, POST /api/v1/rules/generate returns 503."),
+
+                // --- Visa/Verifi inbound authentication ---
+                EnvVarSpec.requiredWhen("VERIFI_RDR_WEBHOOK_SECRET", verifiHs256Enabled,
+                        "Shared secret for Verifi HS256 JWS authentication."),
+                EnvVarSpec.requiredWhen("VERIFI_RDR_JWS_VERIFICATION_PUBLIC_KEY", verifiRsaEnabled,
+                        "Visa/Verifi public key or certificate used to verify PS256 signatures."),
+                EnvVarSpec.requiredWhen("VERIFI_RDR_JWE_DECRYPTION_PRIVATE_KEY", verifiRsaEnabled,
+                        "Merchant RSA private key used to decrypt nested Verifi JWE claims."),
 
                 // --- Regulator submission clients (FinCEN / FCA) ---
                 // Required only when the regulator is enabled AND we're on prod, so dev/test

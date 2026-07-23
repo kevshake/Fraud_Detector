@@ -27,6 +27,7 @@ const ReportsCenterPage = lazy(() => import("./pages/ReportsCenter/ReportsCenter
 const AuditLogsPage = lazy(() => import("./pages/AuditLogs/AuditLogsPage"));
 const RulesGenerationPage = lazy(() => import("./pages/RulesGeneration/RulesGenerationPage"));
 const KycDocumentsPage = lazy(() => import("./pages/KycDocuments/KycDocumentsPage"));
+const KycMerchantDetailPage = lazy(() => import("./pages/KycDocuments/KycMerchantDetailPage"));
 const AnalyticsPage = lazy(() => import("./pages/Analytics/AnalyticsPage"));
 const RegulatoryReportsPage = lazy(() => import("./pages/RegulatoryReports/RegulatoryReportsPage"));
 const PspsListPage = lazy(() => import("./pages/Psps/PspsListPage"));
@@ -34,6 +35,11 @@ const PspConfigPage = lazy(() => import("./pages/Psps/PspConfigPage"));
 const LimitsAmlPage = lazy(() => import("./pages/LimitsAml/LimitsAmlPage"));
 const BillingPage = lazy(() => import("./pages/Billing/BillingPage"));
 const ChargebacksPage = lazy(() => import("./pages/Chargebacks/ChargebacksPage"));
+const Customer360Page = lazy(() => import("./pages/Customer360/Customer360Page"));
+const MarketSurveillancePage = lazy(() => import("./pages/MarketSurveillance/MarketSurveillancePage"));
+const MobileMoneyPage = lazy(() => import("./pages/MobileMoney/MobileMoneyPage"));
+const WalletIntelligencePage = lazy(() => import("./pages/WalletIntelligence/WalletIntelligencePage"));
+const RecordDetailPage = lazy(() => import("./pages/RecordDetail/RecordDetailPage"));
 
 function PageLoader() {
   return (
@@ -47,9 +53,10 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
+      refetchOnReconnect: true,
       retry: 1,
-      staleTime: 30_000,
-      gcTime: 5 * 60_000,
+      staleTime: 45_000,
+      gcTime: 10 * 60_000,
     },
   },
 });
@@ -80,6 +87,11 @@ function App() {
                             <Route path="compliance-calendar" element={<ComplianceCalendarPage />} />
                             <Route path="merchants" element={<MerchantsPage />} />
                             <Route path="transaction-monitoring/*" element={<TransactionMonitoringPage />} />
+                            <Route path="customer-360" element={<Customer360Page />} />
+                            <Route path="market-surveillance" element={<MarketSurveillancePage />} />
+                            <Route path="mobile-money" element={<MobileMoneyPage />} />
+                            <Route path="wallet-intelligence" element={<WalletIntelligencePage />} />
+                            <Route path="records/:recordType/:recordId" element={<RecordDetailPage />} />
                             <Route path="screening" element={<ScreeningPage />} />
                             <Route path="profile" element={<ProfilePage />} />
                             <Route path="messages" element={<MessagesPage />} />
@@ -91,9 +103,11 @@ function App() {
                             <Route path="audit" element={<AuditLogsPage />} />
                             <Route path="rules-generation" element={<RulesGenerationPage />} />
                             <Route path="kyc-documents" element={<KycDocumentsPage />} />
+                            <Route path="kyc-documents/:merchantId" element={<KycMerchantDetailPage />} />
                             <Route path="analytics" element={<AnalyticsPage />} />
                             <Route path="regulatory-reports" element={<RegulatoryReportsPage />} />
                             <Route path="psps" element={<PspsListPage />} />
+                            <Route path="organization" element={<PspConfigPage />} />
                             <Route path="psps/:pspId/configure" element={<PspConfigPage />} />
                             <Route path="limits-aml" element={<LimitsAmlPage />} />
                             <Route path="billing" element={<BillingPage />} />

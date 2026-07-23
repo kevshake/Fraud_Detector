@@ -2,11 +2,16 @@ import { cn } from '../../lib/utils'
 
 export type RiskLevel = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | string
 
+/*
+ * Opaque grounds, not alpha tints: an alpha tint composites against the row
+ * underneath, so a hovered row would lighten the badge and drop the text below
+ * AA. Every pair here is >= 4.72:1 regardless of what it sits on.
+ */
 const STYLES: Record<string, string> = {
-  CRITICAL: 'bg-risk-critical/20 text-risk-critical border-risk-critical/45 shadow-neon-red',
-  HIGH: 'bg-risk-high/20 text-risk-high border-risk-high/40',
-  MEDIUM: 'bg-risk-medium/20 text-risk-medium border-risk-medium/40',
-  LOW: 'bg-risk-low/20 text-risk-low border-risk-low/40',
+  CRITICAL: 'bg-risk-critical-soft text-risk-critical border-risk-critical/40',
+  HIGH: 'bg-risk-high-soft text-risk-high border-risk-high/40',
+  MEDIUM: 'bg-risk-medium-soft text-risk-medium border-risk-medium/40',
+  LOW: 'bg-risk-low-soft text-risk-low border-risk-low/40',
 }
 
 export interface RiskBadgeProps {
@@ -19,8 +24,8 @@ export default function RiskBadge({ level, className }: RiskBadgeProps) {
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
-        STYLES[key] ?? 'bg-burgundy-850/60 text-white/75 border-glass-border',
+        'inline-flex items-center rounded border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider',
+        STYLES[key] ?? 'bg-risk-unknown-soft text-risk-unknown border-hairline-strong',
         className,
       )}
     >

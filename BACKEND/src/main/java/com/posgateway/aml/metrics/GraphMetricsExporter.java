@@ -103,7 +103,7 @@ public class GraphMetricsExporter {
 
         // Common rule triggers
         for (String rule : new String[] {
-                "CTR_THRESHOLD_10K", "SAR_STRUCTURING_DETECTION", "OFAC_HIGH_RISK_COUNTRY",
+                "KENYA_CASH_TRANSACTION_REPORT", "CASH_STRUCTURING_24H", "FATF_CALL_FOR_ACTION",
                 "ML_SCORE_HIGH_RISK", "ML_SCORE_MEDIUM_RISK", "VELOCITY_BREACH_1H",
                 "HIGH_BETWEENNESS_HUB", "HIGH_INFLUENCE_HIGH_VALUE"
         }) {

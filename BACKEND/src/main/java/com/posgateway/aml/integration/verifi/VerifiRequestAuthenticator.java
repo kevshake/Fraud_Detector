@@ -39,9 +39,12 @@ public class VerifiRequestAuthenticator {
         }
 
         String authorization = firstHeader(headers, "Authorization");
-        if (authorization != null && jwsAuthenticator.verifyBearerToken(authorization, properties.getWebhookSecret())) {
+        if (authorization != null && jwsAuthenticator.verifyBearerToken(authorization, properties)) {
             return true;
         }
+
+        // RSA mode is certificate-authenticated and must never downgrade to a shared API key or legacy HMAC.
+        if ("RSA".equalsIgnoreCase(properties.getAuthMode())) return false;
 
         if (legacyVerifier.verifyApiKey(headers, properties.getApiKey())) {
             return true;

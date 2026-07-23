@@ -11,8 +11,9 @@ import java.time.LocalDateTime;
  * Stores system-wide transaction limits
  */
 @Entity
-@Table(name = "global_limits", uniqueConstraints = @UniqueConstraint(columnNames = "name"))
-@Data
+@Table(name = "global_limits")
+@lombok.Getter
+@lombok.Setter
 public class GlobalLimit {
 
     @Id
@@ -51,6 +52,9 @@ public class GlobalLimit {
 
     @Column(name = "updated_by")
     private Long updatedBy;
+
+    @Column(name = "psp_id")
+    private Long pspId;
 
     @PrePersist
     protected void onCreate() {
@@ -150,6 +154,14 @@ public class GlobalLimit {
 
     public BigDecimal getCurrentUsage() {
         return currentUsage;
+    }
+
+    public Long getPspId() {
+        return pspId;
+    }
+
+    public void setPspId(Long pspId) {
+        this.pspId = pspId;
     }
 }
 

@@ -80,6 +80,9 @@ public class Transaction {
     @Column(name = "country_code", length = 2)
     private String countryCode;
 
+    @Column(name = "cash_transaction", nullable = false)
+    private boolean cashTransaction;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -243,6 +246,14 @@ public class Transaction {
 
     public void setCountryCode(String countryCode) {
         this.countryCode = countryCode;
+    }
+
+    public boolean isCashTransaction() {
+        return cashTransaction;
+    }
+
+    public void setCashTransaction(boolean cashTransaction) {
+        this.cashTransaction = cashTransaction;
     }
 
     public LocalDateTime getCreatedAt() {

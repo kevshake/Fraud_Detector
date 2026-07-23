@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -76,12 +77,13 @@ public class AmlCheckController {
         String country    = extractString(request, "countryCode", "");
         Long amountCents  = extractLong(request, "amountCents", 0L);
         Long pspId        = extractLong(request, "pspId", null);
+        boolean cashTransaction = extractBoolean(request, "cashTransaction", false);
 
         logger.info("AML check request: txnId={} pspId={} merchant={} amount={}",
                 txnId, pspId, merchantId, amountCents);
 
         // 1. Layer-0 cache: hop to aml-microservice (only when explicitly enabled & pspId is present).
-        if (amlMicroserviceProperties.isEnabled() && pspId != null) {
+        if (amlMicroserviceProperties.isEnabled() && pspId != null && !cashTransaction) {
             try {
                 AmlScoreRequest req = new AmlScoreRequest(
                         txnId,
@@ -119,11 +121,15 @@ public class AmlCheckController {
         entity.setPanHash(panHash.isEmpty() ? null : panHash);
         entity.setMerchantCountry(country.isEmpty() ? null : country);
         entity.setAmountCents(amountCents);
+        entity.setPspId(pspId);
+        entity.setCashTransaction(cashTransaction);
+        entity.setChannelType(extractString(request, "channelType", null));
         entity.setTxnTs(LocalDateTime.now());
 
         Map<String, Object> response = new HashMap<>();
         response.put("txnId", txnId);
         response.put("cacheLayer", "LOCAL");
+        boolean scoringSucceeded = true;
 
         // 2. Full scoring path: feature extraction → XGBoost → decision engine
         if (orchestrator != null) {
@@ -136,11 +142,9 @@ public class AmlCheckController {
                 response.put("riskDetails", result.getRiskDetails());
                 response.put("latencyMs",   result.getLatencyMs());
             } catch (Exception e) {
-                logger.error("FraudDetectionOrchestrator failed for txnId {}: {}", txnId, e.getMessage());
-                response.put("score",     0.0);
-                response.put("decision",  "ERROR");
-                response.put("reasons",   java.util.List.of("Scoring pipeline error: " + e.getMessage()));
-                response.put("latencyMs", System.currentTimeMillis() - t0);
+                logger.error("FraudDetectionOrchestrator failed for txnId {}", txnId, e);
+                scoringSucceeded = false;
+                populateUnavailableResponse(response, t0);
             }
         } else if (scoringService != null && featureExtractionService != null) {
             try {
@@ -153,21 +157,25 @@ public class AmlCheckController {
                 ScoringService.ScoringResult scored = scoringService.scoreTransaction(
                         entity.getTxnId() != null ? entity.getTxnId() : 0L, features);
                 response.put("score",       scored.getScore());
-                response.put("decision",    deriveDecision(scored.getScore()));
+                Object ruleDecision = scored.getRiskDetails().get("rule_decision");
+                response.put("decision",    ruleDecision != null
+                        ? ruleDecision.toString()
+                        : deriveDecision(scored.getScore()));
                 response.put("reasons",     java.util.List.of());
                 response.put("riskDetails", scored.getRiskDetails());
                 response.put("latencyMs",   scored.getLatencyMs());
             } catch (Exception e) {
-                logger.error("ScoringService failed for txnId {}: {}", txnId, e.getMessage());
-                response.put("score",     0.0);
-                response.put("decision",  "ERROR");
-                response.put("latencyMs", System.currentTimeMillis() - t0);
+                logger.error("ScoringService failed for txnId {}", txnId, e);
+                scoringSucceeded = false;
+                populateUnavailableResponse(response, t0);
             }
         } else {
-            response.put("score",     0.0);
-            response.put("decision",  "APPROVED");
-            response.put("reasons",   java.util.List.of("Scoring service unavailable"));
-            response.put("latencyMs", System.currentTimeMillis() - t0);
+            scoringSucceeded = false;
+            populateUnavailableResponse(response, t0);
+        }
+
+        if (!scoringSucceeded) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(response);
         }
 
         // Writeback the local-pipeline score to Redis so the next call within
@@ -182,11 +190,19 @@ public class AmlCheckController {
         return ResponseEntity.ok(response);
     }
 
+    private void populateUnavailableResponse(Map<String, Object> response, long startedAt) {
+        response.put("score", 1.0);
+        response.put("decision", "HOLD");
+        response.put("riskLevel", "CRITICAL");
+        response.put("reasons", java.util.List.of("Scoring pipeline unavailable; manual review required"));
+        response.put("latencyMs", System.currentTimeMillis() - startedAt);
+    }
+
     private String deriveDecision(Double score) {
-        if (score == null) return "APPROVED";
-        if (score >= 0.85) return "DECLINED";
-        if (score >= 0.5)  return "MANUAL_REVIEW";
-        return "APPROVED";
+        if (score == null) return "HOLD";
+        if (score >= 0.85) return "BLOCK";
+        if (score >= 0.5)  return "HOLD";
+        return "ALLOW";
     }
 
     private String extractString(Map<String, Object> map, String key, String defaultValue) {
@@ -201,5 +217,11 @@ public class AmlCheckController {
             try { return Long.parseLong(v.toString()); } catch (NumberFormatException ignored) {}
         }
         return defaultValue;
+    }
+
+    private boolean extractBoolean(Map<String, Object> map, String key, boolean defaultValue) {
+        Object value = map.get(key);
+        if (value instanceof Boolean booleanValue) return booleanValue;
+        return value != null ? Boolean.parseBoolean(value.toString()) : defaultValue;
     }
 }

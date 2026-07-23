@@ -29,7 +29,8 @@ public class ScreeningCacheService {
     @Value("${sanctions.cache.ttl.hours:24}")
     private int cacheTtlHours;
 
-    private static final String SET_SCREENING_RESULTS = "screening_results";
+    // Versioned to prevent legacy fail-open CLEAR entries from surviving this release.
+    private static final String SET_SCREENING_RESULTS = "screening_results:v2";
     private static final String SET_WHITELIST = "screening_whitelist";
     private static final String SET_OVERRIDES = "screening_overrides";
     private static final String SET_CUSTOM_WATCHLISTS = "custom_watchlists";

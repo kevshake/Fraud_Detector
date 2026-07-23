@@ -48,6 +48,12 @@ public class SuspiciousActivityReport {
     @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
     private User reviewedBy; // Compliance Officer
 
+    @Column(name = "reviewed_at")
+    private LocalDateTime reviewedAt;
+
+    @Column(name = "review_notes", columnDefinition = "TEXT")
+    private String reviewNotes;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "approved_by_user_id")
     @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
@@ -76,6 +82,33 @@ public class SuspiciousActivityReport {
     private String jurisdiction; // US, UK, EU, etc.
 
     private LocalDateTime filingDeadline;
+
+    @Column(name = "suspicion_arose_at", nullable = false)
+    private LocalDateTime suspicionAroseAt;
+
+    @Column(name = "suspicion_timestamp_source", nullable = false, length = 32)
+    private String suspicionTimestampSource = "REPORT_CREATED";
+
+    @Column(name = "deadline_policy_id")
+    private Long deadlinePolicyId;
+
+    @Column(name = "deadline_policy_code", length = 80)
+    private String deadlinePolicyCode;
+
+    @Column(name = "deadline_calculated_at")
+    private LocalDateTime deadlineCalculatedAt;
+
+    @Column(name = "deadline_warning_at")
+    private LocalDateTime deadlineWarningAt;
+
+    @Column(name = "deadline_warning_sent_at")
+    private LocalDateTime deadlineWarningSentAt;
+
+    @Column(name = "deadline_breach_notified_at")
+    private LocalDateTime deadlineBreachNotifiedAt;
+
+    @Column(name = "deadline_breached", nullable = false)
+    private boolean deadlineBreached;
 
     // SAR Content
     @Column(nullable = false)
@@ -192,6 +225,11 @@ public class SuspiciousActivityReport {
         this.reviewedBy = reviewedBy;
     }
 
+    public LocalDateTime getReviewedAt() { return reviewedAt; }
+    public void setReviewedAt(LocalDateTime reviewedAt) { this.reviewedAt = reviewedAt; }
+    public String getReviewNotes() { return reviewNotes; }
+    public void setReviewNotes(String reviewNotes) { this.reviewNotes = reviewNotes; }
+
     public User getApprovedBy() {
         return approvedBy;
     }
@@ -263,6 +301,25 @@ public class SuspiciousActivityReport {
     public void setFilingDeadline(LocalDateTime filingDeadline) {
         this.filingDeadline = filingDeadline;
     }
+
+    public LocalDateTime getSuspicionAroseAt() { return suspicionAroseAt; }
+    public void setSuspicionAroseAt(LocalDateTime suspicionAroseAt) { this.suspicionAroseAt = suspicionAroseAt; }
+    public String getSuspicionTimestampSource() { return suspicionTimestampSource; }
+    public void setSuspicionTimestampSource(String suspicionTimestampSource) { this.suspicionTimestampSource = suspicionTimestampSource; }
+    public Long getDeadlinePolicyId() { return deadlinePolicyId; }
+    public void setDeadlinePolicyId(Long deadlinePolicyId) { this.deadlinePolicyId = deadlinePolicyId; }
+    public String getDeadlinePolicyCode() { return deadlinePolicyCode; }
+    public void setDeadlinePolicyCode(String deadlinePolicyCode) { this.deadlinePolicyCode = deadlinePolicyCode; }
+    public LocalDateTime getDeadlineCalculatedAt() { return deadlineCalculatedAt; }
+    public void setDeadlineCalculatedAt(LocalDateTime deadlineCalculatedAt) { this.deadlineCalculatedAt = deadlineCalculatedAt; }
+    public LocalDateTime getDeadlineWarningAt() { return deadlineWarningAt; }
+    public void setDeadlineWarningAt(LocalDateTime deadlineWarningAt) { this.deadlineWarningAt = deadlineWarningAt; }
+    public LocalDateTime getDeadlineWarningSentAt() { return deadlineWarningSentAt; }
+    public void setDeadlineWarningSentAt(LocalDateTime deadlineWarningSentAt) { this.deadlineWarningSentAt = deadlineWarningSentAt; }
+    public LocalDateTime getDeadlineBreachNotifiedAt() { return deadlineBreachNotifiedAt; }
+    public void setDeadlineBreachNotifiedAt(LocalDateTime deadlineBreachNotifiedAt) { this.deadlineBreachNotifiedAt = deadlineBreachNotifiedAt; }
+    public boolean isDeadlineBreached() { return deadlineBreached; }
+    public void setDeadlineBreached(boolean deadlineBreached) { this.deadlineBreached = deadlineBreached; }
 
     public String getSuspiciousActivityType() {
         return suspiciousActivityType;
@@ -338,8 +395,13 @@ public class SuspiciousActivityReport {
 
     @PrePersist
     protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now();
+        createdAt = now;
+        updatedAt = now;
+        if (suspicionAroseAt == null) {
+            suspicionAroseAt = now;
+            suspicionTimestampSource = "REPORT_CREATED";
+        }
         if (status == null)
             status = SarStatus.DRAFT;
         if (sarType == null)

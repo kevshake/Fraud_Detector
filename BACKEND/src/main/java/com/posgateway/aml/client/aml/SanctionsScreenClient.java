@@ -32,8 +32,8 @@ import java.util.concurrent.TimeUnit;
  * {@code lower(name) + "|" + nullSafe(type)} so distinct entity-type screens don't
  * collide.
  *
- * <p>The fallback returns {@code null}; callers MUST treat null as "screening
- * unavailable" and degrade gracefully (controller returns {@code UNAVAILABLE}).
+ * <p>Disabled, failed, and circuit-broken calls return an explicit
+ * {@code UNAVAILABLE} response.
  */
 @Component
 public class SanctionsScreenClient {
@@ -69,32 +69,55 @@ public class SanctionsScreenClient {
     }
 
     /**
-     * Screen a name. Returns {@code null} when the AML microservice is disabled or
-     * the circuit breaker is open — callers MUST handle null as "unavailable".
+     * Screen a name. Disabled or failed upstream calls return status
+     * {@code UNAVAILABLE}.
      */
     public BackendSanctionsScreenResponse screen(BackendSanctionsScreenRequest req) {
-        if (req == null || req.name() == null || req.name().isBlank()) return null;
-        if (!properties.isEnabled()) return null;
+        if (req == null || req.name() == null || req.name().isBlank()) {
+            throw new IllegalArgumentException("A non-blank name is required for sanctions screening");
+        }
+        if (!properties.isEnabled()) {
+            return BackendSanctionsScreenResponse.unavailable(req.name());
+        }
 
         String cacheKey = req.name().toLowerCase() + "|" + (req.type() == null ? "" : req.type());
         BackendSanctionsScreenResponse cached = cache.getIfPresent(cacheKey);
         if (cached != null) return cached;
 
         BackendSanctionsScreenResponse fresh = doScreen(req);
-        if (fresh != null) cache.put(cacheKey, fresh);
+        if (!fresh.isUnavailable()) cache.put(cacheKey, fresh);
         return fresh;
+    }
+
+    /** Verify HTTP reachability and Aerospike availability in aml-microservice. */
+    public boolean isAvailable() {
+        if (!properties.isEnabled()) return false;
+        try {
+            CountResponse response = webClient.get()
+                    .uri("/internal/v1/sanctions/count")
+                    .retrieve()
+                    .bodyToMono(CountResponse.class)
+                    .block(Duration.ofMillis(properties.getReadTimeoutMs() + 100L));
+            return response != null && response.count() >= 0;
+        } catch (Exception e) {
+            log.warn("Sanctions health check failed: {}", e.getMessage());
+            return false;
+        }
     }
 
     @CircuitBreaker(name = CB_NAME, fallbackMethod = "screenFallback")
     @Retry(name = CB_NAME)
     public BackendSanctionsScreenResponse doScreen(BackendSanctionsScreenRequest req) {
         try {
-            return webClient.post()
+            BackendSanctionsScreenResponse response = webClient.post()
                     .uri("/internal/v1/sanctions/screen")
                     .bodyValue(req)
                     .retrieve()
                     .bodyToMono(BackendSanctionsScreenResponse.class)
                     .block(Duration.ofMillis(properties.getReadTimeoutMs() + 100L));
+            return response != null
+                    ? response
+                    : BackendSanctionsScreenResponse.unavailable(req.name());
         } catch (Exception e) {
             log.warn("Sanctions screen call failed for name='{}': {}", req.name(), e.getMessage());
             throw e;
@@ -105,7 +128,8 @@ public class SanctionsScreenClient {
     private BackendSanctionsScreenResponse screenFallback(BackendSanctionsScreenRequest req, Throwable t) {
         log.debug("Sanctions screen fallback engaged (name='{}', reason={})",
                 req != null ? req.name() : null, t.getMessage());
-        return null;
+        return BackendSanctionsScreenResponse.unavailable(
+                req != null ? req.name() : null);
     }
 
     // ---------- DTOs (mirror the microservice's wire format) ----------
@@ -120,12 +144,25 @@ public class SanctionsScreenClient {
             List<MatchDto> matches,
             Instant checkedAt
     ) {
+        public static BackendSanctionsScreenResponse unavailable(String name) {
+            return new BackendSanctionsScreenResponse(
+                    name, "UNAVAILABLE", List.of(), Instant.now());
+        }
+
+        public boolean isUnavailable() {
+            return status == null || "UNAVAILABLE".equalsIgnoreCase(status);
+        }
+
         @JsonIgnoreProperties(ignoreUnknown = true)
         public record MatchDto(
                 String matchedName,
                 double similarityScore,
                 String listName,
-                String entityId
+                String entityId,
+                String pepLevel
         ) {}
     }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private record CountResponse(long count) {}
 }

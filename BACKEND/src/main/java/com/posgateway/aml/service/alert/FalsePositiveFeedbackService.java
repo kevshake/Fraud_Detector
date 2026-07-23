@@ -5,6 +5,8 @@ import com.posgateway.aml.entity.alert.FalsePositiveFeedback;
 import com.posgateway.aml.model.AlertDisposition;
 import com.posgateway.aml.repository.AlertRepository;
 import com.posgateway.aml.repository.alert.FalsePositiveFeedbackRepository;
+import com.posgateway.aml.repository.rules.RuleDefinitionRepository;
+import com.posgateway.aml.service.rules.RuleEffectivenessService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,15 +31,21 @@ public class FalsePositiveFeedbackService {
     private final AlertRepository alertRepository;
     private final FalsePositiveFeedbackRepository feedbackRepository;
     private final AlertTuningService alertTuningService;
+    private final RuleDefinitionRepository ruleRepository;
+    private final RuleEffectivenessService ruleEffectivenessService;
 
     @Autowired
     public FalsePositiveFeedbackService(
             AlertRepository alertRepository,
             FalsePositiveFeedbackRepository feedbackRepository,
-            AlertTuningService alertTuningService) {
+            AlertTuningService alertTuningService,
+            RuleDefinitionRepository ruleRepository,
+            RuleEffectivenessService ruleEffectivenessService) {
         this.alertRepository = alertRepository;
         this.feedbackRepository = feedbackRepository;
         this.alertTuningService = alertTuningService;
+        this.ruleRepository = ruleRepository;
+        this.ruleEffectivenessService = ruleEffectivenessService;
     }
 
     /**
@@ -61,6 +69,10 @@ public class FalsePositiveFeedbackService {
             alert.setDispositionReason(reason);
             alert.setStatus("closed");
             alertRepository.save(alert);
+            if (alert.getTxnId() != null) {
+                ruleEffectivenessService.recordDisposition(
+                        String.valueOf(alert.getTxnId()), AlertDisposition.FALSE_POSITIVE.name());
+            }
         }
 
         feedback = feedbackRepository.save(feedback);
@@ -85,7 +97,7 @@ public class FalsePositiveFeedbackService {
             if (falsePositiveRate > 0.3) { // More than 30% false positive rate
                 logger.warn("Rule {} has high false positive rate: {}%", 
                         feedback.getRuleName(), falsePositiveRate * 100);
-                alertTuningService.suggestTuning(feedback.getRuleName(), falsePositiveRate);
+                alertTuningService.suggestTuning(feedback.getRuleName());
             }
         }
     }
@@ -94,17 +106,9 @@ public class FalsePositiveFeedbackService {
      * Calculate false positive rate for a rule
      */
     public double calculateFalsePositiveRate(String ruleName) {
-        List<FalsePositiveFeedback> falsePositives = feedbackRepository.findByRuleName(ruleName);
-        
-        // Get total alerts for this rule
-        long totalAlerts = alertRepository.count();
-        // This is simplified - in reality would need to track alerts by rule
-        
-        if (totalAlerts == 0) {
-            return 0.0;
-        }
-
-        return falsePositives.size() / (double) totalAlerts;
+        return ruleRepository.findFirstByNameOrderByIdAsc(ruleName)
+                .map(rule -> ruleEffectivenessService.compute(rule.getId()).getFalsePositiveRate())
+                .orElse(0.0);
     }
 
     /**

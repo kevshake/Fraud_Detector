@@ -4,6 +4,7 @@ import com.posgateway.aml.entity.Alert;
 import com.posgateway.aml.entity.TransactionEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -18,6 +19,28 @@ import java.util.List;
 @Repository
 public interface TransactionRepository extends JpaRepository<TransactionEntity, Long>, JpaSpecificationExecutor<TransactionEntity> {
 
+    // ── 6-month retention purge (see TransactionRetentionService) ──────────────────────────────
+    // A batch of purgeable transaction ids: older than the cutoff AND not held by a SAR or a
+    // compliance case (those must be retained for the investigation regardless of age).
+    @Query(value = "SELECT t.txn_id FROM transactions t "
+            + "WHERE t.txn_ts < :cutoff "
+            + "AND NOT EXISTS (SELECT 1 FROM sar_transactions s WHERE s.txn_id = t.txn_id) "
+            + "AND NOT EXISTS (SELECT 1 FROM case_transactions c WHERE c.transaction_id = t.txn_id) "
+            + "ORDER BY t.txn_ts ASC LIMIT :batchSize", nativeQuery = true)
+    List<Long> findPurgeableTxnIds(@Param("cutoff") LocalDateTime cutoff, @Param("batchSize") int batchSize);
+
+    @Modifying
+    @Query(value = "DELETE FROM transaction_features WHERE txn_id IN (:ids)", nativeQuery = true)
+    void deleteFeaturesByTxnIds(@Param("ids") List<Long> ids);
+
+    @Modifying
+    @Query(value = "DELETE FROM alerts WHERE txn_id IN (:ids)", nativeQuery = true)
+    void deleteAlertsByTxnIds(@Param("ids") List<Long> ids);
+
+    @Modifying
+    @Query(value = "DELETE FROM transactions WHERE txn_id IN (:ids)", nativeQuery = true)
+    int deleteTransactionsByIds(@Param("ids") List<Long> ids);
+
     /**
      * Find transactions by merchant ID
      */
@@ -27,6 +50,9 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
      * Find transactions by PAN hash
      */
     List<TransactionEntity> findByPanHash(String panHash);
+
+    List<TransactionEntity> findByPanHashAndTxnTsBetweenOrderByTxnTsAsc(
+            String panHash, LocalDateTime start, LocalDateTime end);
 
     /**
      * Count transactions by merchant in time window
@@ -43,6 +69,20 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
     Long sumAmountByMerchantInTimeWindow(@Param("merchantId") String merchantId,
             @Param("startTime") LocalDateTime startTime,
             @Param("endTime") LocalDateTime endTime);
+
+    /**
+     * Raw transaction amounts (cents) for a merchant in a time window, newest first,
+     * bounded by the supplied {@link org.springframework.data.domain.Pageable}. Used to
+     * compute a real mean/standard-deviation/z-score baseline for behavioural profiling.
+     */
+    @Query("SELECT t.amountCents FROM TransactionEntity t " +
+            "WHERE t.merchantId = :merchantId AND t.amountCents IS NOT NULL " +
+            "AND t.txnTs >= :startTime AND t.txnTs <= :endTime " +
+            "ORDER BY t.txnTs DESC")
+    List<Long> findAmountsByMerchantInTimeWindow(@Param("merchantId") String merchantId,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime,
+            org.springframework.data.domain.Pageable pageable);
 
     /**
      * Count transactions by PAN in time window
@@ -77,6 +117,26 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
             @Param("endTime") LocalDateTime endTime);
 
     /**
+     * Historical amount baseline ending immediately before the transaction being
+     * evaluated. The exclusive upper bound prevents the current event from
+     * diluting its own anomaly score.
+     */
+    @Query("SELECT t.amountCents FROM TransactionEntity t " +
+            "WHERE t.panHash = :panHash AND t.amountCents IS NOT NULL " +
+            "AND t.txnTs >= :startTime AND t.txnTs < :endTime " +
+            "ORDER BY t.txnTs DESC")
+    List<Long> findRecentAmountsByPanBefore(@Param("panHash") String panHash,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime,
+            org.springframework.data.domain.Pageable pageable);
+
+    @Query("SELECT COALESCE(AVG(t.amountCents), 0) FROM TransactionEntity t " +
+            "WHERE t.panHash = :panHash AND t.txnTs >= :startTime AND t.txnTs < :endTime")
+    Double avgAmountByPanBefore(@Param("panHash") String panHash,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime);
+
+    /**
      * Count repeated just-below-threshold transactions for an account surrogate.
      * The raw transaction store keeps PAN hash rather than account number, so callers
      * pass the model account identifier that maps to pan_hash.
@@ -98,6 +158,11 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
      */
     @Query("SELECT MAX(t.txnTs) FROM TransactionEntity t WHERE t.panHash = :panHash")
     LocalDateTime findLastTransactionTimeByPan(@Param("panHash") String panHash);
+
+    @Query("SELECT MAX(t.txnTs) FROM TransactionEntity t " +
+            "WHERE t.panHash = :panHash AND t.txnTs < :beforeTime")
+    LocalDateTime findLastTransactionTimeByPanBefore(@Param("panHash") String panHash,
+            @Param("beforeTime") LocalDateTime beforeTime);
 
     /**
      * Find distinct merchant IDs by Device Fingerprint
@@ -151,7 +216,13 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
     @Query("SELECT t FROM TransactionEntity t WHERE t.panHash = :panHash " +
            "ORDER BY t.txnTs DESC")
     List<TransactionEntity> findRecentByPanHash(@Param("panHash") String panHash,
-                                                org.springframework.data.domain.Pageable pageable);
+                                                 org.springframework.data.domain.Pageable pageable);
+
+    @Query("SELECT t FROM TransactionEntity t WHERE t.panHash = :panHash " +
+            "AND t.txnTs < :beforeTime ORDER BY t.txnTs DESC")
+    List<TransactionEntity> findRecentByPanHashBefore(@Param("panHash") String panHash,
+            @Param("beforeTime") LocalDateTime beforeTime,
+            org.springframework.data.domain.Pageable pageable);
 
     /**
      * Find transactions by merchant ID and timestamp range
@@ -342,16 +413,17 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
      * Count transactions by stored decision since a cutoff (PSP-scoped).
      * Replaces hard-coded fallback values (75/95/25) when TRS is null.
      */
-    @Query("SELECT COUNT(t) FROM TransactionEntity t WHERE t.pspId = :pspId AND t.decision = :decision AND t.txnTs >= :since")
-    long countByPspIdAndDecisionSince(@Param("pspId") Long pspId,
-                                      @Param("decision") String decision,
-                                      @Param("since") LocalDateTime since);
+    @Query("SELECT COUNT(t) FROM TransactionEntity t WHERE t.pspId = :pspId AND t.decision IN :decisions AND t.txnTs >= :since")
+    long countByPspIdAndDecisionInSince(@Param("pspId") Long pspId,
+                                        @Param("decisions") List<String> decisions,
+                                        @Param("since") LocalDateTime since);
 
     /**
      * Count transactions by stored decision since a cutoff (admin view, all PSPs).
      */
-    @Query("SELECT COUNT(t) FROM TransactionEntity t WHERE t.decision = :decision AND t.txnTs >= :since")
-    long countByDecisionSince(@Param("decision") String decision, @Param("since") LocalDateTime since);
+    @Query("SELECT COUNT(t) FROM TransactionEntity t WHERE t.decision IN :decisions AND t.txnTs >= :since")
+    long countByDecisionInSince(@Param("decisions") List<String> decisions,
+                                @Param("since") LocalDateTime since);
 
     /**
      * Count transactions by stored riskLevel since a cutoff (PSP-scoped).
@@ -389,7 +461,7 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
     // -----------------------------------------------------------------------
 
     @Query("SELECT " +
-           "  COALESCE(SUM(CASE WHEN t.decision = 'APPROVED' THEN 1 ELSE 0 END), 0), " +
+           "  COALESCE(SUM(CASE WHEN t.decision IN ('ALLOW','APPROVED') THEN 1 ELSE 0 END), 0), " +
            "  COUNT(t) " +
            "FROM TransactionEntity t " +
            "WHERE t.pspId = :pspId AND t.txnTs >= :since")
@@ -397,7 +469,7 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
                                                 @Param("since") LocalDateTime since);
 
     @Query("SELECT " +
-           "  COALESCE(SUM(CASE WHEN t.decision = 'APPROVED' THEN 1 ELSE 0 END), 0), " +
+           "  COALESCE(SUM(CASE WHEN t.decision IN ('ALLOW','APPROVED') THEN 1 ELSE 0 END), 0), " +
            "  COUNT(t) " +
            "FROM TransactionEntity t " +
            "WHERE t.txnTs >= :since")
@@ -406,38 +478,37 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
     // -----------------------------------------------------------------------
     // CBK GDI aggregations — used by CbkSubmissionOrchestrator
     //
-    // The TransactionEntity does NOT carry CBK fields card_brand,
-    // bill_classification_code, channel, card_class_type or transaction_type.
-    // Sensible substitutes are chosen per query and documented at each call site.
+    // TransactionEntity carries the CBK card, channel, and billing
+    // classifications used by these endpoint aggregates.
     // -----------------------------------------------------------------------
 
     /**
-     * Endpoint #12 (CARD_BRANDS) — group by direction (placeholder for card brand).
+     * Endpoint #12 (CARD_BRANDS) - group by persisted card brand.
      * Returns rows of [groupKey (String), count (Long), sumAmountCents (Long)].
      */
-    @Query(value = "SELECT COALESCE(t.direction, 'UNKNOWN') AS group_key, " +
+    @Query(value = "SELECT COALESCE(t.card_brand, 'UNKNOWN') AS group_key, " +
                    "COUNT(*) AS cnt, COALESCE(SUM(t.amount_cents), 0) AS amt " +
                    "FROM transactions t " +
                    "WHERE t.psp_id = :pspId AND t.txn_ts >= :start AND t.txn_ts <= :end " +
-                   "GROUP BY COALESCE(t.direction, 'UNKNOWN') " +
+                   "GROUP BY COALESCE(t.card_brand, 'UNKNOWN') " +
                    "ORDER BY group_key", nativeQuery = true)
     List<Object[]> findCardBrandSummaryForPsp(@Param("pspId") Long pspId,
                                               @Param("start") LocalDateTime start,
                                               @Param("end") LocalDateTime end);
 
     /**
-     * Endpoint #14 (TRANSACTION_DETAILS) — group by direction × decision × merchant_country.
-     * Returns rows of [direction, decision, country, count, sumAmountCents].
+     * Endpoint #14 (TRANSACTION_DETAILS) - group by card brand, decision, and channel.
+     * Returns rows of [brand, decision, channel, count, sumAmountCents].
      */
-    @Query(value = "SELECT COALESCE(t.direction, 'UNKNOWN') AS brand, " +
+    @Query(value = "SELECT COALESCE(t.card_brand, 'UNKNOWN') AS brand, " +
                    "COALESCE(t.decision, 'UNKNOWN') AS txn_type, " +
-                   "COALESCE(t.merchant_country, 'XX') AS country, " +
+                   "COALESCE(t.channel_type, 'UNKNOWN') AS channel, " +
                    "COUNT(*) AS cnt, COALESCE(SUM(t.amount_cents), 0) AS amt " +
                    "FROM transactions t " +
                    "WHERE t.psp_id = :pspId AND t.txn_ts >= :start AND t.txn_ts <= :end " +
-                   "GROUP BY COALESCE(t.direction, 'UNKNOWN'), COALESCE(t.decision, 'UNKNOWN'), " +
-                   "         COALESCE(t.merchant_country, 'XX') " +
-                   "ORDER BY brand, txn_type, country", nativeQuery = true)
+                   "GROUP BY COALESCE(t.card_brand, 'UNKNOWN'), COALESCE(t.decision, 'UNKNOWN'), " +
+                   "         COALESCE(t.channel_type, 'UNKNOWN') " +
+                   "ORDER BY brand, txn_type, channel", nativeQuery = true)
     List<Object[]> findTransactionMixForPsp(@Param("pspId") Long pspId,
                                             @Param("start") LocalDateTime start,
                                             @Param("end") LocalDateTime end);
@@ -457,15 +528,14 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
                                           @Param("end") LocalDateTime end);
 
     /**
-     * Endpoint #13 (BILLING_TEMPLATE) — group by merchant_country (placeholder for
-     * bill_classification_code which is not yet on TransactionEntity).
+     * Endpoint #13 (BILLING_TEMPLATE) - group by persisted bill classification.
      * Returns rows of [classificationCode, count, sumAmountCents].
      */
-    @Query(value = "SELECT COALESCE(t.merchant_country, 'UNCLASSIFIED') AS bill_class, " +
+    @Query(value = "SELECT COALESCE(t.bill_classification_code, 'UNCLASSIFIED') AS bill_class, " +
                    "COUNT(*) AS cnt, COALESCE(SUM(t.amount_cents), 0) AS amt " +
                    "FROM transactions t " +
                    "WHERE t.psp_id = :pspId AND t.txn_ts >= :start AND t.txn_ts <= :end " +
-                   "GROUP BY COALESCE(t.merchant_country, 'UNCLASSIFIED') " +
+                   "GROUP BY COALESCE(t.bill_classification_code, 'UNCLASSIFIED') " +
                    "ORDER BY bill_class", nativeQuery = true)
     List<Object[]> findBillClassificationSummaryForPsp(@Param("pspId") Long pspId,
                                                        @Param("start") LocalDateTime start,
@@ -474,16 +544,17 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
     /**
      * Endpoint #16 (MERCHANT_TRANSACTIONS) — successful transactions for the
      * window grouped by merchant. Successful = decision='APPROVED'.
-     * Returns rows of [merchantId, merchantCountry, count, sumAmountCents].
+     * Returns rows of [merchantId, merchantCountry, channel, count, sumAmountCents].
      */
     @Query(value = "SELECT t.merchant_id AS merchant_id, " +
                    "COALESCE(t.merchant_country, 'XX') AS country, " +
+                   "t.channel_type AS channel, " +
                    "COUNT(*) AS cnt, COALESCE(SUM(t.amount_cents), 0) AS amt " +
                    "FROM transactions t " +
-                   "WHERE t.psp_id = :pspId AND t.decision = 'APPROVED' " +
+                   "WHERE t.psp_id = :pspId AND t.decision IN ('ALLOW','APPROVED') " +
                    "  AND t.txn_ts >= :start AND t.txn_ts <= :end " +
-                   "GROUP BY t.merchant_id, COALESCE(t.merchant_country, 'XX') " +
-                   "ORDER BY merchant_id", nativeQuery = true)
+                   "GROUP BY t.merchant_id, COALESCE(t.merchant_country, 'XX'), t.channel_type " +
+                   "ORDER BY merchant_id, channel", nativeQuery = true)
     List<Object[]> findSuccessfulYesterdayByPspId(@Param("pspId") Long pspId,
                                                   @Param("start") LocalDateTime start,
                                                   @Param("end") LocalDateTime end);
@@ -494,18 +565,13 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
      * literal — DECLINED/MANUAL_REVIEW are treated as failed/rejected.
      * Returns rows of [merchantId, decision, count, sumAmountCents].
      */
-    @Query(value = "SELECT t.merchant_id AS merchant_id, " +
-                   "COALESCE(t.decision, 'UNKNOWN') AS decision, " +
-                   "COUNT(*) AS cnt, COALESCE(SUM(t.amount_cents), 0) AS amt " +
-                   "FROM transactions t " +
-                   "WHERE t.psp_id = :pspId " +
-                   "  AND t.decision IN ('DECLINED','MANUAL_REVIEW') " +
-                   "  AND t.txn_ts >= :start AND t.txn_ts <= :end " +
-                   "GROUP BY t.merchant_id, COALESCE(t.decision, 'UNKNOWN') " +
-                   "ORDER BY merchant_id, decision", nativeQuery = true)
-    List<Object[]> findFailedRejectedForPspByDay(@Param("pspId") Long pspId,
-                                                 @Param("start") LocalDateTime start,
-                                                 @Param("end") LocalDateTime end);
+    @Query("SELECT t FROM TransactionEntity t WHERE t.pspId = :pspId " +
+            "AND t.decision IN ('BLOCK','HOLD','DECLINED','MANUAL_REVIEW','REJECTED') " +
+            "AND t.txnTs >= :start AND t.txnTs <= :end ORDER BY t.txnTs, t.txnId")
+    List<TransactionEntity> findFailedRejectedTransactionsForPspByDay(
+            @Param("pspId") Long pspId,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end);
 
     // -----------------------------------------------------------------------
     // Dashboard aggregates (DashboardController)
@@ -518,7 +584,7 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
      */
     @Query("SELECT COUNT(t) FROM TransactionEntity t " +
            "WHERE t.txnTs >= :start AND t.txnTs < :end " +
-           "AND (t.decision IN ('DECLINED','MANUAL_REVIEW') " +
+           "AND (t.decision IN ('ALERT','HOLD','BLOCK','DECLINED','MANUAL_REVIEW','REJECTED') " +
            "     OR t.riskLevel IN ('HIGH','CRITICAL') " +
            "     OR COALESCE(t.trs, 0) >= :threshold)")
     long countFlaggedInPeriod(@Param("start") LocalDateTime start,
@@ -527,7 +593,7 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
 
     @Query("SELECT COUNT(t) FROM TransactionEntity t " +
            "WHERE t.pspId = :pspId AND t.txnTs >= :start AND t.txnTs < :end " +
-           "AND (t.decision IN ('DECLINED','MANUAL_REVIEW') " +
+           "AND (t.decision IN ('ALERT','HOLD','BLOCK','DECLINED','MANUAL_REVIEW','REJECTED') " +
            "     OR t.riskLevel IN ('HIGH','CRITICAL') " +
            "     OR COALESCE(t.trs, 0) >= :threshold)")
     long countFlaggedInPeriodByPsp(@Param("pspId") Long pspId,
@@ -604,6 +670,14 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
                                         @Param("start") LocalDateTime start,
                                         @Param("end") LocalDateTime end);
 
+    @Query("SELECT COUNT(t) FROM TransactionEntity t " +
+            "WHERE t.panHash = :panHash AND t.amountCents >= :minimumAmountCents " +
+            "AND t.txnTs >= :start AND t.txnTs <= :end")
+    Long countHighValueByPanInWindow(@Param("panHash") String panHash,
+            @Param("minimumAmountCents") long minimumAmountCents,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end);
+
     @Query("SELECT COUNT(DISTINCT t.cardBrand) FROM TransactionEntity t " +
            "WHERE t.panHash = :panHash AND t.cardBrand IS NOT NULL " +
            "AND t.txnTs >= :start AND t.txnTs <= :end")
@@ -625,4 +699,19 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
                                            @Param("panHash") String panHash,
                                            @Param("start") LocalDateTime start,
                                            @Param("end") LocalDateTime end);
+
+    // -----------------------------------------------------------------------
+    // Feature backfill — transactions lacking a features row (BatchScoringService)
+    // -----------------------------------------------------------------------
+
+    /**
+     * Transactions that have no persisted {@code TransactionFeatures} row, or whose
+     * feature JSON is still null. DB-side limited via the supplied {@link
+     * org.springframework.data.domain.Pageable} — replaces the full-table
+     * {@code findAll()} + per-row features lookup (N+1) in {@code backfillFeatures}.
+     */
+    @Query("SELECT t FROM TransactionEntity t WHERE NOT EXISTS (" +
+           "SELECT 1 FROM TransactionFeatures f WHERE f.txnId = t.txnId AND f.featureJson IS NOT NULL)")
+    List<TransactionEntity> findTransactionsMissingFeatures(
+            org.springframework.data.domain.Pageable pageable);
 }

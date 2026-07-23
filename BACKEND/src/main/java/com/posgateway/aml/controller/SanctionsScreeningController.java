@@ -9,6 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -28,7 +29,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
  * {@link AerospikeSanctionsScreeningService} (now a thin proxy onto the same client).
  *
  * <p>If the microservice is disabled or its circuit breaker is open, we return
- * {@code status=UNAVAILABLE} with HTTP 200 — graceful degradation, not 5xx.
+ * HTTP 503 and never represent the result as CLEAR.
  */
 @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','COMPLIANCE_OFFICER','INVESTIGATOR','ANALYST','PSP_ADMIN','PSP_USER')")
 @RestController
@@ -69,23 +70,14 @@ public class SanctionsScreeningController {
                     new BackendSanctionsScreenRequest(name, type, null));
 
             // Microservice disabled / circuit broken — degrade gracefully.
-            if (resp == null) {
-                Map<String, Object> body = new HashMap<>();
-                body.put("name", name);
-                body.put("screenedName", name);
-                body.put("status", "UNAVAILABLE");
-                body.put("matches", new ArrayList<>());
-                body.put("hits", new ArrayList<>());
-                body.put("matchFound", false);
-                body.put("matchCount", 0);
-                body.put("highestMatchScore", 0.0);
-                body.put("confidence", 0.0);
-                body.put("entityType", type != null ? type : "PERSON");
+            Map<String, Object> body = toFrontendShape(name, type, resp);
+            if (resp.isUnavailable()) {
                 body.put("screeningProvider", "AML_MICROSERVICE_UNAVAILABLE");
-                return ResponseEntity.ok(body);
+                body.put("message", "Sanctions screening is temporarily unavailable; no clearance decision was made.");
+                return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(body);
             }
 
-            return ResponseEntity.ok(toFrontendShape(name, type, resp));
+            return ResponseEntity.ok(body);
 
         } catch (Exception e) {
             log.error("Error screening name '{}': {}", request.getName(), e.getMessage(), e);
@@ -109,7 +101,7 @@ public class SanctionsScreeningController {
 
         response.put("name", name);
         response.put("screenedName", name);
-        response.put("status", resp.status() != null ? resp.status() : "CLEAR");
+        response.put("status", resp.status() != null ? resp.status() : "UNAVAILABLE");
         response.put("match", hasMatches);
         response.put("matchFound", hasMatches);
         response.put("matchCount", hasMatches ? resp.matches().size() : 0);
@@ -158,6 +150,9 @@ public class SanctionsScreeningController {
         try {
             ScreeningResult result = screeningService.screenBeneficialOwner(
                     request.getFullName(), request.getDateOfBirth());
+            if (result.getStatus() == ScreeningResult.ScreeningStatus.UNAVAILABLE) {
+                return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(result);
+            }
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             log.error("Error screening person: {}", e.getMessage(), e);
@@ -175,6 +170,9 @@ public class SanctionsScreeningController {
         try {
             ScreeningResult result = screeningService.screenMerchant(
                     request.getLegalName(), request.getTradingName());
+            if (result.getStatus() == ScreeningResult.ScreeningStatus.UNAVAILABLE) {
+                return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(result);
+            }
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             log.error("Error screening organization: {}", e.getMessage(), e);
@@ -185,6 +183,10 @@ public class SanctionsScreeningController {
     /** Health check. */
     @GetMapping("/health")
     public ResponseEntity<String> health() {
+        if (!sanctionsScreenClient.isAvailable()) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body("Sanctions screening service is unavailable");
+        }
         return ResponseEntity.ok("Sanctions screening service is healthy");
     }
 

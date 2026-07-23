@@ -18,7 +18,7 @@ import java.util.Map;
 
 /**
  * Alert Tuning Controller
- * Provides REST endpoints for alert tuning recommendations and rule effectiveness
+ * Provides REST endpoints for evidence-based alert tuning recommendations.
  */
 @RestController
 @RequestMapping("/alerts/tuning")
@@ -35,7 +35,7 @@ public class AlertTuningController {
 
     @Operation(
             summary = "Suggest tuning for a rule",
-            description = "Generates ML-based tuning recommendations for an alert rule based on false positive rate"
+            description = "Generates an actionable parameter recommendation from recorded rule executions and investigator dispositions"
     )
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Tuning recommendation generated successfully"),
@@ -44,10 +44,8 @@ public class AlertTuningController {
     @PostMapping("/suggest")
     public ResponseEntity<AlertTuningRecommendation> suggestTuning(
             @Parameter(description = "Rule name", required = true, example = "HIGH_VALUE_TRANSACTION")
-            @RequestParam String ruleName,
-            @Parameter(description = "False positive rate (0.0 to 1.0)", required = true, example = "0.45")
-            @RequestParam double falsePositiveRate) {
-        AlertTuningRecommendation recommendation = alertTuningService.suggestTuning(ruleName, falsePositiveRate);
+            @RequestParam String ruleName) {
+        AlertTuningRecommendation recommendation = alertTuningService.suggestTuning(ruleName);
         return ResponseEntity.ok(recommendation);
     }
 
@@ -77,8 +75,7 @@ public class AlertTuningController {
             @Parameter(description = "Recommendation ID", required = true)
             @PathVariable Long recommendationId,
             @AuthenticationPrincipal org.springframework.security.core.userdetails.User user) {
-        Long userId = Long.parseLong(user.getUsername()); // Assuming username is user ID
-        alertTuningService.applyRecommendation(recommendationId, userId);
+        alertTuningService.applyRecommendation(recommendationId, user.getUsername());
         return ResponseEntity.ok(Map.of(
                 "success", true,
                 "message", "Recommendation applied successfully",

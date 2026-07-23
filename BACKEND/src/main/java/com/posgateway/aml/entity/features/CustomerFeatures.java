@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
  * Design Pattern:
  * - Features are computed asynchronously (Kafka events)
  * - Cached in Redis for sub-millisecond access
- * - Updated via event-driven architecture (features.updates topic)
+ * - Updated from committed raw-transaction events
  *
  * Performance:
  * - Rule evaluation: O(1) lookup vs O(n) aggregation query

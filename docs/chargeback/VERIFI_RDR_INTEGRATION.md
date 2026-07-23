@@ -27,6 +27,11 @@ Authenticated read API for ingested disputes: `GET /api/v1/chargeback/disputes`.
 
 ```properties
 verifi.rdr.enabled=true
+verifi.rdr.auth-mode=RSA
+verifi.rdr.jws-verification-public-key=<Visa signing certificate/public key PEM>
+verifi.rdr.jwe-decryption-private-key=<merchant RSA private key PEM>
+verifi.rdr.jws-key-id=<optional expected signing kid>
+verifi.rdr.jwe-key-id=<optional expected encryption kid>
 verifi.rdr.webhook-secret=<32-char shared secret for JWS HS256>
 verifi.rdr.partner-id=<Verifi partnerId for Ping response>
 verifi.rdr.client-id=<Verifi clientId for Ping response>
@@ -35,18 +40,28 @@ verifi.rdr.signature-required=true
 verifi.rdr.auto-create-cases=true
 ```
 
-Environment variables: `VERIFI_RDR_ENABLED`, `VERIFI_RDR_WEBHOOK_SECRET`, `VERIFI_RDR_PARTNER_ID`, `VERIFI_RDR_CLIENT_ID`, `VERIFI_RDR_CALLBACK_URL`.
+Environment variables use the upper-case names shown by the properties, including `VERIFI_RDR_AUTH_MODE`, `VERIFI_RDR_JWS_VERIFICATION_PUBLIC_KEY`, and `VERIFI_RDR_JWE_DECRYPTION_PRIVATE_KEY`. PEM values may contain real newlines or escaped `\n` sequences.
 
 ## Authentication (per spec §Getting Started)
 
-Verifi sends `Authorization: Bearer <JWS>` (or JWE) on every inbound request.
+Verifi sends `Authorization: Bearer <JWS>` on every inbound request. In RSA mode the signed JWS payload is a compact JWE; an unsigned, standalone RSA JWE is rejected because encryption alone does not authenticate its sender.
 
-**JWS validation (implemented):**
+**Shared-secret validation (`auth-mode=HS256`):**
 
 1. Split token into `header.payload.signature`
 2. Verify `alg` is `HS256`
 3. Compute `HMAC-SHA256(base64url(header) + '.' + base64url(payload), sharedSecret)`
 4. Validate `jti` uniqueness within 360 seconds, `iat` within ±300s, `exp` not expired
+
+**Certificate validation (`auth-mode=RSA`):**
+
+1. Require and verify outer `alg=PS256` with the configured Visa/Verifi public key or certificate.
+2. Require a nested compact JWE and optional configured signing/encryption `kid` values.
+3. Require `alg=RSA-OAEP-256` and `enc=A256GCM` or `A128GCM`.
+4. Decrypt the content-encryption key with the merchant RSA private key, authenticate the protected header as AES-GCM AAD, and decrypt the claims.
+5. Validate `jti`, `iat`, and `exp` only after signature verification and authenticated decryption.
+
+RSA mode cannot downgrade to API-key or legacy HMAC authentication. `auth-mode=LEGACY` is reserved for non-Verifi partner callbacks that intentionally use those older mechanisms.
 
 **Request headers from Verifi:**
 
@@ -133,7 +148,7 @@ Current rule engine: auto-accept low-value (&lt;500) non-fraud; decline fraud (`
 
 | Gap | Notes |
 |-----|-------|
-| **JWE (RSA) auth** | JWS implemented; JWE nested JWT requires RSA private key — not yet wired |
+| **JWE (RSA) auth** | Implemented with PS256, RSA-OAEP-256, AES-GCM, key IDs, replay protection, and no legacy downgrade |
 | **Order Insight `/orders`** | Separate product — not implemented |
 | **BIN/CAID enrollment lookup** | `acquirerBin` + `cardAcceptorId` not used for merchant resolution yet |
 | **Merchant MID mapping** | Relies on `purchaseIdentifier` parsing; no dedicated MID table |

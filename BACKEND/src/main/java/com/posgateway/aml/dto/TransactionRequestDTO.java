@@ -1,8 +1,11 @@
 package com.posgateway.aml.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import java.util.Map;
 
 /**
@@ -21,6 +24,7 @@ public class TransactionRequestDTO {
     private Long amountCents;
 
     @NotBlank(message = "Currency is required")
+    @Pattern(regexp = "[A-Za-z]{3}", message = "Currency must be a three-letter ISO 4217 code")
     private String currency;
 
     private String pan;
@@ -34,6 +38,13 @@ public class TransactionRequestDTO {
     private String direction; // INBOUND, OUTBOUND
     private String ipAddress;
     private String countryCode;
+    private String channelType;
+    private Boolean cashTransaction = false;
+    @Size(max = 255, message = "Customer account reference must not exceed 255 characters")
+    private String customerAccountReference;
+    @Email(message = "Customer email must be a valid email address")
+    @Size(max = 320, message = "Customer email must not exceed 320 characters")
+    private String customerEmail;
 
     // Getters and Setters
     public String getMerchantId() {
@@ -123,5 +134,16 @@ public class TransactionRequestDTO {
     public void setCountryCode(String countryCode) {
         this.countryCode = countryCode;
     }
+
+    public String getChannelType() { return channelType; }
+    public void setChannelType(String channelType) { this.channelType = channelType; }
+    public Boolean getCashTransaction() { return cashTransaction; }
+    public void setCashTransaction(Boolean cashTransaction) { this.cashTransaction = cashTransaction; }
+    public String getCustomerAccountReference() { return customerAccountReference; }
+    public void setCustomerAccountReference(String customerAccountReference) {
+        this.customerAccountReference = customerAccountReference;
+    }
+    public String getCustomerEmail() { return customerEmail; }
+    public void setCustomerEmail(String customerEmail) { this.customerEmail = customerEmail; }
 }
 

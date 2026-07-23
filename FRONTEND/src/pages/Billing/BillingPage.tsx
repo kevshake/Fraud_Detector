@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import {
   Box,
   Typography,
@@ -75,28 +76,29 @@ import type { Invoice, Subscription, SubscriptionRequest } from "../../types/bil
 import type { Psp } from "../../types";
 import { getApiUrl } from "../../config/api";
 import HokekaPageShell from "../../components/Layout/HokekaPageShell";
+import { withAlpha } from "../../theme/tokens"
 
-const ACCENT = "#8B4049";
+const ACCENT = "var(--gold)";
 
 // ─── Status chip helpers ──────────────────────────────────────────────────────
 
 const INVOICE_STATUS_COLORS: Record<string, { bg: string; color: string }> = {
-  PAID:      { bg: "#e9f7ef", color: "#27ae60" },
-  OVERDUE:   { bg: "#fdedec", color: "#c0392b" },
-  SENT:      { bg: "#eaf4fb", color: "#2980b9" },
-  DRAFT:     { bg: "#f4f6f7", color: "#7f8c8d" },
-  CANCELLED: { bg: "#f4f6f7", color: "#7f8c8d" },
+  PAID:      { bg: "var(--ink)", color: "var(--success)" },
+  OVERDUE:   { bg: "var(--ink)", color: "var(--danger)" },
+  SENT:      { bg: "var(--ink)", color: "var(--info)" },
+  DRAFT:     { bg: "var(--ink)", color: "var(--muted)" },
+  CANCELLED: { bg: "var(--ink)", color: "var(--muted)" },
 };
 
 const SUBSCRIPTION_STATUS_COLORS: Record<string, { bg: string; color: string }> = {
-  ACTIVE:    { bg: "#e9f7ef", color: "#27ae60" },
-  TRIAL:     { bg: "#eaf4fb", color: "#2980b9" },
-  CANCELLED: { bg: "#f4f6f7", color: "#7f8c8d" },
-  EXPIRED:   { bg: "#fef5e7", color: "#e67e22" },
+  ACTIVE:    { bg: "var(--ink)", color: "var(--success)" },
+  TRIAL:     { bg: "var(--ink)", color: "var(--info)" },
+  CANCELLED: { bg: "var(--ink)", color: "var(--muted)" },
+  EXPIRED:   { bg: "var(--ink)", color: "var(--risk-high)" },
 };
 
 function StatusChip({ status, colorMap }: { status: string; colorMap: Record<string, { bg: string; color: string }> }) {
-  const cfg = colorMap[status] ?? { bg: "#f4f6f7", color: "#7f8c8d" };
+  const cfg = colorMap[status] ?? { bg: "var(--ink)", color: "var(--muted)" };
   return (
     <Chip
       label={status}
@@ -150,7 +152,7 @@ function KpiCard({ title, value, icon, color, subtitle }: KpiCardProps) {
               </Typography>
             )}
           </Box>
-          <Box sx={{ bgcolor: `${color}18`, borderRadius: "10px", p: 1, mt: 0.5 }}>
+          <Box sx={{ bgcolor: withAlpha(color, 0.1), borderRadius: "10px", p: 1, mt: 0.5 }}>
             <Box sx={{ color, display: "flex" }}>{icon}</Box>
           </Box>
         </Box>
@@ -193,20 +195,20 @@ function RevenueTab() {
           title="Monthly Revenue (Paid)"
           value={fmt(summary.currentMonthRevenuePaid, currency)}
           icon={<MoneyIcon />}
-          color="#27ae60"
+          color="var(--success)"
           subtitle={`${summary.paidInvoicesThisMonth} invoices paid`}
         />
         <KpiCard
           title="Expected Revenue"
           value={fmt(summary.currentMonthRevenueExpected, currency)}
           icon={<BarChartIcon />}
-          color="#2980b9"
+          color="var(--info)"
         />
         <KpiCard
           title="Overdue Amount"
           value={fmt(summary.overdueAmount, currency)}
           icon={<WarningIcon />}
-          color="#c0392b"
+          color="var(--danger)"
           subtitle={`${summary.overdueInvoicesCount} overdue invoices`}
         />
         <KpiCard
@@ -235,14 +237,14 @@ function RevenueTab() {
 
       {/* Overdue Invoices Alert */}
       {overdue.length > 0 && (
-        <Paper sx={{ border: "1px solid rgba(192,57,43,0.2)", borderRadius: 2, p: 2 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5, color: "#c0392b" }}>
+        <Paper sx={{ border: "1px solid color-mix(in srgb, var(--danger) 20%, transparent)", borderRadius: 2, p: 2 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5, color: "var(--danger)" }}>
             Overdue Invoices ({overdue.length})
           </Typography>
           <TableContainer>
             <Table size="small">
               <TableHead>
-                <TableRow sx={{ backgroundColor: "rgba(0,0,0,0.02)" }}>
+                <TableRow sx={{ backgroundColor: "var(--surface-3)" }}>
                   <TableCell sx={{ color: "text.secondary", fontWeight: 600 }}>Invoice #</TableCell>
                   <TableCell sx={{ color: "text.secondary", fontWeight: 600 }}>PSP</TableCell>
                   <TableCell sx={{ color: "text.secondary", fontWeight: 600 }}>Amount</TableCell>
@@ -258,14 +260,14 @@ function RevenueTab() {
                     <TableRow key={inv.invoiceId} hover>
                       <TableCell>
                         <Typography variant="body2" sx={{ fontFamily: "monospace", fontSize: "0.78rem" }}>
-                          {inv.invoiceNumber}
+                          <Link to={`/records/INVOICE/${inv.invoiceId}`}>{inv.invoiceNumber}</Link>
                         </Typography>
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2">{inv.pspName ?? `PSP ${inv.pspId}`}</Typography>
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body2" sx={{ fontWeight: 600, color: "#c0392b" }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600, color: "var(--danger)" }}>
                           {fmt(inv.totalAmount, inv.currency)}
                         </Typography>
                       </TableCell>
@@ -276,7 +278,7 @@ function RevenueTab() {
                         <Chip
                           label={`${daysOverdue}d overdue`}
                           size="small"
-                          sx={{ bgcolor: "#fdedec", color: "#c0392b", fontWeight: 500, fontSize: "0.72rem", height: 22, borderRadius: 1 }}
+                          sx={{ bgcolor: "var(--surface-3)", color: "var(--danger)", fontWeight: 500, fontSize: "0.72rem", height: 22, borderRadius: 1 }}
                         />
                       </TableCell>
                     </TableRow>
@@ -388,7 +390,7 @@ function SubscriptionsTab() {
           variant="contained"
           startIcon={<AddIcon />}
           onClick={openCreate}
-          sx={{ textTransform: "none", bgcolor: ACCENT, "&:hover": { bgcolor: "#6b313a" } }}
+          sx={{ textTransform: "none", bgcolor: ACCENT, "&:hover": { bgcolor: "var(--surface-3)" } }}
         >
           New Subscription
         </Button>
@@ -399,7 +401,7 @@ function SubscriptionsTab() {
       <TableContainer component={Paper} sx={{ border: "1px solid rgba(0,0,0,0.08)", borderRadius: 2 }}>
         <Table size="small">
           <TableHead>
-            <TableRow sx={{ backgroundColor: "rgba(0,0,0,0.02)" }}>
+            <TableRow sx={{ backgroundColor: "var(--surface-3)" }}>
               {["PSP", "Tier", "Billing Cycle", "Currency", "Status", "Contract Start", "Contract End", "Discount", "Actions"].map((h) => (
                 <TableCell key={h} sx={{ color: "text.secondary", fontWeight: 600 }}>{h}</TableCell>
               ))}
@@ -414,8 +416,8 @@ function SubscriptionsTab() {
               </TableRow>
             ) : subscriptions.length > 0 ? (
               subscriptions.map((sub) => (
-                <TableRow key={sub.subscriptionId} hover sx={{ "&:hover": { bgcolor: "rgba(139,64,73,0.04)" } }}>
-                  <TableCell><Typography variant="body2" sx={{ fontWeight: 500 }}>{sub.pspName ?? pspName(sub.pspId)}</Typography></TableCell>
+                <TableRow key={sub.subscriptionId} hover sx={{ "&:hover": { bgcolor: "var(--surface-2)" } }}>
+                  <TableCell><Typography variant="body2" sx={{ fontWeight: 500 }}><Link to={`/records/SUBSCRIPTION/${sub.subscriptionId}`}>{sub.pspName ?? pspName(sub.pspId)}</Link></Typography></TableCell>
                   <TableCell><Typography variant="body2">{sub.tierName ?? sub.tierCode}</Typography></TableCell>
                   <TableCell><Typography variant="body2" color="text.secondary">{sub.billingCycle}</Typography></TableCell>
                   <TableCell><Typography variant="body2" color="text.secondary">{sub.billingCurrency}</Typography></TableCell>
@@ -436,7 +438,7 @@ function SubscriptionsTab() {
                       </Tooltip>
                       {sub.status !== "CANCELLED" && (
                         <Tooltip title="Cancel">
-                          <IconButton size="small" onClick={() => setCancelTarget(sub.subscriptionId)} sx={{ color: "#c0392b" }}>
+                          <IconButton size="small" onClick={() => setCancelTarget(sub.subscriptionId)} sx={{ color: "var(--danger)" }}>
                             <CancelIcon sx={{ fontSize: 16 }} />
                           </IconButton>
                         </Tooltip>
@@ -587,7 +589,7 @@ function SubscriptionsTab() {
             onClick={handleSave}
             disabled={saving || !form.pspId || !form.tierCode}
             startIcon={saving ? <CircularProgress size={16} /> : undefined}
-            sx={{ textTransform: "none", bgcolor: ACCENT, "&:hover": { bgcolor: "#6b313a" } }}
+            sx={{ textTransform: "none", bgcolor: ACCENT, "&:hover": { bgcolor: "var(--surface-3)" } }}
           >
             {saving ? "Saving…" : "Save"}
           </Button>
@@ -745,7 +747,7 @@ function InvoicesTab() {
       <TableContainer component={Paper} sx={{ border: "1px solid rgba(0,0,0,0.08)", borderRadius: 2 }}>
         <Table size="small">
           <TableHead>
-            <TableRow sx={{ backgroundColor: "rgba(0,0,0,0.02)" }}>
+            <TableRow sx={{ backgroundColor: "var(--surface-3)" }}>
               {["Invoice #", "PSP", "Period", "Total", "Status", "Due Date", "Paid At", "Actions"].map((h) => (
                 <TableCell key={h} sx={{ color: "text.secondary", fontWeight: 600 }}>{h}</TableCell>
               ))}
@@ -760,10 +762,10 @@ function InvoicesTab() {
               </TableRow>
             ) : filteredRows.length > 0 ? (
               filteredRows.map((inv) => (
-                <TableRow key={inv.invoiceId} hover sx={{ "&:hover": { bgcolor: "rgba(139,64,73,0.04)" } }}>
+                <TableRow key={inv.invoiceId} hover sx={{ "&:hover": { bgcolor: "var(--surface-2)" } }}>
                   <TableCell>
                     <Typography variant="body2" sx={{ fontFamily: "monospace", fontSize: "0.78rem" }}>
-                      {inv.invoiceNumber}
+                      <Link to={`/records/INVOICE/${inv.invoiceId}`}>{inv.invoiceNumber}</Link>
                     </Typography>
                   </TableCell>
                   <TableCell>
@@ -784,7 +786,7 @@ function InvoicesTab() {
                     <Stack direction="row" spacing={0.5}>
                       {inv.status !== "PAID" && inv.status !== "CANCELLED" && (
                         <Tooltip title="Mark Paid">
-                          <IconButton size="small" onClick={() => openMarkPaid(inv)} sx={{ color: "#27ae60" }}>
+                          <IconButton size="small" onClick={() => openMarkPaid(inv)} sx={{ color: "var(--success)" }}>
                             <CheckIcon sx={{ fontSize: 16 }} />
                           </IconButton>
                         </Tooltip>
@@ -881,7 +883,7 @@ function InvoicesTab() {
             onClick={handleMarkPaid}
             disabled={marking}
             startIcon={marking ? <CircularProgress size={16} /> : undefined}
-            sx={{ textTransform: "none", bgcolor: ACCENT, "&:hover": { bgcolor: "#6b313a" } }}
+            sx={{ textTransform: "none", bgcolor: ACCENT, "&:hover": { bgcolor: "var(--surface-3)" } }}
           >
             {marking ? "Updating…" : "Update Status"}
           </Button>
@@ -978,7 +980,7 @@ function UsageTab() {
               title="Total Requests"
               value={usage.totalRequests.toLocaleString()}
               icon={<BarChartIcon />}
-              color="#2980b9"
+              color="var(--info)"
               subtitle={`Period: ${usage.period ?? selectedMonth}`}
             />
             <KpiCard
@@ -991,7 +993,7 @@ function UsageTab() {
               title="Estimated Cost"
               value={fmt(usage.totalCostUsd, "USD")}
               icon={<MoneyIcon />}
-              color="#27ae60"
+              color="var(--success)"
             />
           </Box>
 
@@ -1000,7 +1002,7 @@ function UsageTab() {
             <TableContainer component={Paper} sx={{ border: "1px solid rgba(0,0,0,0.08)", borderRadius: 2 }}>
               <Table size="small">
                 <TableHead>
-                  <TableRow sx={{ backgroundColor: "rgba(0,0,0,0.02)" }}>
+                  <TableRow sx={{ backgroundColor: "var(--surface-3)" }}>
                     <TableCell sx={{ color: "text.secondary", fontWeight: 600 }}>Service Type</TableCell>
                     <TableCell sx={{ color: "text.secondary", fontWeight: 600 }}>Request Count</TableCell>
                     <TableCell sx={{ color: "text.secondary", fontWeight: 600 }}>Cost (USD)</TableCell>

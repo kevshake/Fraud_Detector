@@ -1,17 +1,15 @@
 package com.posgateway.aml.service;
 
+import com.posgateway.aml.entity.TransactionEntity;
 import com.posgateway.aml.model.RiskAssessment;
 import com.posgateway.aml.model.RiskLevel;
 import com.posgateway.aml.model.Transaction;
 import com.posgateway.aml.model.TransactionStatus;
+import com.posgateway.aml.service.compliance.CashStructuringDetectionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 /**
  * Risk Assessment Service
@@ -30,23 +28,6 @@ public class RiskAssessmentService {
      */
     private static final double THIRD_PARTY_MATCH_THRESHOLD = 0.85;
 
-    /**
-     * Minimum number of "just-below threshold" transactions from the same
-     * account inside the structuring window to flag a structuring pattern.
-     */
-    private static final long STRUCTURING_REPEAT_COUNT = 3;
-
-    /**
-     * Sliding window (hours) over which structuring activity is aggregated.
-     */
-    private static final int STRUCTURING_WINDOW_HOURS = 24;
-
-    /**
-     * Lower bound of the "just-below" range, expressed as a fraction of the
-     * CTR threshold. 0.9 means amounts in [0.9 * threshold, threshold).
-     */
-    private static final BigDecimal JUST_BELOW_FRACTION = new BigDecimal("0.9");
-
     private final AmlService amlService;
     private final FraudDetectionService fraudDetectionService;
     private final com.posgateway.aml.service.risk.RiskRulesEngine riskRulesEngine;
@@ -54,22 +35,10 @@ public class RiskAssessmentService {
     private final com.posgateway.aml.repository.BeneficialOwnerRepository beneficialOwnerRepository;
     private final com.posgateway.aml.service.analytics.LinkAnalysisService linkAnalysisService;
     private final com.posgateway.aml.service.analytics.BehavioralProfilingService behavioralProfilingService;
-    private final com.posgateway.aml.repository.TransactionRepository transactionRepository;
-
-    /**
-     * CTR (Currency Transaction Report) reporting threshold. In Kenya the CBK
-     * threshold is KES 1,000,000. Configurable so other jurisdictions can
-     * override via environment.
-     */
-    private final BigDecimal structuringThreshold;
+    private final CashStructuringDetectionService cashStructuringDetectionService;
 
     /** Levenshtein threshold above which we treat the names as "different person". */
     private static final int THIRD_PARTY_LEVENSHTEIN_THRESHOLD = 3;
-
-    /** Lower bound for structuring detection (KES). Above small-business clean-money territory. */
-    private static final java.math.BigDecimal STRUCTURING_LOW = new java.math.BigDecimal("800000");
-    /** Upper bound for structuring detection (KES) — sits just below the FRC CTR threshold. */
-    private static final java.math.BigDecimal STRUCTURING_HIGH = new java.math.BigDecimal("1000000");
 
     @Autowired
     public RiskAssessmentService(AmlService amlService,
@@ -79,8 +48,7 @@ public class RiskAssessmentService {
             com.posgateway.aml.repository.BeneficialOwnerRepository beneficialOwnerRepository,
             com.posgateway.aml.service.analytics.LinkAnalysisService linkAnalysisService,
             com.posgateway.aml.service.analytics.BehavioralProfilingService behavioralProfilingService,
-            com.posgateway.aml.repository.TransactionRepository transactionRepository,
-            @Value("${risk.structuring.threshold:1000000}") BigDecimal structuringThreshold) {
+            CashStructuringDetectionService cashStructuringDetectionService) {
         this.amlService = amlService;
         this.fraudDetectionService = fraudDetectionService;
         this.riskRulesEngine = riskRulesEngine;
@@ -88,8 +56,7 @@ public class RiskAssessmentService {
         this.beneficialOwnerRepository = beneficialOwnerRepository;
         this.linkAnalysisService = linkAnalysisService;
         this.behavioralProfilingService = behavioralProfilingService;
-        this.transactionRepository = transactionRepository;
-        this.structuringThreshold = structuringThreshold;
+        this.cashStructuringDetectionService = cashStructuringDetectionService;
     }
 
     /**
@@ -115,6 +82,26 @@ public class RiskAssessmentService {
 
         // Combine assessments
         RiskAssessment combinedAssessment = combineAssessments(amlAssessment, fraudAssessment);
+        CashStructuringDetectionService.Assessment cashAssessment =
+                cashStructuringDetectionService.assess(toTransactionEntity(transaction));
+        combinedAssessment.setCtrRequired(cashAssessment.ctrRequired());
+        combinedAssessment.setStrRequired(cashAssessment.structuringSuspected());
+        combinedAssessment.setRegulatoryEvidence(cashAssessment.evidence());
+        if (cashAssessment.ctrRequired()) {
+            combinedAssessment.getRiskFactors().add("KENYA_CASH_TRANSACTION_REPORT");
+            combinedAssessment.getRecommendations().add(
+                    "Include this cash transaction in the weekly FRC CTR filing");
+        }
+        if (cashAssessment.structuringSuspected()) {
+            combinedAssessment.getRiskFactors().add("CASH_STRUCTURING_24H");
+            combinedAssessment.setAmlRiskLevel(RiskLevel.HIGH);
+        }
+        if ("FX_UNAVAILABLE".equals(cashAssessment.status())) {
+            combinedAssessment.getRiskFactors().add("CTR_FX_UNAVAILABLE");
+            combinedAssessment.getRecommendations().add(
+                    "Approve or refresh the regulatory FX rate before release");
+            combinedAssessment.setAmlRiskLevel(RiskLevel.HIGH);
+        }
 
         // Run Rule Engine
         com.posgateway.aml.entity.merchant.Merchant merchant = null;
@@ -129,10 +116,8 @@ public class RiskAssessmentService {
             boolean isLinked = !linkedBlocked.isEmpty();
             boolean isAnomaly = behavioralProfilingService.isAmountAnomaly(transaction);
 
-            // Structuring (a.k.a. smurfing) detection: STRUCTURING_LOW/HIGH constants define
-            // the just-below-CTR band (KES 800,000–1,000,000). Also checks for repeated
-            // just-below transactions via DB query over the sliding structuring window.
-            boolean isStructuring = detectStructuring(transaction);
+            // Shared cash/FX detector supplies the same structuring fact used by runtime rules.
+            boolean isStructuring = cashAssessment.structuringSuspected();
 
             // Third-party / smurf detection: the transacting party's name does not
             // fuzzy-match any registered beneficial owner of the merchant.
@@ -275,8 +260,8 @@ public class RiskAssessmentService {
     private String determineDecision(RiskAssessment assessment) {
         // Null safety check
         if (assessment == null) {
-            logger.warn("Assessment is null, defaulting to APPROVED");
-            return TransactionStatus.APPROVED.name();
+            logger.warn("Assessment is null, routing to review");
+            return TransactionStatus.UNDER_REVIEW.name();
         }
 
         // Decision logic based on risk levels using optimized switch for better
@@ -285,14 +270,14 @@ public class RiskAssessmentService {
         RiskLevel amlLevel = assessment.getAmlRiskLevel();
         RiskLevel fraudLevel = assessment.getFraudRiskLevel();
 
-        // Null safety for risk levels - default to LOW if null
+        // Missing engine output is uncertainty and must not silently approve.
         if (amlLevel == null) {
-            logger.debug("AML risk level is null, defaulting to LOW");
-            amlLevel = RiskLevel.LOW;
+            logger.debug("AML risk level is null, defaulting to MEDIUM");
+            amlLevel = RiskLevel.MEDIUM;
         }
         if (fraudLevel == null) {
-            logger.debug("Fraud risk level is null, defaulting to LOW");
-            fraudLevel = RiskLevel.LOW;
+            logger.debug("Fraud risk level is null, defaulting to MEDIUM");
+            fraudLevel = RiskLevel.MEDIUM;
         }
 
         // Determine highest risk level (most critical)
@@ -307,43 +292,24 @@ public class RiskAssessmentService {
         };
     }
 
-    /**
-     * Detect structuring (smurfing) — a single "just-below-CTR-threshold"
-     * amount, OR a pattern of repeated just-below transactions from the same
-     * account inside the configured sliding window.
-     *
-     * Just-below range is [threshold * 0.9, threshold) — i.e. amounts that
-     * sit deliberately under the CTR reporting trigger.
-     */
-    private boolean detectStructuring(Transaction transaction) {
-        if (transaction == null || transaction.getAmount() == null
-                || structuringThreshold == null) {
-            return false;
-        }
-
-        BigDecimal amount = transaction.getAmount();
-        BigDecimal lower = structuringThreshold.multiply(JUST_BELOW_FRACTION);
-        boolean amountIsJustBelow = amount.compareTo(lower) >= 0
-                && amount.compareTo(structuringThreshold) < 0;
-
-        boolean repeatedJustBelow = false;
-        String account = transaction.getAccountNumber();
-        if (account != null && !account.isBlank()) {
+    /** Adapts the legacy request model to the canonical transaction evidence model. */
+    private TransactionEntity toTransactionEntity(Transaction transaction) {
+        TransactionEntity entity = new TransactionEntity();
+        entity.setPanHash(transaction.getAccountNumber());
+        entity.setMerchantId(transaction.getMerchantId());
+        entity.setPspId(transaction.getPspId());
+        entity.setCurrency(transaction.getCurrencyCode());
+        entity.setTxnTs(transaction.getTransactionTimestamp());
+        entity.setCashTransaction(transaction.isCashTransaction());
+        if (transaction.getAmount() != null) {
             try {
-                LocalDateTime now = LocalDateTime.now();
-                long recentJustBelow = transactionRepository.countByAccountAndAmountRangeAndPeriod(
-                        account,
-                        lower,
-                        structuringThreshold,
-                        now.minusHours(STRUCTURING_WINDOW_HOURS),
-                        now);
-                repeatedJustBelow = recentJustBelow >= STRUCTURING_REPEAT_COUNT;
-            } catch (Exception e) {
-                logger.warn("Structuring lookup failed for account {}: {}", account, e.getMessage());
+                entity.setAmountCents(transaction.getAmount().movePointRight(2).longValueExact());
+            } catch (ArithmeticException invalidAmount) {
+                logger.warn("Transaction {} amount cannot be represented in cents",
+                        transaction.getTransactionId());
             }
         }
-
-        return amountIsJustBelow || repeatedJustBelow;
+        return entity;
     }
 
     /**

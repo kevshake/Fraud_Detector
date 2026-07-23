@@ -133,6 +133,20 @@ public class FeatureCacheService {
         }
     }
 
+    /**
+     * Idempotently records a committed transaction event. The transaction ID is
+     * the sorted-set member, so Kafka redelivery updates the same member instead
+     * of inflating velocity counts.
+     */
+    public void recordTransactionEvent(String customerId, String transactionId, long timestamp) {
+        String key = String.format(KEY_TX_TIMESTAMPS, customerId);
+        ZSetOperations<String, String> zSetOps = stringRedisTemplate.opsForZSet();
+        zSetOps.add(key, transactionId, timestamp);
+        long cutoff = timestamp - (24 * 3600 * 1000);
+        zSetOps.removeRangeByScore(key, 0, cutoff);
+        stringRedisTemplate.expire(key, TTL_VELOCITY_SECONDS, TimeUnit.SECONDS);
+    }
+
     /** Get transaction count in time window. */
     public long getTxCountInWindow(String customerId, long windowMs) {
         try {

@@ -140,16 +140,21 @@ public class CaseSlaService {
         int breached = 0;
         int atRisk = 0;
 
+        // Per-run cache of supervisor lookups keyed by "<pspId>|<role>" so a run with
+        // many breached cases sharing the same assignee PSP+role issues one
+        // findByPspAndRole query instead of one per case (N4 N+1 fix).
+        java.util.Map<String, List<User>> supervisorCache = new java.util.HashMap<>();
+
         for (ComplianceCase complianceCase : openCases) {
             updateCaseAging(complianceCase);
             CaseSlaStatus slaStatus = checkSlaStatus(complianceCase);
-            
+
             if (slaStatus == CaseSlaStatus.BREACHED) {
                 breached++;
-                notifySlaBreach(complianceCase, slaStatus);
+                notifySlaBreach(complianceCase, slaStatus, supervisorCache);
             } else if (slaStatus == CaseSlaStatus.AT_RISK) {
                 atRisk++;
-                notifySlaBreach(complianceCase, slaStatus);
+                notifySlaBreach(complianceCase, slaStatus, supervisorCache);
             }
             updated++;
         }
@@ -165,7 +170,8 @@ public class CaseSlaService {
      * {@code COMPLIANCE_OFFICER}/{@code SUPERVISOR} within the same PSP). Failure
      * to dispatch any single channel must not abort the loop.
      */
-    private void notifySlaBreach(ComplianceCase complianceCase, CaseSlaStatus slaStatus) {
+    private void notifySlaBreach(ComplianceCase complianceCase, CaseSlaStatus slaStatus,
+                                 java.util.Map<String, List<User>> supervisorCache) {
         String caseRef = complianceCase.getCaseReference();
         String subject = "[Hokeka AML] Case " + caseRef + " SLA " + slaStatus.name();
         String body = String.format(
@@ -206,8 +212,9 @@ public class CaseSlaService {
         // 2) Notify supervisors / compliance officers in the same PSP
         if (assignee != null && assignee.getPsp() != null) {
             try {
-                List<User> supervisors = userRepository.findByPspAndRole(
-                        assignee.getPsp(), assignee.getRole());
+                String cacheKey = assignee.getPsp().getPspId() + "|" + assignee.getRole();
+                List<User> supervisors = supervisorCache.computeIfAbsent(cacheKey,
+                        k -> userRepository.findByPspAndRole(assignee.getPsp(), assignee.getRole()));
                 for (User sup : supervisors) {
                     if (sup.getId().equals(assignee.getId())) continue;
                     try {

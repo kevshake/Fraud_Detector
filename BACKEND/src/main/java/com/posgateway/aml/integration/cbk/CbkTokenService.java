@@ -41,6 +41,8 @@ public class CbkTokenService {
      * separate live/preprod credentials and tokens, so we don't collapse them.
      */
     private final ConcurrentHashMap<String, CachedToken> tokenCache = new ConcurrentHashMap<>();
+    /** Per-cache-key lock objects (avoids locking on interned strings from the global JVM pool). */
+    private final ConcurrentHashMap<String, Object> keyLocks = new ConcurrentHashMap<>();
 
     public CbkTokenService(CbkProperties properties) {
         this.properties = properties;
@@ -78,7 +80,7 @@ public class CbkTokenService {
             return cached.accessToken;
         }
         // Fetch fresh token — synchronised per cache key to avoid thundering herd.
-        synchronized (("cbk-token-" + cacheKey).intern()) {
+        synchronized (keyLocks.computeIfAbsent(cacheKey, k -> new Object())) {
             cached = tokenCache.get(cacheKey);
             if (cached != null && !cached.isExpired(properties.getTokenBufferSeconds())) {
                 return cached.accessToken;
@@ -168,7 +170,36 @@ public class CbkTokenService {
 
     /** Unchecked exception thrown when CBK token acquisition fails unrecoverably. */
     public static class CbkGdiException extends RuntimeException {
-        public CbkGdiException(String message) { super(message); }
-        public CbkGdiException(String message, Throwable cause) { super(message, cause); }
+        private final int httpStatus;
+        private final String responseBody;
+        private final long durationMs;
+        private final int sourceRecordCount;
+
+        public CbkGdiException(String message) {
+            this(message, -1, null, 0, 0, null);
+        }
+
+        public CbkGdiException(String message, Throwable cause) {
+            this(message, -1, null, 0, 0, cause);
+        }
+
+        public CbkGdiException(String message, int httpStatus, String responseBody,
+                               long durationMs, Throwable cause) {
+            this(message, httpStatus, responseBody, durationMs, 0, cause);
+        }
+
+        public CbkGdiException(String message, int httpStatus, String responseBody,
+                               long durationMs, int sourceRecordCount, Throwable cause) {
+            super(message, cause);
+            this.httpStatus = httpStatus;
+            this.responseBody = responseBody;
+            this.durationMs = durationMs;
+            this.sourceRecordCount = Math.max(0, sourceRecordCount);
+        }
+
+        public int getHttpStatus() { return httpStatus; }
+        public String getResponseBody() { return responseBody; }
+        public long getDurationMs() { return durationMs; }
+        public int getSourceRecordCount() { return sourceRecordCount; }
     }
 }

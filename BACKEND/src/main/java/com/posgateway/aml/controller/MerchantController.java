@@ -10,6 +10,7 @@ import com.posgateway.aml.repository.MerchantRepository;
 import com.posgateway.aml.repository.PspRepository;
 import com.posgateway.aml.service.merchant.MerchantOnboardingService;
 import com.posgateway.aml.service.merchant.MerchantUpdateService;
+import com.posgateway.aml.service.corporate.CorporateIntelligenceService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -32,7 +33,7 @@ import java.util.List;
 // @Slf4j removed
 @RestController
 @RequestMapping("/merchants")
-@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'COMPLIANCE_OFFICER', 'SCREENING_ANALYST')")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'SCREENING_ANALYST', 'PSP_ADMIN')")
 public class MerchantController {
 
     private static final Logger log = LoggerFactory.getLogger(MerchantController.class);
@@ -51,6 +52,9 @@ public class MerchantController {
 
     @Autowired
     private PspIsolationService pspIsolationService;
+
+    @Autowired
+    private CorporateIntelligenceService corporateIntelligenceService;
 
     /**
      * Onboard new merchant
@@ -74,6 +78,12 @@ public class MerchantController {
 
             return ResponseEntity.status(status).body(response);
 
+        } catch (IllegalArgumentException e) {
+            log.warn("Merchant onboarding request rejected: {}", e.getMessage());
+            return ResponseEntity.badRequest().build();
+        } catch (SecurityException e) {
+            log.warn("Merchant onboarding access denied: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         } catch (Exception e) {
             log.error("Error onboarding merchant: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
@@ -81,41 +91,67 @@ public class MerchantController {
     }
 
     /**
-     * Create simplified merchant (Quick Add)
+     * Create a non-active merchant draft for later completion of full KYC.
      * POST /merchants
      */
     @PostMapping
+    @PreAuthorize("hasAuthority('MERCHANT_EDIT')")
     public ResponseEntity<Merchant> createMerchant(@RequestBody java.util.Map<String, Object> data) {
-        log.info("Creating new merchant via quick add: {}", data.get("legalName"));
+        log.info("Creating merchant draft via quick add: {}", data.get("legalName"));
         try {
-            // Find default PSP - using first available for now
-            com.posgateway.aml.entity.psp.Psp defaultPsp = pspRepository.findAll().stream().findFirst()
-                    .orElseThrow(() -> new RuntimeException("No PSP found in system"));
+            String legalName = requiredText(data, "legalName");
+            String registrationNumber = requiredText(data, "registrationNumber");
+            String country = requiredText(data, "country").toUpperCase(java.util.Locale.ROOT);
+            String mcc = requiredText(data, "mcc");
+            Long requestedPspId = data.get("pspId") == null ? null
+                    : Long.valueOf(String.valueOf(data.get("pspId")));
+            Long pspId = pspIsolationService.sanitizePspId(requestedPspId);
+            if (pspId == null || pspId == 0L) {
+                throw new IllegalArgumentException("A valid PSP must be selected");
+            }
+            com.posgateway.aml.entity.psp.Psp psp = pspRepository.findById(pspId)
+                    .orElseThrow(() -> new IllegalArgumentException("PSP not found: " + pspId));
+            if (merchantRepository.findByPspPspIdAndCountryAndRegistrationNumber(
+                    pspId, country, registrationNumber).isPresent()) {
+                throw new IllegalArgumentException("A merchant with this registration number already exists in the PSP");
+            }
 
             Merchant merchant = Merchant.builder()
-                    .legalName((String) data.get("legalName"))
+                    .legalName(legalName)
                     .tradingName((String) data.get("tradingName"))
                     .contactEmail((String) data.get("contactEmail"))
-                    .mcc((String) data.get("mcc"))
+                    .mcc(mcc)
                     .businessType((String) data.get("businessType"))
-                    .country("KEN") // Default to Kenya for quick add
-                    .registrationNumber("TEMP-" + java.util.UUID.randomUUID().toString().substring(0, 8))
-                    .status("ACTIVE")
-                    .psp(defaultPsp)
-                    .kycStatus("APPROVED") // Auto-approve for quick add
-                    .contractStatus("ACTIVE")
-                    .dailyLimit(data.get("dailyLimit") != null
-                            ? new java.math.BigDecimal(data.get("dailyLimit").toString())
-                            : java.math.BigDecimal.valueOf(100000))
-                    .riskLevel(data.get("riskLevel") != null ? (String) data.get("riskLevel") : "LOW")
+                    .country(country)
+                    .registrationNumber(registrationNumber)
+                    .status("PENDING_SCREENING")
+                    .psp(psp)
+                    .kycStatus("PENDING")
+                    .contractStatus("NO_CONTRACT")
+                    .dailyLimit(java.math.BigDecimal.ZERO)
+                    .riskLevel("UNKNOWN")
                     .build();
+            merchant.setCbkSettlementAccountNumber((String) data.get("cbkSettlementAccountNumber"));
+            merchant.setCbkEconomicSectorCode((String) data.get("cbkEconomicSectorCode"));
 
             Merchant saved = merchantRepository.save(merchant);
+            corporateIntelligenceService.performCheck(saved, "ONBOARDING", "SYSTEM_QUICK_ADD");
             return ResponseEntity.status(HttpStatus.CREATED).body(saved);
+        } catch (IllegalArgumentException | SecurityException e) {
+            log.warn("Merchant draft rejected: {}", e.getMessage());
+            return ResponseEntity.badRequest().build();
         } catch (Exception e) {
             log.error("Error creating merchant: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
+    }
+
+    private String requiredText(java.util.Map<String, Object> data, String field) {
+        Object value = data.get(field);
+        if (value == null || String.valueOf(value).isBlank()) {
+            throw new IllegalArgumentException(field + " is required");
+        }
+        return String.valueOf(value).trim();
     }
 
     /**
@@ -160,9 +196,20 @@ public class MerchantController {
             org.springframework.data.domain.Page<Merchant> merchantPage = 
                 merchantRepository.findAll(spec, pageable);
             
-            // Convert to response DTOs
-            List<MerchantOnboardingResponse> responses = merchantPage.getContent().stream()
+            // Convert to response DTOs. Fast path builds the whole page from two batch
+            // queries (screening + owners) instead of re-querying each merchant (N+1 fix);
+            // if the batch build fails for any reason we fall back to the resilient
+            // per-merchant path that degrades a single bad merchant to a minimal response.
+            List<com.posgateway.aml.entity.merchant.Merchant> pageMerchants = merchantPage.getContent().stream()
                     .filter(m -> m.getMerchantId() != null) // Filter out null IDs
+                    .collect(java.util.stream.Collectors.toList());
+            List<MerchantOnboardingResponse> responses;
+            try {
+                responses = onboardingService.getMerchantResponses(pageMerchants);
+            } catch (Exception batchEx) {
+                log.warn("Batch merchant response build failed ({}); falling back to per-merchant build",
+                        batchEx.getMessage());
+                responses = pageMerchants.stream()
                     .map(m -> {
                         try {
                             return onboardingService.getMerchantById(m.getMerchantId());
@@ -185,10 +232,13 @@ public class MerchantController {
                                     .currentUsage(m.getCurrentUsage())
                                     .riskLevel(m.getRiskLevel() != null ? m.getRiskLevel() : "UNKNOWN")
                                     .mccDescription(m.getMcc() != null ? "Unknown Category" : null)
+                                    .cbkEconomicSectorCode(m.getCbkEconomicSectorCode())
+                                    .cbkSettlementAccountConfigured(m.isCbkSettlementAccountConfigured())
                                     .build();
                         }
                     })
                     .collect(java.util.stream.Collectors.toList());
+            }
             
             // Create paginated response
             org.springframework.data.domain.Page<MerchantOnboardingResponse> responsePage = 
@@ -241,6 +291,7 @@ public class MerchantController {
      * PUT /merchants/{id}
      */
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('MERCHANT_EDIT')")
     public ResponseEntity<Merchant> updateMerchant(@PathVariable Long id,
             @Valid @RequestBody MerchantUpdateRequest request) {
         log.info("Update merchant request for ID: {}", id);

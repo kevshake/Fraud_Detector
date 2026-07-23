@@ -127,7 +127,7 @@ export default function VisualRuleBuilder({ onChange, onSave }: VisualRuleBuilde
   };
 
   return (
-    <Paper sx={{ p: 3, backgroundColor: '#1a1a1a', color: 'white' }}>
+    <Paper sx={{ p: 3, backgroundColor: 'var(--surface-0)', color: 'white' }}>
       <Typography variant="h6" gutterBottom>
         Visual Rule Builder
       </Typography>

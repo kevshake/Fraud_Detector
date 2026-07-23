@@ -23,7 +23,7 @@ export default function ScreeningPage() {
 
   return (
     <HokekaPageShell title="Screening" subtitle="Sanctions, PEP, and watchlist screening">
-      <div className="rounded-lg border border-white/10 bg-[#0f1a2e] p-4">
+      <div className="rounded-lg border border-white/10 bg-[var(--surface-2)] p-4">
         <div className="mb-4 flex items-center gap-2">
           <Shield size={20} className="text-burgundy-400" />
           <h3 className="text-base font-semibold text-white">Sanctions Screening</h3>
@@ -35,7 +35,7 @@ export default function ScreeningPage() {
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleScreening()}
             placeholder="Enter a name to screen against sanctions lists..."
-            className="flex-1 rounded-lg border border-white/10 bg-[#1a2744] px-4 py-2.5 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-burgundy-700"
+            className="flex-1 rounded-lg border border-white/10 bg-[var(--surface-3)] px-4 py-2.5 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-burgundy-700"
           />
           <button
             onClick={handleScreening}
@@ -52,7 +52,7 @@ export default function ScreeningPage() {
         )}
 
         {result && (
-          <div className="rounded-lg border border-white/10 bg-[#0f1a2e] p-4">
+          <div className="rounded-lg border border-white/10 bg-[var(--surface-2)] p-4">
             <div className="mb-3 flex items-center justify-between">
               <h4 className="flex items-center gap-2 text-sm font-semibold text-white">
                 <UserCheck size={16} /> Screening Results

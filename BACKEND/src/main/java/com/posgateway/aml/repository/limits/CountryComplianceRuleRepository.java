@@ -9,7 +9,10 @@ import java.util.Optional;
 
 @Repository
 public interface CountryComplianceRuleRepository extends JpaRepository<CountryComplianceRule, Long> {
-    Optional<CountryComplianceRule> findByCountryCode(String countryCode);
+    Optional<CountryComplianceRule> findByCountryCodeAndPspId(String countryCode, Long pspId);
+    Optional<CountryComplianceRule> findByCountryCodeAndPspIdIsNull(String countryCode);
+    List<CountryComplianceRule> findByPspId(Long pspId);
+    List<CountryComplianceRule> findByPspIdIsNull();
     List<CountryComplianceRule> findByStatus(String status);
 }
 

@@ -6,14 +6,15 @@ import com.posgateway.aml.entity.TransactionEntity;
 import com.posgateway.aml.entity.TransactionFeatures;
 import com.posgateway.aml.repository.AlertRepository;
 import com.posgateway.aml.repository.TransactionFeaturesRepository;
+import com.posgateway.aml.repository.TransactionRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -33,27 +34,37 @@ public class DecisionEngine {
     private final ConfigService configService;
     private final AlertRepository alertRepository;
     private final TransactionFeaturesRepository featuresRepository;
+    private final TransactionRepository transactionRepository;
     private final ObjectMapper objectMapper;
-    private final KafkaTemplate<String, String> kafkaTemplate;
+    private final com.posgateway.aml.service.kafka.KafkaOutboxService kafkaOutboxService;
     private final com.posgateway.aml.service.limits.TransactionLimitEnforcementService limitEnforcementService;
     private final com.posgateway.aml.service.security.PaymentBlacklistService paymentBlacklistService;
 
     @Autowired(required = false)
     private com.posgateway.aml.service.case_management.CaseCreationService caseCreationService;
 
+    /**
+     * How long (days) a card is auto-declined after a Do-Not-Honour (BLOCK) decision. The goal is
+     * "decline that card for a month", so the default is 30. Tunable via {@code fraud.dnh.block-days}.
+     */
+    @org.springframework.beans.factory.annotation.Value("${fraud.dnh.block-days:30}")
+    private int dnhBlockDays;
+
     @Autowired
     public DecisionEngine(ConfigService configService,
                          AlertRepository alertRepository,
                          TransactionFeaturesRepository featuresRepository,
+                         TransactionRepository transactionRepository,
                          ObjectMapper objectMapper,
-                         KafkaTemplate<String, String> kafkaTemplate,
+                         com.posgateway.aml.service.kafka.KafkaOutboxService kafkaOutboxService,
                          com.posgateway.aml.service.limits.TransactionLimitEnforcementService limitEnforcementService,
                          com.posgateway.aml.service.security.PaymentBlacklistService paymentBlacklistService) {
         this.configService = configService;
         this.alertRepository = alertRepository;
         this.featuresRepository = featuresRepository;
+        this.transactionRepository = transactionRepository;
         this.objectMapper = objectMapper;
-        this.kafkaTemplate = kafkaTemplate;
+        this.kafkaOutboxService = kafkaOutboxService;
         this.limitEnforcementService = limitEnforcementService;
         this.paymentBlacklistService = paymentBlacklistService;
     }
@@ -87,11 +98,13 @@ public class DecisionEngine {
                                    Map<String, Object> features, Long latencyMs,
                                    Map<String, Object> riskDetails) {
         logger.info("Evaluating transaction {} with score {}", transaction.getTxnId(), score);
+        applyRuleEvidence(transaction, riskDetails);
 
         // Merchant-configured limits (hard block)
         DecisionResult limitResult = checkTransactionLimits(transaction);
         if (limitResult != null) {
-            saveFeaturesAndDecision(transaction, score, features, limitResult, latencyMs);
+            applyDecisionAction(transaction, limitResult);
+            saveFeaturesAndDecision(transaction, score, features, riskDetails, limitResult, latencyMs);
             return limitResult;
         }
 
@@ -100,7 +113,8 @@ public class DecisionEngine {
         if (hardRuleResult != null) {
             logger.info("Hard rule triggered for transaction {}: {}",
                 transaction.getTxnId(), hardRuleResult.getAction());
-            saveFeaturesAndDecision(transaction, score, features, hardRuleResult, latencyMs);
+            applyDecisionAction(transaction, hardRuleResult);
+            saveFeaturesAndDecision(transaction, score, features, riskDetails, hardRuleResult, latencyMs);
             return hardRuleResult;
         }
 
@@ -108,7 +122,7 @@ public class DecisionEngine {
         DecisionResult ruleDecision = applyRuleEngineDecision(transaction, score, riskDetails);
         if (ruleDecision != null) {
             checkAmlRules(transaction, features, ruleDecision, ruleDecision.getReasons());
-            saveFeaturesAndDecision(transaction, score, features, ruleDecision, latencyMs);
+            saveFeaturesAndDecision(transaction, score, features, riskDetails, ruleDecision, latencyMs);
             logger.info("Decision for transaction {} from rules: {} (score={})",
                 transaction.getTxnId(), ruleDecision.getAction(), score);
             return ruleDecision;
@@ -127,7 +141,7 @@ public class DecisionEngine {
             takeBlockAction(transaction, score, reasons);
             DecisionResult decision = new DecisionResult("BLOCK", score, reasons);
             checkAmlRules(transaction, features, decision, reasons);
-            saveFeaturesAndDecision(transaction, score, features, decision, latencyMs);
+            saveFeaturesAndDecision(transaction, score, features, riskDetails, decision, latencyMs);
             logger.info("Decision for transaction {}: {} (score={})",
                 transaction.getTxnId(), decision.getAction(), score);
             return decision;
@@ -139,7 +153,7 @@ public class DecisionEngine {
             takeHoldAction(transaction, score, reasons);
             DecisionResult decision = new DecisionResult("HOLD", score, reasons);
             checkAmlRules(transaction, features, decision, reasons);
-            saveFeaturesAndDecision(transaction, score, features, decision, latencyMs);
+            saveFeaturesAndDecision(transaction, score, features, riskDetails, decision, latencyMs);
             logger.info("Decision for transaction {}: {} (score={})",
                 transaction.getTxnId(), decision.getAction(), score);
             return decision;
@@ -150,7 +164,7 @@ public class DecisionEngine {
         DecisionResult decision = new DecisionResult("ALLOW", score, reasons);
 
         checkAmlRules(transaction, features, decision, reasons);
-        saveFeaturesAndDecision(transaction, score, features, decision, latencyMs);
+        saveFeaturesAndDecision(transaction, score, features, riskDetails, decision, latencyMs);
         logger.info("Decision for transaction {}: {} (score={})",
             transaction.getTxnId(), decision.getAction(), score);
         return decision;
@@ -236,30 +250,26 @@ public class DecisionEngine {
             return null;
         }
         List<String> reasons = new ArrayList<>(limitBreach.get().reasons());
-        takeBlockAction(transaction, 1.0, reasons);
         return new DecisionResult("BLOCK", 1.0, reasons);
     }
 
     private DecisionResult checkHardRules(TransactionEntity transaction) {
-        if (!configService.isBlacklistEnabled()) {
-            return null;
-        }
-
         List<String> reasons = new ArrayList<>();
-        String panHash = transaction.getPanHash();
-        if (panHash != null && paymentBlacklistService.isBlacklisted("pan", panHash)) {
-            reasons.add("BLACKLIST: PAN hash is blacklisted");
-        }
-        String terminalId = transaction.getTerminalId();
-        if (terminalId != null && paymentBlacklistService.isBlacklisted("terminal", terminalId)) {
-            reasons.add("BLACKLIST: Terminal is blacklisted");
-        }
-        String ip = transaction.getIpAddress();
-        if (ip != null && paymentBlacklistService.isBlacklisted("ip", ip)) {
-            reasons.add("BLACKLIST: IP address is blacklisted");
+        if (configService.isBlacklistEnabled()) {
+            String panHash = transaction.getPanHash();
+            if (panHash != null && paymentBlacklistService.isBlacklisted("pan", panHash)) {
+                reasons.add("BLACKLIST: PAN hash is blacklisted");
+            }
+            String terminalId = transaction.getTerminalId();
+            if (terminalId != null && paymentBlacklistService.isBlacklisted("terminal", terminalId)) {
+                reasons.add("BLACKLIST: Terminal is blacklisted");
+            }
+            String ip = transaction.getIpAddress();
+            if (ip != null && paymentBlacklistService.isBlacklisted("ip", ip)) {
+                reasons.add("BLACKLIST: IP address is blacklisted");
+            }
         }
         if (!reasons.isEmpty()) {
-            takeBlockAction(transaction, 1.0, reasons);
             return new DecisionResult("BLOCK", 1.0, reasons);
         }
 
@@ -286,12 +296,18 @@ public class DecisionEngine {
 
     private DecisionResult checkSanctionsScreening(TransactionEntity transaction) {
         if (realTimeScreeningService == null) {
-            return null; // Service not available
+            return new DecisionResult("HOLD", 1.0,
+                    List.of("SANCTIONS_SCREENING_UNAVAILABLE: manual compliance review required"));
         }
         
         try {
             com.posgateway.aml.service.sanctions.RealTimeTransactionScreeningService.TransactionScreeningResult result =
                     realTimeScreeningService.screenTransaction(transaction);
+
+            if (result.isScreeningUnavailable()) {
+                return new DecisionResult("HOLD", 1.0,
+                        List.of("SANCTIONS_SCREENING_UNAVAILABLE: manual compliance review required"));
+            }
             
             if (result.hasMatches() && result.shouldBlock()) {
                 List<String> reasons = new ArrayList<>();
@@ -311,7 +327,8 @@ public class DecisionEngine {
         } catch (Exception e) {
             logger.error("Error during real-time sanctions screening for transaction {}: {}",
                 transaction.getTxnId(), e.getMessage(), e);
-            // Don't block on screening errors - fail open for availability
+            return new DecisionResult("HOLD", 1.0,
+                    List.of("SANCTIONS_SCREENING_UNAVAILABLE: manual compliance review required"));
         }
         
         return null;
@@ -345,8 +362,22 @@ public class DecisionEngine {
         } catch (Exception e) {
             logger.error("Cross-PSP fraud check failed for transaction {}: {}",
                     transaction.getTxnId(), e.getMessage());
+            return new DecisionResult("HOLD", 0.8,
+                    List.of("CROSS_PSP_SCREENING_UNAVAILABLE: manual fraud review required"));
         }
         return null;
+    }
+
+    private void applyDecisionAction(TransactionEntity transaction, DecisionResult result) {
+        switch (result.getAction()) {
+            case "BLOCK" -> takeBlockAction(transaction, result.getScore(), result.getReasons());
+            case "HOLD" -> takeHoldAction(transaction, result.getScore(), result.getReasons());
+            case "ALERT", "REVIEW" -> createAlert(
+                    transaction, result.getScore(), "ALERT", String.join("; ", result.getReasons()));
+            default -> {
+                // ALLOW has no alert side effect.
+            }
+        }
     }
 
     private void checkAmlRules(TransactionEntity transaction, Map<String, Object> features,
@@ -372,7 +403,7 @@ public class DecisionEngine {
 
             // Escalate to compliance - use equals for string comparison
             String currentAction = decision.getAction();
-            if (!"BLOCK".equals(currentAction)) {
+            if ("ALLOW".equals(currentAction)) {
                 decision.setAction("ALERT");
                 reasons.add("AML escalation required");
             }
@@ -386,7 +417,9 @@ public class DecisionEngine {
             if (cumulative >= cumulativeThreshold) {
                 reasons.add(String.format("AML: Cumulative 30d amount %.2f >= threshold %d",
                     cumulative, cumulativeThreshold));
-                decision.setAction("ALERT");
+                if ("ALLOW".equals(decision.getAction())) {
+                    decision.setAction("ALERT");
+                }
             }
         }
 
@@ -406,9 +439,17 @@ public class DecisionEngine {
         
         // Create alert
         createAlert(transaction, score, "BLOCK", String.join("; ", reasons));
-        
-        // Optionally add PAN to temporary blocklist
-        // This would be implemented with a blocklist service
+
+        // "Do Not Honour": a BLOCK sets acquirer response 05, so we register this card for a
+        // fixed decline window (30 days by default). Subsequent attempts on the same card then
+        // short-circuit at the blacklist check in evaluate() (type "pan") until the window lapses.
+        // Idempotent and best-effort — never breaks the decline path; a repeat DNH extends the window.
+        String panHash = transaction.getPanHash();
+        if (panHash != null && !panHash.isBlank()) {
+            paymentBlacklistService.addToBlacklist("pan", panHash,
+                    "Do Not Honour — auto-declined by DecisionEngine: " + String.join("; ", reasons),
+                    null, LocalDateTime.now().plusDays(dnhBlockDays));
+        }
     }
 
     private void takeHoldAction(TransactionEntity transaction, Double score, List<String> reasons) {
@@ -426,12 +467,20 @@ public class DecisionEngine {
         alert.setAction(action);
         alert.setReason(reason);
         alert.setStatus("open");
+        alert.setMerchantId(parseMerchantId(transaction.getMerchantId()));
+        alert.setPspId(transaction.getPspId());
+        alert.setSourceType("TRANSACTION_MONITORING");
+        alert.setSourceReference(String.valueOf(transaction.getTxnId()));
+        alert.setSeverity(resolveSeverity(action, score));
+        alert.setSarRequired(transaction.isSarRequired());
+        alert.setCtrRequired(transaction.isCtrRequired());
+        alert.setTriggeredRules(transaction.getTriggeredRules());
 
         Alert saved = alertRepository.save(alert);
         logger.info("Created alert for transaction {}: {} - {}",
             transaction.getTxnId(), action, reason);
 
-        // Publish alert event to Kafka — fire-and-forget, never blocks ingestion.
+        // The alert and its event are committed atomically through the outbox.
         publishAlertGeneratedEvent(saved, transaction);
     }
 
@@ -444,6 +493,9 @@ public class DecisionEngine {
             event.put("score",      alert.getScore());
             event.put("status",     alert.getStatus());
             event.put("severity",   alert.getSeverity());
+            event.put("sarRequired", alert.isSarRequired());
+            event.put("ctrRequired", alert.isCtrRequired());
+            event.put("triggeredRules", alert.getTriggeredRules());
             event.put("pspId",      transaction.getPspId());
             event.put("merchantId", transaction.getMerchantId());
             event.put("timestamp",  java.time.LocalDateTime.now().toString());
@@ -451,18 +503,100 @@ public class DecisionEngine {
             String payload = objectMapper.writeValueAsString(event);
             String partitionKey = transaction.getPspId() != null
                     ? String.valueOf(transaction.getPspId()) : "0";
-            kafkaTemplate.send(KafkaConfig.TOPIC_ALERTS_GENERATED, partitionKey, payload);
-            logger.debug("Published alert-generated event: alertId={}", alert.getAlertId());
+            kafkaOutboxService.enqueue(
+                    "alert.generated:" + alert.getAlertId(),
+                    KafkaConfig.TOPIC_ALERTS_GENERATED,
+                    partitionKey,
+                    payload);
+            logger.debug("Queued alert-generated event: alertId={}", alert.getAlertId());
         } catch (Exception e) {
-            logger.warn("Failed to publish alert-generated event: alertId={} error={}",
-                    alert.getAlertId(), e.getMessage());
+            throw new IllegalStateException(
+                    "Failed to serialize or enqueue alert event for alertId=" + alert.getAlertId(), e);
+        }
+    }
+
+    private Long parseMerchantId(String merchantId) {
+        if (merchantId == null || merchantId.isBlank()) {
+            return null;
+        }
+        try {
+            return Long.valueOf(merchantId);
+        } catch (NumberFormatException invalid) {
+            logger.warn("Alert merchantId is not a numeric platform ID: {}", merchantId);
+            return null;
+        }
+    }
+
+    private String resolveSeverity(String action, Double score) {
+        if ("BLOCK".equalsIgnoreCase(action) || (score != null && score >= 0.9)) {
+            return "CRITICAL";
+        }
+        if ("HOLD".equalsIgnoreCase(action) || (score != null && score >= 0.7)) {
+            return "HIGH";
+        }
+        return "MEDIUM";
+    }
+
+    private void applyRuleEvidence(TransactionEntity transaction, Map<String, Object> riskDetails) {
+        if (riskDetails == null || riskDetails.isEmpty()) {
+            return;
+        }
+        transaction.setSarRequired(Boolean.TRUE.equals(riskDetails.get("sar_required")));
+        transaction.setCtrRequired(Boolean.TRUE.equals(riskDetails.get("ctr_required")));
+        if (riskDetails.get("regulatory_evidence") instanceof Map<?, ?> regulatoryEvidence) {
+            transaction.setCtrEvaluationStatus(stringValue(regulatoryEvidence.get("ctrEvaluationStatus")));
+            transaction.setCtrUsdEquivalent(decimalValue(regulatoryEvidence.get("amountUsd")));
+            transaction.setCtrThresholdUsd(decimalValue(regulatoryEvidence.get("ctrThresholdUsd")));
+            transaction.setCtrRateSource(stringValue(regulatoryEvidence.get("rateSource")));
+            transaction.setCtrRateEffectiveAt(localDateTimeValue(regulatoryEvidence.get("rateEffectiveAt")));
+            transaction.setCtrEvaluatedAt(localDateTimeValue(regulatoryEvidence.get("evaluatedAt")));
+        }
+        Object ruleDecision = riskDetails.get("rule_decision");
+        transaction.setRuleDecision(ruleDecision != null ? ruleDecision.toString() : null);
+        Object triggeredRules = riskDetails.get("rules_triggered");
+        try {
+            transaction.setTriggeredRules(triggeredRules != null
+                    ? objectMapper.writeValueAsString(triggeredRules)
+                    : "[]");
+        } catch (Exception serializationFailure) {
+            throw new IllegalStateException("Failed to serialize triggered rule evidence", serializationFailure);
+        }
+    }
+
+    private String stringValue(Object value) {
+        return value != null ? value.toString() : null;
+    }
+
+    private java.math.BigDecimal decimalValue(Object value) {
+        if (value instanceof java.math.BigDecimal decimal) return decimal;
+        if (value instanceof Number number) return java.math.BigDecimal.valueOf(number.doubleValue());
+        if (value == null) return null;
+        try {
+            return new java.math.BigDecimal(value.toString());
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    private LocalDateTime localDateTimeValue(Object value) {
+        if (value instanceof LocalDateTime dateTime) return dateTime;
+        if (value == null) return null;
+        try {
+            return LocalDateTime.parse(value.toString());
+        } catch (java.time.format.DateTimeParseException ignored) {
+            return null;
         }
     }
 
     private void saveFeaturesAndDecision(TransactionEntity transaction, Double score,
-                                        Map<String, Object> features, DecisionResult decision,
+                                        Map<String, Object> features, Map<String, Object> riskDetails,
+                                        DecisionResult decision,
                                         Long latencyMs) {
         try {
+            transaction.setDecision(decision.getAction());
+            transaction.setRiskLevel(resolveFinalRiskLevel(decision.getAction(), transaction.getRiskLevel()));
+            transactionRepository.save(transaction);
+
             TransactionFeatures txnFeatures = new TransactionFeatures();
             txnFeatures.setTxnId(transaction.getTxnId());
             txnFeatures.setScore(score);
@@ -475,11 +609,26 @@ public class DecisionEngine {
 
             String featureJson = objectMapper.writeValueAsString(features);
             txnFeatures.setFeatureJson(featureJson);
+            txnFeatures.setRiskDetails(objectMapper.writeValueAsString(
+                    riskDetails != null ? riskDetails : Map.of()));
+            if (riskDetails != null && riskDetails.get("model_version") != null) {
+                txnFeatures.setModelVersion(riskDetails.get("model_version").toString());
+            }
 
             featuresRepository.save(txnFeatures);
         } catch (Exception e) {
-            logger.error("Failed to save transaction features for {}", transaction.getTxnId(), e);
+            throw new IllegalStateException(
+                    "Failed to persist final decision evidence for transaction " + transaction.getTxnId(), e);
         }
+    }
+
+    private String resolveFinalRiskLevel(String action, String currentRiskLevel) {
+        return switch (action) {
+            case "BLOCK" -> "CRITICAL";
+            case "HOLD" -> "HIGH";
+            case "ALERT", "REVIEW" -> "MEDIUM";
+            default -> currentRiskLevel != null ? currentRiskLevel : "LOW";
+        };
     }
 
     /**

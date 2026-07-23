@@ -6,12 +6,15 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Repository for Compliance Deadlines
  */
 @Repository
 public interface ComplianceDeadlineRepository extends JpaRepository<ComplianceDeadline, Long> {
+
+    Optional<ComplianceDeadline> findBySourceTypeAndSourceId(String sourceType, Long sourceId);
 
     /**
      * Find deadlines in date range that are not completed

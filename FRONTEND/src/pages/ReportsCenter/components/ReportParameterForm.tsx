@@ -35,16 +35,20 @@ export default function ReportParameterForm({
   const [localValues, setLocalValues] = useState<Record<string, unknown>>(values || {});
 
   useEffect(() => {
-    // Initialize default values
     const defaults: Record<string, unknown> = {};
     parameters.forEach((param) => {
       if (param.defaultValue !== undefined) {
         defaults[param.name] = param.defaultValue;
       }
     });
-    setLocalValues((prev) => ({ ...defaults, ...prev }));
-    onChange({ ...defaults, ...localValues });
-  }, [parameters]);
+    const nextValues = { ...defaults, ...values };
+    setLocalValues(nextValues);
+
+    const hasMissingDefault = Object.keys(defaults).some((key) => values[key] === undefined);
+    if (hasMissingDefault) {
+      onChange(nextValues);
+    }
+  }, [parameters, values, onChange]);
 
   const handleChange = (name: string, value: unknown) => {
     const newValues = { ...localValues, [name]: value };
@@ -69,7 +73,7 @@ export default function ReportParameterForm({
             InputLabelProps={{ shrink: true }}
             sx={{
               "& .MuiOutlinedInput-root": {
-                borderRadius: "12px",
+                borderRadius: "var(--radius)",
               },
             }}
           />
@@ -98,7 +102,7 @@ export default function ReportParameterForm({
                   InputLabelProps={{ shrink: true }}
                   sx={{
                     "& .MuiOutlinedInput-root": {
-                      borderRadius: "12px",
+                      borderRadius: "var(--radius)",
                     },
                   }}
                 />
@@ -119,7 +123,7 @@ export default function ReportParameterForm({
                   InputLabelProps={{ shrink: true }}
                   sx={{
                     "& .MuiOutlinedInput-root": {
-                      borderRadius: "12px",
+                      borderRadius: "var(--radius)",
                     },
                   }}
                 />
@@ -137,7 +141,7 @@ export default function ReportParameterForm({
               onChange={(e) => handleChange(param.name, e.target.value)}
               label={param.label}
               sx={{
-                borderRadius: "12px",
+                borderRadius: "var(--radius)",
               }}
             >
               {param.options?.map((option) => (
@@ -166,15 +170,15 @@ export default function ReportParameterForm({
                       label={param.options?.find((o) => o.value === val)?.label || val}
                       size="small"
                       sx={{
-                        backgroundColor: "rgba(128, 0, 32, 0.1)",
-                        color: "#800020",
+                        backgroundColor: "var(--brand-soft)",
+                        color: "var(--gold)",
                       }}
                     />
                   ))}
                 </Box>
               )}
               sx={{
-                borderRadius: "12px",
+                borderRadius: "var(--radius)",
               }}
             >
               {param.options?.map((option) => (
@@ -202,7 +206,7 @@ export default function ReportParameterForm({
             }}
             sx={{
               "& .MuiOutlinedInput-root": {
-                borderRadius: "12px",
+                borderRadius: "var(--radius)",
               },
             }}
           />
@@ -223,7 +227,7 @@ export default function ReportParameterForm({
             }}
             sx={{
               "& .MuiOutlinedInput-root": {
-                borderRadius: "12px",
+                borderRadius: "var(--radius)",
               },
             }}
           />
@@ -256,7 +260,7 @@ export default function ReportParameterForm({
             placeholder={param.placeholder}
             sx={{
               "& .MuiOutlinedInput-root": {
-                borderRadius: "12px",
+                borderRadius: "var(--radius)",
               },
             }}
           />

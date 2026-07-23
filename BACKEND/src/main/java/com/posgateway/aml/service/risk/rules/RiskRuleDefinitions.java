@@ -4,13 +4,30 @@ import com.posgateway.aml.entity.merchant.Merchant;
 import com.posgateway.aml.model.Transaction;
 import org.jeasy.rules.api.Rules;
 import org.jeasy.rules.core.RuleBuilder;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 
 import java.math.BigDecimal;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Configuration
 public class RiskRuleDefinitions {
+
+    private final BigDecimal highValueThreshold;
+    private final Set<String> highRiskMccs;
+
+    public RiskRuleDefinitions(
+            @Value("${risk.transaction.high-value-threshold:10000}") BigDecimal highValueThreshold,
+            @Value("${risk.mcc.high_risk:6211,7995,7273,5993,6051}") String highRiskMccs) {
+        this.highValueThreshold = highValueThreshold;
+        this.highRiskMccs = Arrays.stream(highRiskMccs.split(","))
+                .map(String::trim)
+                .filter(value -> !value.isBlank())
+                .collect(Collectors.toUnmodifiableSet());
+    }
 
     public Rules getRules() {
         Rules rules = new Rules();
@@ -18,11 +35,12 @@ public class RiskRuleDefinitions {
         // 1. High Value Transaction Rule
         rules.register(new RuleBuilder()
                 .name("High Value Transaction")
-                .description("Flag transactions over $10,000")
+                .description("Flag transactions over the configured high-value risk threshold")
                 .priority(1)
                 .when(facts -> {
                     Transaction tx = facts.get("transaction");
-                    return tx.getAmount().compareTo(new BigDecimal("10000")) > 0;
+                    return tx != null && tx.getAmount() != null
+                            && tx.getAmount().compareTo(highValueThreshold) > 0;
                 })
                 .then(facts -> {
                     List<String> triggered = facts.get("triggeredRules");
@@ -30,15 +48,13 @@ public class RiskRuleDefinitions {
                 })
                 .build());
 
-        // 2. High Risk Country Rule (Simplified)
+        // 2. High Risk Country Rule
         rules.register(new RuleBuilder()
                 .name("High Risk Country")
                 .description("Flag transactions from high risk countries")
                 .priority(2)
                 .when(facts -> {
-                    Transaction tx = facts.get("transaction");
-                    String country = tx.getCountryCode();
-                    return "NK".equals(country) || "IR".equals(country); // Example list
+                    return Boolean.TRUE.equals(facts.get("isHighRiskCountry"));
                 })
                 .then(facts -> {
                     List<String> triggered = facts.get("triggeredRules");
@@ -163,8 +179,7 @@ public class RiskRuleDefinitions {
                     if (m == null || m.getMcc() == null)
                         return false;
                     String mcc = m.getMcc();
-                    // Example high risk MCCs: 7995 (Gambling), 6051 (Crypto/Quasi Cash)
-                    return List.of("7995", "6051", "5967", "5966").contains(mcc);
+                    return highRiskMccs.contains(mcc);
                 })
                 .then(facts -> {
                     List<String> triggered = facts.get("triggeredRules");

@@ -49,8 +49,9 @@ public class ApiUsageTrackingService {
                 user = userRepository.findById(event.getUserId()).orElse(null);
             }
 
-            // Calculate cost
+            // Calculate cost + resolve the rate's currency (no hardcoded currency)
             BigDecimal cost = billingService.calculateUsageCost(event.getPspId(), event.getServiceType(), 1);
+            String currency = billingService.getEffectiveCurrency(event.getPspId(), event.getServiceType());
 
             ApiUsageLog usageLog = ApiUsageLog.builder()
                     .psp(psp)
@@ -63,7 +64,7 @@ public class ApiUsageTrackingService {
                     .serviceType(event.getServiceType())
                     .billable(cost.compareTo(BigDecimal.ZERO) > 0)
                     .costAmount(cost)
-                    .costCurrency("USD") // Should ideally come from billing rate
+                    .costCurrency(currency)
                     .requestId(event.getRequestId())
                     .merchantId(event.getMerchantId())
                     .ipAddress(event.getIpAddress())

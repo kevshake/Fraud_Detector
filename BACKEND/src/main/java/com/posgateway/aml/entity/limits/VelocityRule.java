@@ -11,15 +11,16 @@ import java.time.LocalDateTime;
  * Stores velocity monitoring rules for transaction patterns
  */
 @Entity
-@Table(name = "velocity_rules", uniqueConstraints = @UniqueConstraint(columnNames = "rule_name"))
-@Data
+@Table(name = "velocity_rules")
+@lombok.Getter
+@lombok.Setter
 public class VelocityRule {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "rule_name", nullable = false, length = 200, unique = true)
+    @Column(name = "rule_name", nullable = false, length = 200)
     private String ruleName;
 
     @Column(name = "description", columnDefinition = "TEXT")

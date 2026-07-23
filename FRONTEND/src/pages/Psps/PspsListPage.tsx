@@ -41,6 +41,7 @@ import {
   CheckCircle as ActivateIcon,
   PauseCircle as SuspendIcon,
   Cancel as TerminateIcon,
+  AccountTree as TraceIcon,
 } from "@mui/icons-material";
 import { useAllPsps } from "../../features/api/queries";
 import {
@@ -50,13 +51,13 @@ import {
 } from "../../features/api/mutations";
 import HokekaPageShell from "../../components/Layout/HokekaPageShell";
 
-const ACCENT = "#8B4049";
+const ACCENT = "var(--gold)";
 
 const STATUS_COLORS: Record<string, { bg: string; color: string; label: string }> = {
-  ACTIVE:     { bg: "#e9f7ef", color: "#27ae60", label: "Active" },
-  PENDING:    { bg: "#fef9e7", color: "#d4ac0d", label: "Pending" },
-  SUSPENDED:  { bg: "#fdf2e9", color: "#e67e22", label: "Suspended" },
-  TERMINATED: { bg: "#fdedec", color: "#c0392b", label: "Terminated" },
+  ACTIVE:     { bg: "var(--ink)", color: "var(--success)", label: "Active" },
+  PENDING:    { bg: "var(--ink)", color: "var(--gold)", label: "Pending" },
+  SUSPENDED:  { bg: "var(--ink)", color: "var(--risk-high)", label: "Suspended" },
+  TERMINATED: { bg: "var(--ink)", color: "var(--danger)", label: "Terminated" },
 };
 
 const COUNTRIES = [
@@ -100,6 +101,7 @@ export default function PspsListPage() {
 
   // Delete confirmation
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
+  const [actionError, setActionError] = useState("");
 
   const { data: psps, isLoading, isError } = useAllPsps();
   const registerMutation = useRegisterPsp();
@@ -139,13 +141,26 @@ export default function PspsListPage() {
 
   const handleStatusChange = async (pspId: number, status: string) => {
     setMenuAnchor(null);
-    await statusMutation.mutateAsync({ id: pspId, status });
+    setActionError("");
+    try {
+      await statusMutation.mutateAsync({ id: pspId, status });
+    } catch (err: any) {
+      // Without this the menu closed and the user would believe a privileged status
+      // change succeeded when it silently failed (W49-10).
+      setActionError(err?.message ?? `Failed to update PSP status to ${status}.`);
+    }
   };
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
-    await deleteMutation.mutateAsync(deleteTarget.id);
-    setDeleteTarget(null);
+    setActionError("");
+    try {
+      await deleteMutation.mutateAsync(deleteTarget.id);
+      setDeleteTarget(null);
+    } catch (err: any) {
+      // Keep the dialog open and surface the reason instead of leaving a stuck spinner (W49-10).
+      setActionError(err?.message ?? "Failed to delete PSP. It may have linked records.");
+    }
   };
 
   return (
@@ -160,7 +175,7 @@ export default function PspsListPage() {
             backgroundColor: ACCENT,
             textTransform: "none",
             fontWeight: 600,
-            "&:hover": { backgroundColor: "#6b313a" },
+            "&:hover": { backgroundColor: "var(--surface-3)" },
           }}
         >
           Register PSP
@@ -193,13 +208,19 @@ export default function PspsListPage() {
         </Alert>
       )}
 
+      {actionError && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setActionError("")}>
+          {actionError}
+        </Alert>
+      )}
+
       <TableContainer
         component={Paper}
         sx={{ backgroundColor: "background.paper", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 2 }}
       >
         <Table size="small">
           <TableHead>
-            <TableRow sx={{ backgroundColor: "rgba(0,0,0,0.02)" }}>
+            <TableRow sx={{ backgroundColor: "var(--surface-3)" }}>
               <TableCell sx={{ color: "text.secondary", fontWeight: 600 }}>PSP Code</TableCell>
               <TableCell sx={{ color: "text.secondary", fontWeight: 600 }}>Legal Name</TableCell>
               <TableCell sx={{ color: "text.secondary", fontWeight: 600 }}>Trading Name</TableCell>
@@ -221,13 +242,13 @@ export default function PspsListPage() {
             ) : paginated.length > 0 ? (
               paginated.map((psp: any) => {
                 const id = psp.id ?? psp.pspId;
-                const statusMeta = STATUS_COLORS[psp.status] ?? { bg: "#f4f6f7", color: "#7f8c8d", label: psp.status ?? "Unknown" };
+                const statusMeta = STATUS_COLORS[psp.status] ?? { bg: "var(--ink)", color: "var(--muted)", label: psp.status ?? "Unknown" };
                 const cbkEnabled = psp.cbkReportingEnabled;
                 return (
                   <TableRow
                     key={id}
                     hover
-                    sx={{ "&:hover": { backgroundColor: `rgba(139,64,73,0.04)` } }}
+                    sx={{ "&:hover": { backgroundColor: "var(--surface-2)" } }}
                   >
                     <TableCell>
                       <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
@@ -281,8 +302,8 @@ export default function PspsListPage() {
                         label={cbkEnabled ? "On" : "Off"}
                         size="small"
                         sx={{
-                          backgroundColor: cbkEnabled ? "#e9f7ef" : "#f4f6f7",
-                          color: cbkEnabled ? "#27ae60" : "#7f8c8d",
+                          backgroundColor: cbkEnabled ? "var(--surface-3)" : "var(--surface-3)",
+                          color: cbkEnabled ? "var(--success)" : "var(--muted)",
                           fontSize: "0.72rem",
                           height: 20,
                           borderRadius: 1,
@@ -291,6 +312,11 @@ export default function PspsListPage() {
                     </TableCell>
                     <TableCell align="right">
                       <Box sx={{ display: "flex", gap: 0.5, justifyContent: "flex-end" }}>
+                        <Tooltip title="Trace record">
+                          <IconButton size="small" onClick={() => navigate(`/records/PSP/${id}`)}>
+                            <TraceIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
                         <Tooltip title="Configure">
                           <Button
                             size="small"
@@ -303,7 +329,7 @@ export default function PspsListPage() {
                               borderColor: ACCENT,
                               color: ACCENT,
                               py: 0.3,
-                              "&:hover": { borderColor: "#6b313a", backgroundColor: "rgba(139,64,73,0.06)" },
+                              "&:hover": { borderColor: "var(--gold)", backgroundColor: "var(--surface-3)" },
                             }}
                           >
                             Configure
@@ -357,19 +383,19 @@ export default function PspsListPage() {
           onClick={() => menuPspId && handleStatusChange(menuPspId, "ACTIVE")}
           sx={{ gap: 1.5, fontSize: "0.85rem" }}
         >
-          <ActivateIcon sx={{ fontSize: 16, color: "#27ae60" }} /> Activate
+          <ActivateIcon sx={{ fontSize: 16, color: "var(--success)" }} /> Activate
         </MenuItem>
         <MenuItem
           onClick={() => menuPspId && handleStatusChange(menuPspId, "SUSPENDED")}
           sx={{ gap: 1.5, fontSize: "0.85rem" }}
         >
-          <SuspendIcon sx={{ fontSize: 16, color: "#e67e22" }} /> Suspend
+          <SuspendIcon sx={{ fontSize: 16, color: "var(--risk-high)" }} /> Suspend
         </MenuItem>
         <MenuItem
           onClick={() => menuPspId && handleStatusChange(menuPspId, "TERMINATED")}
           sx={{ gap: 1.5, fontSize: "0.85rem" }}
         >
-          <TerminateIcon sx={{ fontSize: 16, color: "#c0392b" }} /> Terminate
+          <TerminateIcon sx={{ fontSize: 16, color: "var(--danger)" }} /> Terminate
         </MenuItem>
         <Divider />
         <MenuItem
@@ -487,7 +513,7 @@ export default function PspsListPage() {
             variant="contained"
             onClick={handleCreate}
             disabled={registerMutation.isPending}
-            sx={{ backgroundColor: ACCENT, textTransform: "none", "&:hover": { backgroundColor: "#6b313a" } }}
+            sx={{ backgroundColor: ACCENT, textTransform: "none", "&:hover": { backgroundColor: "var(--surface-3)" } }}
           >
             {registerMutation.isPending ? <CircularProgress size={18} sx={{ color: "white" }} /> : "Register PSP"}
           </Button>

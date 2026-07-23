@@ -244,7 +244,17 @@ public class DashboardController {
      * GET /api/v1/dashboard/cases/merchant/{merchantId}
      */
     @GetMapping("/cases/merchant/{merchantId}")
-    public ResponseEntity<Map<String, Long>> getCasesByMerchant(@PathVariable Long merchantId) {
+    public ResponseEntity<Map<String, Long>> getCasesByMerchant(@PathVariable Long merchantId,
+            @org.springframework.security.core.annotation.AuthenticationPrincipal com.posgateway.aml.entity.User user) {
+        // Tenant isolation: a PSP user may only read case stats for their own PSP's merchants.
+        Long pspId = (user != null && user.getPsp() != null) ? user.getPsp().getPspId() : null;
+        if (pspId != null) {
+            var merchant = merchantRepository.findById(merchantId).orElse(null);
+            Long mPsp = (merchant != null && merchant.getPsp() != null) ? merchant.getPsp().getPspId() : null;
+            if (mPsp == null || !pspId.equals(mPsp)) {
+                return ResponseEntity.status(403).build();
+            }
+        }
         Map<String, Long> stats = new HashMap<>();
         for (com.posgateway.aml.model.CaseStatus s : com.posgateway.aml.model.CaseStatus.values()) {
             stats.put("status_" + s.name(), caseRepository.countByMerchantIdAndStatus(merchantId, s));
@@ -383,53 +393,10 @@ public class DashboardController {
     @GetMapping("/transaction-volume")
     public ResponseEntity<Map<String, Object>> getDailyTransactionVolume(
             @RequestParam(defaultValue = "7") int days) {
+        days = clampTrendDays(days);
         com.posgateway.aml.entity.User user = getCurrentUser();
         Long pspId = (user != null && user.getPsp() != null) ? user.getPsp().getPspId() : null;
-
-        // Calculate date range (inclusive of today)
-        // For 7 days: today + 6 previous days = 7 days total
-        LocalDateTime now = LocalDateTime.now();
-        LocalDateTime endDate = now.withHour(23).withMinute(59).withSecond(59).plusDays(1); // Exclusive end for query
-        LocalDateTime startDate = now.minusDays(days - 1).withHour(0).withMinute(0).withSecond(0);
-
-        List<Object[]> results;
-        if (pspId != null) {
-            // Get data filtered by PSP
-            results = transactionRepository.getDailyTransactionCountByPspId(pspId, startDate, endDate);
-        } else {
-            // Admin view - all PSPs
-            results = transactionRepository.getDailyTransactionCountAll(startDate, endDate);
-        }
-
-        // Build response with labels and data arrays
-        List<String> labels = new ArrayList<>();
-        List<Long> data = new ArrayList<>();
-
-        // Create a map of date -> count from query results
-        Map<LocalDate, Long> dateCountMap = new HashMap<>();
-        for (Object[] row : results) {
-            LocalDate date = ((java.sql.Date) row[0]).toLocalDate();
-            Long count = ((Number) row[1]).longValue();
-            dateCountMap.put(date, count);
-        }
-
-        // Fill in all dates in range (including days with 0 transactions)
-        LocalDate currentDate = startDate.toLocalDate();
-        LocalDate endDateLocal = endDate.toLocalDate();
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MMM d");
-
-        while (!currentDate.isAfter(endDateLocal)) {
-            labels.add(currentDate.format(formatter));
-            data.add(dateCountMap.getOrDefault(currentDate, 0L));
-            currentDate = currentDate.plusDays(1);
-        }
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("labels", labels);
-        response.put("data", data);
-        response.put("pspId", pspId);
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(buildTransactionVolume(pspId, days));
     }
 
     /**
@@ -759,45 +726,39 @@ public class DashboardController {
     }
 
     /**
+     * Bundled KPI sparkline series for the dashboard header cards.
+     * One round-trip replaces five separate trend/volume calls.
+     * GET /api/v1/dashboard/sparklines?days=7
+     */
+    @GetMapping("/sparklines")
+    @Cacheable(value = "dashboard-kpis",
+            key = "'sparklines:' + #days + ':' + T(org.springframework.security.core.context.SecurityContextHolder).getContext().getAuthentication()?.name")
+    public ResponseEntity<Map<String, Object>> getSparklines(
+            @RequestParam(defaultValue = "7") int days) {
+        days = clampTrendDays(days);
+        com.posgateway.aml.entity.User user = getCurrentUser();
+        Long pspId = (user != null && user.getPsp() != null) ? user.getPsp().getPspId() : null;
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("transactionVolume", buildTransactionVolume(pspId, days));
+        body.put("alertTrends", buildAlertTrends(pspId, days));
+        body.put("caseTrends", buildCaseTrends(pspId, days));
+        body.put("screeningMatchTrends", buildScreeningMatchTrends(days));
+        body.put("highRiskTrends", buildHighRiskTrends(pspId, days));
+        return ResponseEntity.ok(body);
+    }
+
+    /**
      * Daily alert-count trend for the Alert Trends widget.
      * GET /api/v1/dashboard/alerts/trends?days=7
      */
     @GetMapping("/alerts/trends")
     public ResponseEntity<Map<String, Object>> getAlertTrends(
             @RequestParam(defaultValue = "7") int days) {
-        if (days <= 0) days = 7;
-        if (days > 90) days = 90;
+        days = clampTrendDays(days);
         com.posgateway.aml.entity.User user = getCurrentUser();
         Long pspId = (user != null && user.getPsp() != null) ? user.getPsp().getPspId() : null;
-
-        LocalDateTime now = LocalDateTime.now();
-        LocalDateTime endExclusive = LocalDate.now().plusDays(1).atStartOfDay();
-        LocalDateTime start = LocalDate.now().minusDays(days - 1).atStartOfDay();
-
-        List<Object[]> rows = pspId != null
-                ? alertRepository.getDailyAlertCountsByPsp(pspId, start, endExclusive)
-                : alertRepository.getDailyAlertCounts(start, endExclusive);
-
-        Map<LocalDate, Long> byDay = new HashMap<>();
-        for (Object[] row : rows) {
-            LocalDate d = ((java.sql.Date) row[0]).toLocalDate();
-            byDay.put(d, ((Number) row[1]).longValue());
-        }
-        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("MMM dd");
-        List<String> labels = new ArrayList<>(days);
-        List<Integer> data = new ArrayList<>(days);
-        for (int i = days - 1; i >= 0; i--) {
-            LocalDate d = LocalDate.now().minusDays(i);
-            labels.add(d.format(fmt));
-            data.add(byDay.getOrDefault(d, 0L).intValue());
-        }
-        // Reference `now` to keep static analyzers quiet about the unused
-        // local — it documents the snapshot timestamp of this aggregate.
-        Map<String, Object> body = new HashMap<>();
-        body.put("labels", labels);
-        body.put("data", data);
-        body.put("asOf", now.toString());
-        return ResponseEntity.ok(body);
+        return ResponseEntity.ok(buildAlertTrends(pspId, days));
     }
 
     /**
@@ -807,19 +768,10 @@ public class DashboardController {
     @GetMapping("/cases/trends")
     public ResponseEntity<Map<String, Object>> getCaseTrends(
             @RequestParam(defaultValue = "7") int days) {
-        if (days <= 0) days = 7;
-        if (days > 90) days = 90;
+        days = clampTrendDays(days);
         com.posgateway.aml.entity.User user = getCurrentUser();
         Long pspId = (user != null && user.getPsp() != null) ? user.getPsp().getPspId() : null;
-
-        LocalDateTime endExclusive = LocalDate.now().plusDays(1).atStartOfDay();
-        LocalDateTime start = LocalDate.now().minusDays(days - 1).atStartOfDay();
-
-        List<Object[]> rows = pspId != null
-                ? caseRepository.getDailyCreatedCountsByPsp(pspId, start, endExclusive)
-                : caseRepository.getDailyCreatedCounts(start, endExclusive);
-
-        return ResponseEntity.ok(buildDailyTrendResponse(days, rows));
+        return ResponseEntity.ok(buildCaseTrends(pspId, days));
     }
 
     /**
@@ -829,14 +781,8 @@ public class DashboardController {
     @GetMapping("/screening/matches-trends")
     public ResponseEntity<Map<String, Object>> getScreeningMatchTrends(
             @RequestParam(defaultValue = "7") int days) {
-        if (days <= 0) days = 7;
-        if (days > 90) days = 90;
-
-        LocalDateTime endExclusive = LocalDate.now().plusDays(1).atStartOfDay();
-        LocalDateTime start = LocalDate.now().minusDays(days - 1).atStartOfDay();
-
-        List<Object[]> rows = screeningResultRepository.getDailyMatchCounts(start, endExclusive);
-        return ResponseEntity.ok(buildDailyTrendResponse(days, rows));
+        days = clampTrendDays(days);
+        return ResponseEntity.ok(buildScreeningMatchTrends(days));
     }
 
     /**
@@ -846,28 +792,96 @@ public class DashboardController {
     @GetMapping("/merchants/high-risk-trends")
     public ResponseEntity<Map<String, Object>> getHighRiskTrends(
             @RequestParam(defaultValue = "7") int days) {
-        if (days <= 0) days = 7;
-        if (days > 90) days = 90;
+        days = clampTrendDays(days);
         com.posgateway.aml.entity.User user = getCurrentUser();
         Long pspId = (user != null && user.getPsp() != null) ? user.getPsp().getPspId() : null;
+        return ResponseEntity.ok(buildHighRiskTrends(pspId, days));
+    }
 
+    private static int clampTrendDays(int days) {
+        if (days <= 0) return 7;
+        return Math.min(days, 90);
+    }
+
+    private Map<String, Object> buildTransactionVolume(Long pspId, int days) {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime endDate = now.withHour(23).withMinute(59).withSecond(59).plusDays(1);
+        LocalDateTime startDate = now.minusDays(days - 1L).withHour(0).withMinute(0).withSecond(0);
+
+        List<Object[]> results = pspId != null
+                ? transactionRepository.getDailyTransactionCountByPspId(pspId, startDate, endDate)
+                : transactionRepository.getDailyTransactionCountAll(startDate, endDate);
+
+        Map<LocalDate, Long> dateCountMap = new HashMap<>();
+        for (Object[] row : results) {
+            LocalDate date = ((java.sql.Date) row[0]).toLocalDate();
+            dateCountMap.put(date, ((Number) row[1]).longValue());
+        }
+
+        List<String> labels = new ArrayList<>();
+        List<Long> data = new ArrayList<>();
+        LocalDate currentDate = startDate.toLocalDate();
+        LocalDate endDateLocal = endDate.toLocalDate();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MMM d");
+        while (!currentDate.isAfter(endDateLocal)) {
+            labels.add(currentDate.format(formatter));
+            data.add(dateCountMap.getOrDefault(currentDate, 0L));
+            currentDate = currentDate.plusDays(1);
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("labels", labels);
+        response.put("data", data);
+        response.put("pspId", pspId);
+        return response;
+    }
+
+    private Map<String, Object> buildAlertTrends(Long pspId, int days) {
+        LocalDateTime now = LocalDateTime.now();
         LocalDateTime endExclusive = LocalDate.now().plusDays(1).atStartOfDay();
-        LocalDateTime start = LocalDate.now().minusDays(days - 1).atStartOfDay();
+        LocalDateTime start = LocalDate.now().minusDays(days - 1L).atStartOfDay();
 
+        List<Object[]> rows = pspId != null
+                ? alertRepository.getDailyAlertCountsByPsp(pspId, start, endExclusive)
+                : alertRepository.getDailyAlertCounts(start, endExclusive);
+
+        Map<String, Object> body = buildDailyTrendResponse(days, rows, "MMM dd");
+        body.put("asOf", now.toString());
+        return body;
+    }
+
+    private Map<String, Object> buildCaseTrends(Long pspId, int days) {
+        LocalDateTime endExclusive = LocalDate.now().plusDays(1).atStartOfDay();
+        LocalDateTime start = LocalDate.now().minusDays(days - 1L).atStartOfDay();
+        List<Object[]> rows = pspId != null
+                ? caseRepository.getDailyCreatedCountsByPsp(pspId, start, endExclusive)
+                : caseRepository.getDailyCreatedCounts(start, endExclusive);
+        return buildDailyTrendResponse(days, rows, "MMM d");
+    }
+
+    private Map<String, Object> buildScreeningMatchTrends(int days) {
+        LocalDateTime endExclusive = LocalDate.now().plusDays(1).atStartOfDay();
+        LocalDateTime start = LocalDate.now().minusDays(days - 1L).atStartOfDay();
+        List<Object[]> rows = screeningResultRepository.getDailyMatchCounts(start, endExclusive);
+        return buildDailyTrendResponse(days, rows, "MMM d");
+    }
+
+    private Map<String, Object> buildHighRiskTrends(Long pspId, int days) {
+        LocalDateTime endExclusive = LocalDate.now().plusDays(1).atStartOfDay();
+        LocalDateTime start = LocalDate.now().minusDays(days - 1L).atStartOfDay();
         List<Object[]> rows = pspId != null
                 ? merchantRepository.getDailyHighRiskActivityCountsByPsp(pspId, start, endExclusive)
                 : merchantRepository.getDailyHighRiskActivityCounts(start, endExclusive);
-
-        return ResponseEntity.ok(buildDailyTrendResponse(days, rows));
+        return buildDailyTrendResponse(days, rows, "MMM d");
     }
 
-    private Map<String, Object> buildDailyTrendResponse(int days, List<Object[]> rows) {
+    private Map<String, Object> buildDailyTrendResponse(int days, List<Object[]> rows, String labelPattern) {
         Map<LocalDate, Long> byDay = new HashMap<>();
         for (Object[] row : rows) {
             LocalDate d = ((java.sql.Date) row[0]).toLocalDate();
             byDay.put(d, ((Number) row[1]).longValue());
         }
-        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("MMM d");
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern(labelPattern);
         List<String> labels = new ArrayList<>(days);
         List<Integer> data = new ArrayList<>(days);
         for (int i = days - 1; i >= 0; i--) {

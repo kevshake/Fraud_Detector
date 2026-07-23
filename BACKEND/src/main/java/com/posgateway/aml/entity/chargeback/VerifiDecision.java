@@ -7,7 +7,8 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "verifi_decisions")
-@Data
+@lombok.Getter
+@lombok.Setter
 public class VerifiDecision {
 
     @Id

@@ -94,7 +94,7 @@ export default function ReportPreviewDialog({
             <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
               Configure Report Parameters
             </Typography>
-            <Paper sx={{ p: 3, borderRadius: "16px" }}>
+            <Paper sx={{ p: 2.5, borderRadius: "var(--radius)", backgroundColor: "var(--surface-1)", border: "1px solid var(--line)" }}>
               <ReportParameterForm
                 parameters={report.parameters}
                 values={parameters}
@@ -149,7 +149,7 @@ export default function ReportPreviewDialog({
               Generate Report
             </Typography>
 
-            <Paper sx={{ p: 3, borderRadius: "16px" }}>
+            <Paper sx={{ p: 2.5, borderRadius: "var(--radius)", backgroundColor: "var(--surface-1)", border: "1px solid var(--line)" }}>
               <Grid container spacing={3}>
                 <Grid item xs={12} md={6}>
                   <Typography variant="subtitle2" sx={{ mb: 2, color: "text.secondary" }}>
@@ -194,14 +194,12 @@ export default function ReportPreviewDialog({
                         variant={selectedFormat === format ? "contained" : "outlined"}
                         onClick={() => setSelectedFormat(format)}
                         startIcon={<DownloadIcon />}
+                        color="primary"
                         sx={{
-                          borderRadius: "10px",
-                          backgroundColor: selectedFormat === format ? "#800020" : "transparent",
-                          borderColor: selectedFormat === format ? "#800020" : "rgba(0,0,0,0.2)",
-                          color: selectedFormat === format ? "#fff" : "text.primary",
-                          "&:hover": {
-                            backgroundColor: selectedFormat === format ? "#600018" : "rgba(128, 0, 32, 0.05)",
-                          },
+                          borderColor:
+                            selectedFormat === format ? "var(--gold)" : "var(--line-control)",
+                          color:
+                            selectedFormat === format ? "var(--brand-on-primary)" : "var(--muted)",
                         }}
                       >
                         {format}
@@ -227,7 +225,7 @@ export default function ReportPreviewDialog({
       fullWidth
       PaperProps={{
         sx: {
-          borderRadius: "20px",
+          borderRadius: "var(--radius)",
           minHeight: "70vh",
         },
       }}
@@ -236,16 +234,17 @@ export default function ReportPreviewDialog({
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
           <Box
             sx={{
-              width: 48,
-              height: 48,
-              borderRadius: "12px",
-              background: "linear-gradient(135deg, #800020 0%, #a52a2a 100%)",
+              width: 36,
+              height: 36,
+              borderRadius: "var(--radius)",
+              backgroundColor: "var(--brand-soft)",
+              border: "1px solid color-mix(in srgb, var(--gold) 35%, transparent)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
             }}
           >
-            <PreviewIcon sx={{ color: "#FFD700", fontSize: 24 }} />
+            <PreviewIcon sx={{ color: "var(--gold-bright)", fontSize: 24 }} />
           </Box>
           <Box sx={{ flex: 1 }}>
             <Typography variant="h6" sx={{ fontWeight: 600 }}>{report.name}</Typography>
@@ -269,7 +268,7 @@ export default function ReportPreviewDialog({
       <DialogActions sx={{ px: 3, pb: 3 }}>
         <Button
           onClick={onClose}
-          sx={{ borderRadius: "10px", color: "text.secondary" }}
+          sx={{ borderRadius: "var(--radius)", color: "text.secondary" }}
         >
           Cancel
         </Button>
@@ -277,7 +276,7 @@ export default function ReportPreviewDialog({
         {activeStep > 0 && (
           <Button
             onClick={handleBack}
-            sx={{ borderRadius: "10px" }}
+            sx={{ borderRadius: "var(--radius)" }}
           >
             Back
           </Button>
@@ -286,12 +285,8 @@ export default function ReportPreviewDialog({
         {activeStep < STEPS.length - 1 ? (
           <Button
             variant="contained"
+            color="primary"
             onClick={handleNext}
-            sx={{
-              backgroundColor: "#800020",
-              borderRadius: "10px",
-              "&:hover": { backgroundColor: "#600018" },
-            }}
           >
             Next
           </Button>
@@ -299,25 +294,17 @@ export default function ReportPreviewDialog({
           <Box sx={{ display: "flex", gap: 1 }}>
             <Button
               variant="outlined"
+              color="primary"
               onClick={onSchedule}
               startIcon={<ScheduleIcon />}
-              sx={{
-                borderColor: "#C9A961",
-                color: "#8B6914",
-                borderRadius: "10px",
-              }}
             >
               Schedule
             </Button>
             <Button
               variant="contained"
+              color="primary"
               onClick={handleGenerate}
               startIcon={<GenerateIcon />}
-              sx={{
-                backgroundColor: "#800020",
-                borderRadius: "10px",
-                "&:hover": { backgroundColor: "#600018" },
-              }}
             >
               Generate {selectedFormat}
             </Button>

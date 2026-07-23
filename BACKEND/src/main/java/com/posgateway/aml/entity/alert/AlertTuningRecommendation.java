@@ -1,7 +1,11 @@
 package com.posgateway.aml.entity.alert;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 import java.time.LocalDateTime;
+import java.util.Map;
 
 /**
  * Alert Tuning Recommendation Entity
@@ -21,11 +25,24 @@ public class AlertTuningRecommendation {
     @Column(name = "rule_name", nullable = false, length = 255)
     private String ruleName;
 
+    @Column(name = "rule_id")
+    private Long ruleId;
+
     @Column(name = "false_positive_rate")
     private Double falsePositiveRate;
 
     @Column(name = "recommendation", columnDefinition = "TEXT")
     private String recommendation;
+
+    @Column(name = "original_parameters", columnDefinition = "TEXT")
+    private String originalParameters;
+
+    @Column(name = "proposed_parameters", columnDefinition = "TEXT")
+    private String proposedParameters;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "metrics_snapshot", columnDefinition = "jsonb")
+    private Map<String, Object> metricsSnapshot;
 
     @Column(name = "priority", length = 50)
     private String priority; // HIGH, MEDIUM, LOW
@@ -64,6 +81,9 @@ public class AlertTuningRecommendation {
         this.ruleName = ruleName;
     }
 
+    public Long getRuleId() { return ruleId; }
+    public void setRuleId(Long ruleId) { this.ruleId = ruleId; }
+
     public Double getFalsePositiveRate() {
         return falsePositiveRate;
     }
@@ -79,6 +99,13 @@ public class AlertTuningRecommendation {
     public void setRecommendation(String recommendation) {
         this.recommendation = recommendation;
     }
+
+    public String getOriginalParameters() { return originalParameters; }
+    public void setOriginalParameters(String originalParameters) { this.originalParameters = originalParameters; }
+    public String getProposedParameters() { return proposedParameters; }
+    public void setProposedParameters(String proposedParameters) { this.proposedParameters = proposedParameters; }
+    public Map<String, Object> getMetricsSnapshot() { return metricsSnapshot; }
+    public void setMetricsSnapshot(Map<String, Object> metricsSnapshot) { this.metricsSnapshot = metricsSnapshot; }
 
     public String getPriority() {
         return priority;

@@ -1,6 +1,8 @@
 export const BRAND_THEMES = [
+    // Platform identity — matches the Hokeka design tokens in src/theme/tokens.ts.
+    { id: 'hokeka', name: 'Hokeka Gold (Platform)', asset: '/assets/themes/theme-hokeka.png', primaryColor: '#d3b371' },
     { id: 'default', name: 'Default (Blue)', asset: '/assets/themes/theme-default.png', primaryColor: '#007bff' },
-    { id: 'burgundy', name: 'Burgundy & Gold (Super Admin)', asset: '/assets/themes/theme-burgundy.png', primaryColor: '#800020' },
+    { id: 'burgundy', name: 'Burgundy & Gold', asset: '/assets/themes/theme-burgundy.png', primaryColor: '#800020' },
     { id: 'emerald', name: 'Emerald Green', asset: '/assets/themes/theme-emerald.png', primaryColor: '#50c878' },
     { id: 'purple', name: 'Royal Purple', asset: '/assets/themes/theme-purple.png', primaryColor: '#7851a9' },
     { id: 'cyan', name: 'Cyan & Teal', asset: '/assets/themes/theme-cyan.png', primaryColor: '#008b8b' },

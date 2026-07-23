@@ -13,7 +13,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.env.Environment;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,7 +39,7 @@ public class AuditLogService {
     private final AuditLogRepository auditLogRepository;
     private final ObjectMapper objectMapper;
     private final Environment environment;
-    private final KafkaTemplate<String, String> kafkaTemplate;
+    private final com.posgateway.aml.service.kafka.KafkaOutboxService kafkaOutboxService;
 
     @Value("${audit.hmac.key:}")
     private String hmacKey;
@@ -49,11 +48,11 @@ public class AuditLogService {
     public AuditLogService(AuditLogRepository auditLogRepository,
                            ObjectMapper objectMapper,
                            Environment environment,
-                           KafkaTemplate<String, String> kafkaTemplate) {
+                           com.posgateway.aml.service.kafka.KafkaOutboxService kafkaOutboxService) {
         this.auditLogRepository = auditLogRepository;
         this.objectMapper = objectMapper;
         this.environment = environment;
-        this.kafkaTemplate = kafkaTemplate;
+        this.kafkaOutboxService = kafkaOutboxService;
     }
 
     /**
@@ -133,7 +132,9 @@ public class AuditLogService {
 
         } catch (Exception e) {
             logger.error("Failed to create audit log", e);
-            // Don't rethrow to avoid breaking the main business flow
+            throw e instanceof RuntimeException runtime
+                    ? runtime
+                    : new IllegalStateException("Failed to create audit log", e);
         }
     }
 
@@ -157,19 +158,23 @@ public class AuditLogService {
 
             String payload = objectMapper.writeValueAsString(event);
             String partitionKey = log.getPspId() != null ? String.valueOf(log.getPspId()) : "0";
-            kafkaTemplate.send(KafkaConfig.TOPIC_TRANSACTIONS_AUDIT, partitionKey, payload);
-            logger.debug("Published audit event: entityType={} entityId={}", log.getEntityType(), log.getEntityId());
+            kafkaOutboxService.enqueue(
+                    "audit:" + log.getId(),
+                    KafkaConfig.TOPIC_TRANSACTIONS_AUDIT,
+                    partitionKey,
+                    payload);
+            logger.debug("Queued audit event: entityType={} entityId={}", log.getEntityType(), log.getEntityId());
         } catch (Exception e) {
-            logger.warn("Failed to publish audit event to Kafka: entityType={} entityId={} error={}",
-                    log.getEntityType(), log.getEntityId(), e.getMessage());
+            throw new IllegalStateException(
+                    "Failed to serialize or enqueue audit event for auditId=" + log.getId(), e);
         }
     }
     
-    // Retention Policy: Keep logs for 30 days
-    @org.springframework.scheduling.annotation.Scheduled(cron = "0 0 0 * * *") // Run at midnight
+    // Regulatory evidence is retained for seven years.
+    @org.springframework.scheduling.annotation.Scheduled(cron = "0 0 2 * * *")
     @Transactional
     public void cleanupOldLogs() {
-        LocalDateTime cutoff = LocalDateTime.now().minusDays(30);
+        LocalDateTime cutoff = LocalDateTime.now().minusYears(7);
         long deleted = auditLogRepository.deleteByTimestampBefore(cutoff);
         logger.info("Retention Policy: Cleaned up {} audit logs older than {}", deleted, cutoff);
     }

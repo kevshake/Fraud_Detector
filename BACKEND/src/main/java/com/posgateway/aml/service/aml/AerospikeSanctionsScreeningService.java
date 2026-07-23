@@ -10,7 +10,6 @@ import com.posgateway.aml.model.ScreeningResult.MatchType;
 import com.posgateway.aml.model.ScreeningResult.ScreeningStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
@@ -21,14 +20,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Thin proxy in front of the AML microservice's sanctions screening endpoint.
- *
- * <p>Class name is preserved for binary compatibility with existing callers
- * ({@code SumsubAmlService}, {@code AmlScreeningOrchestrator}, etc.) that wired
- * to the legacy Aerospike-backed implementation. After Aerospike's removal from
- * BACKEND, this delegates to {@link SanctionsScreenClient}; when the client
- * returns {@code null} (microservice disabled / circuit broken), we fail open
- * with a CLEAR result so the rest of the pipeline keeps running.
+ * Compatibility-named HTTP proxy for sanctions data owned by aml-microservice.
+ * BACKEND never connects to Aerospike directly.
  */
 @Service
 public class AerospikeSanctionsScreeningService {
@@ -37,97 +30,138 @@ public class AerospikeSanctionsScreeningService {
     private static final String PROVIDER = "AML_MICROSERVICE";
     private static final String PROVIDER_UNAVAILABLE = "AML_MICROSERVICE_UNAVAILABLE";
 
-    @Autowired
-    private SanctionsScreenClient sanctionsScreenClient;
+    private final SanctionsScreenClient sanctionsScreenClient;
 
-    /**
-     * Screens a name against the sanctions list via the AML microservice.
-     *
-     * <p>Results are cached in the "sanctions" Caffeine cache (10-min TTL,
-     * 50 000-entry max) keyed by {@code name + ':' + entityType}.  Sanctions
-     * lists are refreshed daily by the microservice; a 10-min window is safe
-     * and eliminates repeated microservice round-trips for recurring names.
-     *
-     * <p>Note: the cache key normalises {@code null} name to the empty string
-     * and a {@code null} entityType to "PERSON" before caching so that the key
-     * space is deterministic.
-     */
-    @Cacheable(cacheNames = "sanctions",
-               key = "(#name != null ? #name : '') + ':' + (#entityType != null ? #entityType.name() : 'PERSON')")
+    public AerospikeSanctionsScreeningService(SanctionsScreenClient sanctionsScreenClient) {
+        this.sanctionsScreenClient = sanctionsScreenClient;
+    }
+
+    @Cacheable(
+            cacheNames = "sanctions",
+            key = "(#name != null ? #name.trim().toLowerCase() : '') + ':' + "
+                    + "(#entityType != null ? #entityType.name() : 'PERSON')",
+            unless = "#result.status == T(com.posgateway.aml.model.ScreeningResult.ScreeningStatus).UNAVAILABLE")
     public ScreeningResult screenName(String name, EntityType entityType) {
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException("A non-blank name is required for sanctions screening");
+        }
+
+        String normalizedName = name.trim();
         EntityType resolvedType = entityType != null ? entityType : EntityType.PERSON;
-        String typeStr = mapTypeToWire(resolvedType);
+        BackendSanctionsScreenResponse response = sanctionsScreenClient.screen(
+                new BackendSanctionsScreenRequest(normalizedName, mapTypeToWire(resolvedType), null));
 
-        BackendSanctionsScreenResponse resp = sanctionsScreenClient.screen(
-                new BackendSanctionsScreenRequest(name != null ? name : "", typeStr, null));
-
-        if (resp == null) {
-            log.debug("Sanctions microservice unavailable — failing open CLEAR for '{}'", name);
-            return ScreeningResult.builder()
-                    .screenedName(name != null ? name : "")
-                    .entityType(resolvedType)
-                    .status(ScreeningStatus.CLEAR)
-                    .matchCount(0)
-                    .highestMatchScore(0.0)
-                    .matches(new ArrayList<>())
-                    .screenedAt(LocalDateTime.now())
-                    .screeningProvider(PROVIDER_UNAVAILABLE)
-                    .build();
+        ScreeningStatus status = mapStatus(response.status());
+        if (status == ScreeningStatus.UNAVAILABLE) {
+            log.error("Sanctions microservice unavailable while screening '{}'", normalizedName);
+            return unavailable(normalizedName, resolvedType);
         }
 
         List<Match> matches = new ArrayList<>();
-        double top = 0.0;
-        if (resp.matches() != null) {
-            for (BackendSanctionsScreenResponse.MatchDto m : resp.matches()) {
-                if (m.similarityScore() > top) top = m.similarityScore();
+        double highestScore = 0.0;
+        if (response.matches() != null) {
+            for (BackendSanctionsScreenResponse.MatchDto match : response.matches()) {
+                highestScore = Math.max(highestScore, match.similarityScore());
                 matches.add(Match.builder()
-                        .matchedName(m.matchedName())
-                        .similarityScore(m.similarityScore())
-                        .listName(m.listName())
+                        .matchedName(match.matchedName())
+                        .similarityScore(match.similarityScore())
+                        .listName(match.listName())
                         .entityType(resolvedType)
                         .matchType(MatchType.NAME_MATCH)
                         .sanctionType("Sanctions match")
+                        .pepLevel(match.pepLevel())
                         .build());
             }
         }
 
         return ScreeningResult.builder()
-                .screenedName(name != null ? name : "")
+                .screenedName(normalizedName)
                 .entityType(resolvedType)
-                .status(mapStatus(resp.status()))
+                .status(status)
                 .matchCount(matches.size())
-                .highestMatchScore(top)
+                .highestMatchScore(highestScore)
                 .matches(matches)
-                .screenedAt(resp.checkedAt() != null
-                        ? LocalDateTime.ofInstant(resp.checkedAt(), ZoneId.systemDefault())
+                .screenedAt(response.checkedAt() != null
+                        ? LocalDateTime.ofInstant(response.checkedAt(), ZoneId.systemDefault())
                         : LocalDateTime.now())
                 .screeningProvider(PROVIDER)
                 .build();
     }
 
     public ScreeningResult screenMerchant(String legalName, String tradingName) {
-        return screenName(legalName, EntityType.ORGANIZATION);
+        ScreeningResult legalResult = screenName(legalName, EntityType.ORGANIZATION);
+        if (legalResult.getStatus() == ScreeningStatus.UNAVAILABLE
+                || tradingName == null
+                || tradingName.isBlank()
+                || tradingName.trim().equalsIgnoreCase(legalName.trim())) {
+            return legalResult;
+        }
+
+        ScreeningResult tradingResult = screenName(tradingName, EntityType.ORGANIZATION);
+        if (tradingResult.getStatus() == ScreeningStatus.UNAVAILABLE) {
+            return unavailable(legalName.trim(), EntityType.ORGANIZATION);
+        }
+
+        List<Match> combinedMatches = new ArrayList<>(legalResult.getMatches());
+        combinedMatches.addAll(tradingResult.getMatches());
+        ScreeningStatus combinedStatus = moreSevere(legalResult.getStatus(), tradingResult.getStatus());
+        return ScreeningResult.builder()
+                .screenedName(legalName.trim())
+                .entityType(EntityType.ORGANIZATION)
+                .status(combinedStatus)
+                .matchCount(combinedMatches.size())
+                .highestMatchScore(Math.max(
+                        legalResult.getHighestMatchScore() != null ? legalResult.getHighestMatchScore() : 0.0,
+                        tradingResult.getHighestMatchScore() != null ? tradingResult.getHighestMatchScore() : 0.0))
+                .matches(combinedMatches)
+                .screenedAt(LocalDateTime.now())
+                .screeningProvider(PROVIDER)
+                .build();
     }
 
     public ScreeningResult screenBeneficialOwner(String fullName, LocalDate dateOfBirth) {
         return screenName(fullName, EntityType.PERSON);
     }
 
-    private static String mapTypeToWire(EntityType t) {
-        if (t == null) return null;
-        return switch (t) {
+    private ScreeningResult unavailable(String name, EntityType entityType) {
+        return ScreeningResult.builder()
+                .screenedName(name)
+                .entityType(entityType)
+                .status(ScreeningStatus.UNAVAILABLE)
+                .matchCount(0)
+                .highestMatchScore(0.0)
+                .matches(new ArrayList<>())
+                .screenedAt(LocalDateTime.now())
+                .screeningProvider(PROVIDER_UNAVAILABLE)
+                .build();
+    }
+
+    private static String mapTypeToWire(EntityType type) {
+        return switch (type) {
             case PERSON -> "PERSON";
             case ORGANIZATION -> "ORGANIZATION";
-            default -> null;
+            case VESSEL -> "VESSEL";
+            case UNKNOWN -> "UNKNOWN";
         };
     }
 
-    private static ScreeningStatus mapStatus(String wire) {
-        if (wire == null) return ScreeningStatus.CLEAR;
-        return switch (wire) {
-            case "FLAGGED" -> ScreeningStatus.MATCH;
+    private static ScreeningStatus mapStatus(String wireStatus) {
+        if (wireStatus == null) return ScreeningStatus.UNAVAILABLE;
+        return switch (wireStatus.toUpperCase()) {
+            case "CLEAR" -> ScreeningStatus.CLEAR;
             case "REVIEW" -> ScreeningStatus.POTENTIAL_MATCH;
-            default -> ScreeningStatus.CLEAR;
+            case "FLAGGED" -> ScreeningStatus.MATCH;
+            case "UNAVAILABLE" -> ScreeningStatus.UNAVAILABLE;
+            default -> ScreeningStatus.UNAVAILABLE;
         };
+    }
+
+    private static ScreeningStatus moreSevere(ScreeningStatus left, ScreeningStatus right) {
+        if (left == ScreeningStatus.UNAVAILABLE || right == ScreeningStatus.UNAVAILABLE) return ScreeningStatus.UNAVAILABLE;
+        if (left == ScreeningStatus.MATCH || right == ScreeningStatus.MATCH) return ScreeningStatus.MATCH;
+        if (left == ScreeningStatus.POTENTIAL_MATCH || right == ScreeningStatus.POTENTIAL_MATCH) {
+            return ScreeningStatus.POTENTIAL_MATCH;
+        }
+        return ScreeningStatus.CLEAR;
     }
 }

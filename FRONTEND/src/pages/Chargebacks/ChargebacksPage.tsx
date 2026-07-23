@@ -150,6 +150,9 @@ export default function ChargebacksPage() {
           <Stack spacing={1.5}>
             <Typography variant="h6">Dispute #{detail.id}</Typography>
             <Divider />
+            <Button variant="outlined" startIcon={<CaseIcon />} onClick={() => navigate(`/records/CHARGEBACK_DISPUTE/${detail.id}`)}>
+              Trace dispute record
+            </Button>
             <DetailRow label="Verifi case" value={detail.caseId} />
             <DetailRow label="Notification" value={detail.notificationType} />
             <DetailRow label="RDR status" value={detail.rdrStatus} />
@@ -164,15 +167,11 @@ export default function ChargebacksPage() {
             <DetailRow label="Reason" value={detail.reasonCode || detail.reasonCategory} />
             <DetailRow label="ARN" value={detail.acquirerReferenceNumber} mono />
             <DetailRow label="PSP txn" value={detail.pspTransactionId} mono />
-            <DetailRow label="Merchant" value={detail.merchantId?.toString()} />
-            <DetailRow label="Alert" value={detail.alertId?.toString()} />
+            {detail.merchantId && <Button size="small" onClick={() => navigate(`/records/MERCHANT/${detail.merchantId}`)}>Merchant #{detail.merchantId}</Button>}
+            {detail.alertId && <Button size="small" onClick={() => navigate(`/records/ALERT/${detail.alertId}`)}>Alert #{detail.alertId}</Button>}
             {detail.complianceCaseId && (
-              <Button
-                variant="contained"
-                startIcon={<CaseIcon />}
-                onClick={() => navigate(`/cases/all?caseId=${detail.complianceCaseId}`)}
-              >
-                Open compliance case #{detail.complianceCaseId}
+              <Button variant="contained" startIcon={<CaseIcon />} onClick={() => navigate(`/records/CASE/${detail.complianceCaseId}`)}>
+                Trace compliance case #{detail.complianceCaseId}
               </Button>
             )}
           </Stack>

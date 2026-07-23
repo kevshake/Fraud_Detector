@@ -34,6 +34,9 @@ public class RealTimeTransactionScreeningService {
     @Value("${screening.realtime.block-on-match:true}")
     private boolean blockOnMatch;
 
+    @Value("${screening.realtime.block-on-unavailable:true}")
+    private boolean blockOnUnavailable;
+
     @Value("${screening.realtime.screen-merchant:true}")
     private boolean screenMerchant;
 
@@ -68,6 +71,7 @@ public class RealTimeTransactionScreeningService {
 
         List<ScreeningMatch> matches = new ArrayList<>();
         boolean shouldBlock = false;
+        boolean screeningUnavailable = false;
 
         // Screen merchant if enabled
         if (screenMerchant && transaction.getMerchantId() != null) {
@@ -88,6 +92,9 @@ public class RealTimeTransactionScreeningService {
             } catch (NumberFormatException e) {
                 logger.debug("Merchant ID {} is not a valid number, skipping merchant screening",
                         transaction.getMerchantId());
+            } catch (ScreeningUnavailableException e) {
+                screeningUnavailable = true;
+                logger.error("Merchant sanctions screening unavailable for transaction {}", transaction.getTxnId());
             }
         }
 
@@ -97,12 +104,17 @@ public class RealTimeTransactionScreeningService {
             // This would need to be enhanced based on available transaction data
             String counterpartyName = extractCounterpartyName(transaction);
             if (counterpartyName != null && !counterpartyName.isEmpty()) {
-                ScreeningMatch counterpartyMatch = screenCounterparty(counterpartyName, transaction.getTxnId());
-                if (counterpartyMatch != null) {
-                    matches.add(counterpartyMatch);
-                    if (counterpartyMatch.isBlocking()) {
-                        shouldBlock = true;
+                try {
+                    ScreeningMatch counterpartyMatch = screenCounterparty(counterpartyName, transaction.getTxnId());
+                    if (counterpartyMatch != null) {
+                        matches.add(counterpartyMatch);
+                        if (counterpartyMatch.isBlocking()) {
+                            shouldBlock = true;
+                        }
                     }
+                } catch (ScreeningUnavailableException e) {
+                    screeningUnavailable = true;
+                    logger.error("Counterparty sanctions screening unavailable for transaction {}", transaction.getTxnId());
                 }
             }
         }
@@ -110,7 +122,8 @@ public class RealTimeTransactionScreeningService {
         TransactionScreeningResult result = new TransactionScreeningResult(
                 transaction.getTxnId(),
                 matches,
-                shouldBlock && blockOnMatch);
+                (shouldBlock && blockOnMatch) || (screeningUnavailable && blockOnUnavailable),
+                screeningUnavailable);
 
         if (result.hasMatches()) {
             logger.warn("Transaction {} screened: {} matches found, blocking={}",
@@ -152,8 +165,14 @@ public class RealTimeTransactionScreeningService {
                     merchant.getLegalName(),
                     ScreeningResult.EntityType.ORGANIZATION);
             // Cache the result for future lookups
-            screeningCacheService.cacheScreeningResult(
-                    String.valueOf(merchant.getMerchantId()), "MERCHANT", legalNameResult);
+            if (legalNameResult.getStatus() != ScreeningResult.ScreeningStatus.UNAVAILABLE) {
+                screeningCacheService.cacheScreeningResult(
+                        String.valueOf(merchant.getMerchantId()), "MERCHANT", legalNameResult);
+            }
+        }
+
+        if (legalNameResult.getStatus() == ScreeningResult.ScreeningStatus.UNAVAILABLE) {
+            throw new ScreeningUnavailableException();
         }
 
         if (legalNameResult.hasMatches()) {
@@ -172,6 +191,10 @@ public class RealTimeTransactionScreeningService {
             ScreeningResult tradingNameResult = aerospikeScreeningService.screenName(
                     merchant.getTradingName(),
                     ScreeningResult.EntityType.ORGANIZATION);
+
+            if (tradingNameResult.getStatus() == ScreeningResult.ScreeningStatus.UNAVAILABLE) {
+                throw new ScreeningUnavailableException();
+            }
 
             if (tradingNameResult.hasMatches()) {
                 return new ScreeningMatch(
@@ -214,6 +237,10 @@ public class RealTimeTransactionScreeningService {
         ScreeningResult result = aerospikeScreeningService.screenName(
                 name,
                 ScreeningResult.EntityType.PERSON);
+
+        if (result.getStatus() == ScreeningResult.ScreeningStatus.UNAVAILABLE) {
+            throw new ScreeningUnavailableException();
+        }
 
         if (result.hasMatches()) {
             return new ScreeningMatch(
@@ -302,15 +329,18 @@ public class RealTimeTransactionScreeningService {
         private final Long transactionId;
         private final List<ScreeningMatch> matches;
         private final boolean shouldBlock;
+        private final boolean screeningUnavailable;
 
-        public TransactionScreeningResult(Long transactionId, List<ScreeningMatch> matches, boolean shouldBlock) {
+        public TransactionScreeningResult(Long transactionId, List<ScreeningMatch> matches, boolean shouldBlock,
+                boolean screeningUnavailable) {
             this.transactionId = transactionId;
             this.matches = matches != null ? matches : new ArrayList<>();
             this.shouldBlock = shouldBlock;
+            this.screeningUnavailable = screeningUnavailable;
         }
 
         public static TransactionScreeningResult clear(Long transactionId) {
-            return new TransactionScreeningResult(transactionId, new ArrayList<>(), false);
+            return new TransactionScreeningResult(transactionId, new ArrayList<>(), false, false);
         }
 
         public boolean hasMatches() {
@@ -328,6 +358,14 @@ public class RealTimeTransactionScreeningService {
         public boolean shouldBlock() {
             return shouldBlock;
         }
+
+        public boolean isScreeningUnavailable() {
+            return screeningUnavailable;
+        }
+    }
+
+    private static final class ScreeningUnavailableException extends RuntimeException {
+        private static final long serialVersionUID = 1L;
     }
 
     /**

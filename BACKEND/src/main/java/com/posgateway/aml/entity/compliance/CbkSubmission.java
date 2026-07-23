@@ -57,8 +57,11 @@ public class CbkSubmission {
     @Column(name = "period_to", length = 32)
     private String periodTo;
 
-    @Column(name = "reference_number", nullable = false, unique = true, length = 64)
+    @Column(name = "reference_number", unique = true, length = 64)
     private String referenceNumber;
+
+    @Column(name = "source_record_count")
+    private Integer sourceRecordCount;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 16)
@@ -107,6 +110,9 @@ public class CbkSubmission {
 
     public String getReferenceNumber() { return referenceNumber; }
     public void setReferenceNumber(String referenceNumber) { this.referenceNumber = referenceNumber; }
+
+    public Integer getSourceRecordCount() { return sourceRecordCount; }
+    public void setSourceRecordCount(Integer sourceRecordCount) { this.sourceRecordCount = sourceRecordCount; }
 
     public Status getStatus() { return status; }
     public void setStatus(Status status) { this.status = status; }

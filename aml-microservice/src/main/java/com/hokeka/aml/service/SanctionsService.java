@@ -8,12 +8,14 @@ import com.aerospike.client.policy.RecordExistsAction;
 import com.aerospike.client.policy.ScanPolicy;
 import com.aerospike.client.policy.WritePolicy;
 import com.aerospike.client.query.Filter;
+import com.aerospike.client.query.IndexCollectionType;
 import com.aerospike.client.query.Statement;
 import com.hokeka.aml.model.SanctionsIngestRequest;
 import com.hokeka.aml.model.SanctionsIngestRequest.SanctionsEntity;
 import com.hokeka.aml.model.SanctionsScreenResponse;
 import com.hokeka.aml.model.SanctionsScreenResponse.MatchDto;
 import jakarta.annotation.PostConstruct;
+import org.apache.commons.codec.language.DoubleMetaphone;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,7 +27,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -53,16 +57,16 @@ public class SanctionsService {
     private static final Logger log = LoggerFactory.getLogger(SanctionsService.class);
     private static final String NAMESPACE = "aml_cache";
     private static final String SET_NAME = "sanctions";
-    /** Secondary index for prefix-based fast-lookup. */
-    private static final String IDX_PREFIX = "idx_sanctions_prefix";
-    private static final String BIN_PREFIX = "prefix";
+    private static final String IDX_SEARCH_KEYS = "idx_sanctions_search_keys_v2";
+    private static final String BIN_SEARCH_KEYS = "searchKeys";
+    private static final DoubleMetaphone DOUBLE_METAPHONE = new DoubleMetaphone();
 
     private static final int TOP_N = 5;
     private static final double FLAGGED_THRESHOLD = 0.95;
 
     /** Aerospike secondary index creation is a cluster admin operation; it may
      *  be unavailable to application-only credentials. We fall back to scan. */
-    private boolean useIndex = false;
+    private boolean useSearchIndex = false;
 
     @Autowired(required = false)
     private AerospikeClient aerospikeClient;
@@ -78,22 +82,27 @@ public class SanctionsService {
     public void ensureIndex() {
         if (aerospikeClient == null || !aerospikeClient.isConnected()) return;
         try {
-            aerospikeClient.createIndex(null, NAMESPACE, SET_NAME, IDX_PREFIX, BIN_PREFIX,
-                    com.aerospike.client.query.IndexType.STRING)
+            aerospikeClient.createIndex(null, NAMESPACE, SET_NAME, IDX_SEARCH_KEYS, BIN_SEARCH_KEYS,
+                    com.aerospike.client.query.IndexType.STRING, IndexCollectionType.LIST)
                     .waitTillComplete(2000);
-            log.info("Aerospike secondary index '{}' ready on {}.{}", IDX_PREFIX, NAMESPACE, SET_NAME);
-            useIndex = true;
+            log.info("Aerospike sanctions search index '{}' ready on {}.{}",
+                    IDX_SEARCH_KEYS, NAMESPACE, SET_NAME);
+            useSearchIndex = true;
         } catch (Exception e) {
             // Index may already exist → try to signal the client to use index anyway
             if (e.getMessage() != null && e.getMessage().contains("already exists")) {
-                useIndex = true;
+                useSearchIndex = true;
                 log.info("Aerospike secondary index '{}' already exists on {}.{} — using it",
-                        IDX_PREFIX, NAMESPACE, SET_NAME);
+                        IDX_SEARCH_KEYS, NAMESPACE, SET_NAME);
             } else {
-                useIndex = false;
+                useSearchIndex = false;
                 log.warn("Cannot create Aerospike secondary index '{}' — falling back to scan. Reason: {}",
-                        IDX_PREFIX, e.getMessage());
+                        IDX_SEARCH_KEYS, e.getMessage());
             }
+        }
+        if (useSearchIndex) {
+            int rebuilt = rebuildSearchIndex();
+            log.info("Rebuilt sanctions candidate keys for {} Aerospike records", rebuilt);
         }
     }
 
@@ -106,31 +115,31 @@ public class SanctionsService {
     // ─────────────────────────────────────────────────────────────────────
 
     /**
-     * Screen a single name. Returns CLEAR if the data store is unavailable so the
-     * pipeline fails open — callers can layer their own circuit-breaker decisions.
+     * Screen a single name. Datastore failures return UNAVAILABLE and are never
+     * represented as a clean screening result.
      */
     public SanctionsScreenResponse screenName(String name, String type) {
         Instant checkedAt = Instant.now();
         if (name == null || name.isBlank()) {
-            return new SanctionsScreenResponse(name, "CLEAR", new ArrayList<>(), checkedAt);
+            throw new IllegalArgumentException("name is required");
         }
         if (!isAerospikeConnected()) {
-            log.warn("Aerospike not connected — sanctions screen for '{}' returning CLEAR", name);
-            return new SanctionsScreenResponse(name, "CLEAR", new ArrayList<>(), checkedAt);
+            log.error("Aerospike not connected; sanctions screen for '{}' is unavailable", name);
+            return unavailable(name, checkedAt);
         }
 
         String normalizedQuery = normalize(name);
         List<MatchDto> matches = new ArrayList<>();
 
-        if (useIndex) {
-            // Fast path: query by prefix (first 2 chars of normalized name)
-            String prefix = extractPrefix(normalizedQuery);
-            if (!prefix.isEmpty()) {
-                screenByPrefix(normalizedQuery, prefix, type, matches);
-            }
+        boolean completed;
+        if (useSearchIndex) {
+            completed = screenBySearchKeys(normalizedQuery, type, matches);
         } else {
-            // Fallback: full scan (existing behaviour)
-            screenByScan(normalizedQuery, type, matches);
+            completed = screenByScan(normalizedQuery, type, matches);
+        }
+
+        if (!completed) {
+            return unavailable(name, checkedAt);
         }
 
         matches.sort(Comparator.comparingDouble(MatchDto::getSimilarityScore).reversed());
@@ -138,6 +147,13 @@ public class SanctionsService {
 
         String status;
         if (top.isEmpty()) {
+            // Fail-closed on empty data: "no matches" is indistinguishable from "the
+            // watchlist was never loaded". If the dataset is empty we must NOT report
+            // CLEAR (that would clear every entity) — return UNAVAILABLE so callers hold.
+            if (!hasSanctionsData()) {
+                log.error("Sanctions dataset is EMPTY — screening '{}' fails closed as UNAVAILABLE, not CLEAR", name);
+                return unavailable(name, checkedAt);
+            }
             status = "CLEAR";
         } else if (top.get(0).getSimilarityScore() >= FLAGGED_THRESHOLD) {
             status = "FLAGGED";
@@ -148,28 +164,63 @@ public class SanctionsService {
         return new SanctionsScreenResponse(name, status, new ArrayList<>(top), checkedAt);
     }
 
-    /** Index-based query — ~676× fewer records examined than full scan. */
-    private void screenByPrefix(String normalizedQuery, String prefix, String type, List<MatchDto> matches) {
-        try {
-            Statement stmt = new Statement();
-            stmt.setNamespace(NAMESPACE);
-            stmt.setSetName(SET_NAME);
-            stmt.setBinNames("name", "aliases", "type", "listName", "entityId");
-            stmt.setFilter(Filter.equal(BIN_PREFIX, prefix));
+    private SanctionsScreenResponse unavailable(String name, Instant checkedAt) {
+        return new SanctionsScreenResponse(name, "UNAVAILABLE", new ArrayList<>(), checkedAt);
+    }
 
-            aerospikeClient.query(null, stmt, (key, record) -> {
-                if (record == null) return;
-                evaluateRecord(normalizedQuery, type, key, record, matches);
-            });
+    // Cached "is the sanctions dataset populated?" check. Guards the CLEAR path against a
+    // fail-open on an empty/unloaded watchlist without counting on every clean screen.
+    private volatile long lastDataCheckMs = 0L;
+    private volatile boolean dataPresentCache = false;
+    private static final long DATA_CHECK_TTL_MS = 60_000L;
+
+    private boolean hasSanctionsData() {
+        long now = System.currentTimeMillis();
+        if (now - lastDataCheckMs > DATA_CHECK_TTL_MS) {
+            try {
+                dataPresentCache = count() > 0;
+            } catch (Exception e) {
+                // If we cannot even count, treat as "no data known" → fail closed.
+                log.warn("Sanctions data-presence check failed: {}", e.getMessage());
+                dataPresentCache = false;
+            }
+            lastDataCheckMs = now;
+        }
+        return dataPresentCache;
+    }
+
+    /** Index-based query — ~676× fewer records examined than full scan. */
+    private boolean screenBySearchKeys(String normalizedQuery, String type, List<MatchDto> matches) {
+        Set<String> evaluatedEntities = Collections.synchronizedSet(new HashSet<>());
+        try {
+            for (String searchKey : buildSearchKeys(normalizedQuery, List.of())) {
+                Statement stmt = new Statement();
+                stmt.setNamespace(NAMESPACE);
+                stmt.setSetName(SET_NAME);
+                stmt.setBinNames("name", "aliases", "type", "listName", "entityId");
+                stmt.setFilter(Filter.contains(BIN_SEARCH_KEYS, IndexCollectionType.LIST, searchKey));
+                aerospikeClient.query(null, stmt, (key, record) -> {
+                    if (record == null) return;
+                    if (evaluatedEntities.add(recordIdentity(key, record))) {
+                        evaluateRecord(normalizedQuery, type, key, record, matches);
+                    }
+                });
+            }
+            if (evaluatedEntities.isEmpty()) {
+                log.info("No indexed sanctions candidates for '{}'; using full scan for recall", normalizedQuery);
+                return screenByScan(normalizedQuery, type, matches);
+            }
+            return true;
         } catch (Exception e) {
-            log.warn("Aerospike query by prefix failed for '{}': {} — falling back to scan", prefix, e.getMessage());
-            useIndex = false; // demote for future calls
-            screenByScan(normalizedQuery, type, matches);
+            log.warn("Aerospike sanctions candidate query failed for '{}': {}; falling back to scan",
+                    normalizedQuery, e.getMessage());
+            matches.clear();
+            return screenByScan(normalizedQuery, type, matches);
         }
     }
 
     /** Full scan — original behaviour for fallback. */
-    private void screenByScan(String normalizedQuery, String type, List<MatchDto> matches) {
+    private boolean screenByScan(String normalizedQuery, String type, List<MatchDto> matches) {
         ScanPolicy policy = new ScanPolicy();
         policy.includeBinData = true;
         policy.concurrentNodes = true;
@@ -178,8 +229,10 @@ public class SanctionsService {
                 if (record == null) return;
                 evaluateRecord(normalizedQuery, type, key, record, matches);
             });
+            return true;
         } catch (Exception e) {
-            log.warn("Aerospike scan failed during sanctions screen for '{}': {}", normalizedQuery, e.getMessage());
+            log.error("Aerospike scan failed during sanctions screen for '{}': {}", normalizedQuery, e.getMessage());
+            return false;
         }
     }
 
@@ -215,8 +268,13 @@ public class SanctionsService {
             String entityId = key.userKey != null ? key.userKey.toString()
                     : (record.getString("entityId") != null ? record.getString("entityId") : "");
             String listName = record.getString("listName");
+            String pepLevel = record.getString("pepLevel");
+            MatchDto match = new MatchDto(bestMatched, round(best), listName, entityId);
+            if (pepLevel != null && !pepLevel.isBlank()) {
+                match.setPepLevel(pepLevel);
+            }
             synchronized (matches) {
-                matches.add(new MatchDto(bestMatched, round(best), listName, entityId));
+                matches.add(match);
             }
         }
     }
@@ -247,17 +305,18 @@ public class SanctionsService {
             try {
                 Key key = new Key(NAMESPACE, SET_NAME, e.getEntityId());
                 String aliasesCsv = e.getAliases() == null ? "" : String.join("|", e.getAliases());
-                String normalizedName = normalize(nullToEmpty(e.getName()));
-                String prefix = extractPrefix(normalizedName);
+                List<String> searchKeys = buildSearchKeys(e.getName(), e.getAliases());
 
                 aerospikeClient.put(wp, key,
+                        new Bin("entityId", e.getEntityId()),
                         new Bin("name", nullToEmpty(e.getName())),
                         new Bin("aliases", aliasesCsv),
                         new Bin("type", nullToEmpty(e.getType())),
                         new Bin("listName", nullToEmpty(e.getListName())),
                         new Bin("country", nullToEmpty(e.getCountry())),
                         new Bin("birthDate", nullToEmpty(e.getBirthDate())),
-                        new Bin("prefix", prefix));
+                        new Bin("pepLevel", nullToEmpty(e.getPepLevel())),
+                        new Bin(BIN_SEARCH_KEYS, searchKeys));
                 ok.incrementAndGet();
             } catch (Exception ex) {
                 log.warn("Failed to ingest sanctions entity {}: {}", e.getEntityId(), ex.getMessage());
@@ -277,12 +336,12 @@ public class SanctionsService {
      */
     public long count() {
         if (!isAerospikeConnected()) return -1L;
-        if (useIndex) {
+        if (useSearchIndex) {
             try {
                 Statement stmt = new Statement();
                 stmt.setNamespace(NAMESPACE);
                 stmt.setSetName(SET_NAME);
-                stmt.setBinNames("prefix"); // minimal bin read
+                stmt.setBinNames(BIN_SEARCH_KEYS);
                 AtomicInteger c = new AtomicInteger();
                 aerospikeClient.query(null, stmt, (key, record) -> c.incrementAndGet());
                 return c.get();
@@ -318,7 +377,85 @@ public class SanctionsService {
 
     private static String normalize(String s) {
         if (s == null) return "";
-        return s.toLowerCase().replaceAll("[^a-z0-9 ]+", " ").replaceAll("\\s+", " ").trim();
+        String decomposed = java.text.Normalizer.normalize(s, java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "");
+        return decomposed.toLowerCase(Locale.ROOT)
+                .replaceAll("[^a-z0-9 ]+", " ")
+                .replaceAll("\\s+", " ")
+                .trim();
+    }
+
+    static List<String> buildSearchKeys(String name, List<String> aliases) {
+        LinkedHashSet<String> keys = new LinkedHashSet<>();
+        addNameSearchKeys(keys, name);
+        if (aliases != null) {
+            for (String alias : aliases) addNameSearchKeys(keys, alias);
+        }
+        return new ArrayList<>(keys);
+    }
+
+    private static void addNameSearchKeys(Set<String> keys, String rawName) {
+        String normalized = normalize(rawName);
+        if (normalized.isEmpty()) return;
+        keys.add("e:" + normalized);
+        for (String token : normalized.split(" ")) {
+            if (token.isBlank()) continue;
+            keys.add("p:" + extractPrefix(token));
+            addPhoneticKeys(keys, token);
+        }
+        String compact = normalized.replace(" ", "");
+        addPhoneticKeys(keys, compact);
+        if (compact.length() == 1) {
+            keys.add("g:" + compact);
+        } else {
+            for (int index = 0; index < compact.length() - 1; index++) {
+                keys.add("g:" + compact.substring(index, index + 2));
+            }
+        }
+    }
+
+    private static void addPhoneticKeys(Set<String> keys, String value) {
+        String primary = DOUBLE_METAPHONE.doubleMetaphone(value, false);
+        String alternate = DOUBLE_METAPHONE.doubleMetaphone(value, true);
+        if (primary != null && !primary.isBlank()) keys.add("m:" + primary);
+        if (alternate != null && !alternate.isBlank()) keys.add("m:" + alternate);
+    }
+
+    public int rebuildSearchIndex() {
+        if (!isAerospikeConnected()) return 0;
+        AtomicInteger updated = new AtomicInteger();
+        ScanPolicy policy = new ScanPolicy();
+        policy.includeBinData = true;
+        policy.concurrentNodes = true;
+        WritePolicy writePolicy = new WritePolicy();
+        try {
+            aerospikeClient.scanAll(policy, NAMESPACE, SET_NAME, (key, record) -> {
+                if (record == null) return;
+                String aliasesCsv = record.getString("aliases");
+                List<String> aliases = aliasesCsv == null || aliasesCsv.isBlank()
+                        ? List.of()
+                        : List.of(aliasesCsv.split("\\|"));
+                List<String> searchKeys = buildSearchKeys(record.getString("name"), aliases);
+                if (!searchKeys.isEmpty()) {
+                    aerospikeClient.put(writePolicy, key, new Bin(BIN_SEARCH_KEYS, searchKeys));
+                    updated.incrementAndGet();
+                }
+            });
+            return updated.get();
+        } catch (Exception exception) {
+            log.error("Could not rebuild Aerospike sanctions search keys: {}", exception.getMessage(), exception);
+            useSearchIndex = false;
+            return updated.get();
+        }
+    }
+
+    private String recordIdentity(Key key, Record record) {
+        if (key != null && key.digest != null) {
+            return java.util.HexFormat.of().formatHex(key.digest);
+        }
+        String entityId = record.getString("entityId");
+        if (entityId != null && !entityId.isBlank()) return entityId;
+        return String.valueOf(System.identityHashCode(record));
     }
 
     private static double round(double v) {

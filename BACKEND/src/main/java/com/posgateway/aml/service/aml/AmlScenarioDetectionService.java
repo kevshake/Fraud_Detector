@@ -2,6 +2,7 @@ package com.posgateway.aml.service.aml;
 
 import com.posgateway.aml.entity.TransactionEntity;
 import com.posgateway.aml.repository.TransactionRepository;
+import com.posgateway.aml.service.compliance.CashStructuringDetectionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,9 +24,7 @@ public class AmlScenarioDetectionService {
     private static final Logger logger = LoggerFactory.getLogger(AmlScenarioDetectionService.class);
 
     private final TransactionRepository transactionRepository;
-
-    @Value("${aml.structuring.threshold:10000}")
-    private BigDecimal structuringThreshold;
+    private final CashStructuringDetectionService cashStructuringDetectionService;
 
     @Value("${aml.rapid-movement.hours:24}")
     private int rapidMovementHours;
@@ -39,6 +38,15 @@ public class AmlScenarioDetectionService {
     @Value("${aml.funnel-account.time-window-hours:24}")
     private int funnelTimeWindowHours;
 
+    @Value("${aml.funnel-account.minimum-usd:10000}")
+    private BigDecimal funnelMinimumUsd;
+
+    @Value("${aml.funnel-account.minimum-pass-through-ratio:0.70}")
+    private BigDecimal funnelMinimumPassThroughRatio;
+
+    @Value("${aml.funnel-account.minimum-source-indicators:2}")
+    private int funnelMinimumSourceIndicators;
+
     @Value("${aml.tbml.min-transactions:3}")
     private int tbmlMinTransactions;
 
@@ -46,52 +54,23 @@ public class AmlScenarioDetectionService {
     private int tbmlTimeWindowDays;
 
     @Autowired
-    public AmlScenarioDetectionService(TransactionRepository transactionRepository) {
+    public AmlScenarioDetectionService(
+            TransactionRepository transactionRepository,
+            CashStructuringDetectionService cashStructuringDetectionService) {
         this.transactionRepository = transactionRepository;
+        this.cashStructuringDetectionService = cashStructuringDetectionService;
     }
 
     /**
-     * Detect structuring (transactions just below reporting threshold)
+     * Detect repeated cash transactions immediately below the reporting threshold.
+     * Uses approved regulatory FX evidence and rolling 24-hour account windows.
      */
     public List<StructuringDetection> detectStructuring(String merchantId, LocalDateTime startDate, LocalDateTime endDate) {
         List<TransactionEntity> transactions = transactionRepository.findByMerchantIdAndTimestampBetween(
                 merchantId, startDate, endDate);
-
-        List<StructuringDetection> detections = new ArrayList<>();
-        BigDecimal threshold = structuringThreshold;
-
-        // Group transactions by day
-        Map<String, List<TransactionEntity>> dailyTransactions = transactions.stream()
-                .filter(tx -> tx.getTxnTs() != null)
-                .collect(Collectors.groupingBy(tx -> 
-                        tx.getTxnTs().toLocalDate().toString()));
-
-        dailyTransactions.forEach((date, txs) -> {
-            BigDecimal dailyTotal = txs.stream()
-                    .map(tx -> tx.getAmountCents() != null ? 
-                            BigDecimal.valueOf(tx.getAmountCents()).divide(new BigDecimal("100")) : 
-                            BigDecimal.ZERO)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-            // Check if multiple transactions sum to just below threshold
-            // Convert threshold to cents for comparison
-            BigDecimal thresholdCents = threshold.multiply(new BigDecimal("100"));
-            BigDecimal dailyTotalCents = dailyTotal.multiply(new BigDecimal("100"));
-            
-            if (txs.size() >= 3 && 
-                    dailyTotalCents.compareTo(thresholdCents.multiply(new BigDecimal("0.9"))) > 0 
-                    && dailyTotalCents.compareTo(thresholdCents) < 0) {
-                detections.add(StructuringDetection.builder()
-                        .merchantId(merchantId)
-                        .date(date)
-                        .transactionCount(txs.size())
-                        .totalAmount(dailyTotal)
-                        .threshold(threshold)
-                        .build());
-            }
-        });
-
-        return detections;
+        return cashStructuringDetectionService.detectOccurrences(transactions).stream()
+                .map(occurrence -> StructuringDetection.from(merchantId, occurrence))
+                .toList();
     }
 
     /**
@@ -173,10 +152,21 @@ public class AmlScenarioDetectionService {
      */
     public static class StructuringDetection {
         private String merchantId;
+        private String accountId;
         private String date;
+        private LocalDateTime windowStart;
+        private LocalDateTime windowEnd;
+        private String status;
         private int transactionCount;
+        /** Total in USD after approved regulatory conversion. */
         private BigDecimal totalAmount;
+        /** Regulatory threshold in USD. */
         private BigDecimal threshold;
+        private BigDecimal structuringFloorUsd;
+        private List<Long> transactionIds;
+        private Set<String> currencies;
+        private List<Map<String, Object>> conversionEvidence;
+        private String unavailableReason;
 
         public static StructuringDetectionBuilder builder() {
             return new StructuringDetectionBuilder();
@@ -185,14 +175,54 @@ public class AmlScenarioDetectionService {
         // Getters and Setters
         public String getMerchantId() { return merchantId; }
         public void setMerchantId(String merchantId) { this.merchantId = merchantId; }
+        public String getAccountId() { return accountId; }
+        public void setAccountId(String accountId) { this.accountId = accountId; }
         public String getDate() { return date; }
         public void setDate(String date) { this.date = date; }
+        public LocalDateTime getWindowStart() { return windowStart; }
+        public void setWindowStart(LocalDateTime windowStart) { this.windowStart = windowStart; }
+        public LocalDateTime getWindowEnd() { return windowEnd; }
+        public void setWindowEnd(LocalDateTime windowEnd) { this.windowEnd = windowEnd; }
+        public String getStatus() { return status; }
+        public void setStatus(String status) { this.status = status; }
         public int getTransactionCount() { return transactionCount; }
         public void setTransactionCount(int transactionCount) { this.transactionCount = transactionCount; }
         public BigDecimal getTotalAmount() { return totalAmount; }
         public void setTotalAmount(BigDecimal totalAmount) { this.totalAmount = totalAmount; }
         public BigDecimal getThreshold() { return threshold; }
         public void setThreshold(BigDecimal threshold) { this.threshold = threshold; }
+        public BigDecimal getStructuringFloorUsd() { return structuringFloorUsd; }
+        public void setStructuringFloorUsd(BigDecimal structuringFloorUsd) { this.structuringFloorUsd = structuringFloorUsd; }
+        public List<Long> getTransactionIds() { return transactionIds; }
+        public void setTransactionIds(List<Long> transactionIds) { this.transactionIds = transactionIds; }
+        public Set<String> getCurrencies() { return currencies; }
+        public void setCurrencies(Set<String> currencies) { this.currencies = currencies; }
+        public List<Map<String, Object>> getConversionEvidence() { return conversionEvidence; }
+        public void setConversionEvidence(List<Map<String, Object>> conversionEvidence) { this.conversionEvidence = conversionEvidence; }
+        public String getUnavailableReason() { return unavailableReason; }
+        public void setUnavailableReason(String unavailableReason) { this.unavailableReason = unavailableReason; }
+
+        static StructuringDetection from(
+                String merchantId,
+                CashStructuringDetectionService.Occurrence occurrence) {
+            StructuringDetection detection = new StructuringDetection();
+            detection.merchantId = merchantId;
+            detection.accountId = occurrence.accountId();
+            detection.date = occurrence.windowStart() != null
+                    ? occurrence.windowStart().toLocalDate().toString() : null;
+            detection.windowStart = occurrence.windowStart();
+            detection.windowEnd = occurrence.windowEnd();
+            detection.status = occurrence.status();
+            detection.transactionCount = occurrence.transactionCount();
+            detection.totalAmount = occurrence.totalUsd();
+            detection.threshold = occurrence.thresholdUsd();
+            detection.structuringFloorUsd = occurrence.structuringFloorUsd();
+            detection.transactionIds = occurrence.transactionIds();
+            detection.currencies = occurrence.currencies();
+            detection.conversionEvidence = occurrence.conversionEvidence();
+            detection.unavailableReason = occurrence.unavailableReason();
+            return detection;
+        }
 
         public static class StructuringDetectionBuilder {
             private String merchantId;
@@ -377,6 +407,12 @@ public class AmlScenarioDetectionService {
         private BigDecimal totalReceived;
         private BigDecimal totalTransferred;
         private int transactionCount;
+        private int inboundCount;
+        private int outboundCount;
+        private int distinctSourceIndicators;
+        private BigDecimal passThroughRatio;
+        private String evidenceCurrency;
+        private List<Long> transactionIds;
 
         // Getters and Setters
         public String getMerchantId() { return merchantId; }
@@ -389,6 +425,18 @@ public class AmlScenarioDetectionService {
         public void setTotalTransferred(BigDecimal totalTransferred) { this.totalTransferred = totalTransferred; }
         public int getTransactionCount() { return transactionCount; }
         public void setTransactionCount(int transactionCount) { this.transactionCount = transactionCount; }
+        public int getInboundCount() { return inboundCount; }
+        public void setInboundCount(int inboundCount) { this.inboundCount = inboundCount; }
+        public int getOutboundCount() { return outboundCount; }
+        public void setOutboundCount(int outboundCount) { this.outboundCount = outboundCount; }
+        public int getDistinctSourceIndicators() { return distinctSourceIndicators; }
+        public void setDistinctSourceIndicators(int distinctSourceIndicators) { this.distinctSourceIndicators = distinctSourceIndicators; }
+        public BigDecimal getPassThroughRatio() { return passThroughRatio; }
+        public void setPassThroughRatio(BigDecimal passThroughRatio) { this.passThroughRatio = passThroughRatio; }
+        public String getEvidenceCurrency() { return evidenceCurrency; }
+        public void setEvidenceCurrency(String evidenceCurrency) { this.evidenceCurrency = evidenceCurrency; }
+        public List<Long> getTransactionIds() { return transactionIds; }
+        public void setTransactionIds(List<Long> transactionIds) { this.transactionIds = transactionIds; }
     }
 
     /**
@@ -426,27 +474,84 @@ public class AmlScenarioDetectionService {
                 continue;
             }
 
-            // Calculate received and transferred amounts
-            BigDecimal totalReceived = windowTxs.stream()
-                    .filter(tx -> tx.getAmountCents() != null)
-                    .map(tx -> BigDecimal.valueOf(tx.getAmountCents()).divide(BigDecimal.valueOf(100)))
+            List<TransactionEntity> inbound = windowTxs.stream()
+                    .filter(this::isInbound)
+                    .toList();
+            List<TransactionEntity> outbound = windowTxs.stream()
+                    .filter(this::isOutbound)
+                    .toList();
+            if (inbound.isEmpty() || outbound.isEmpty()
+                    || windowTxs.stream().anyMatch(tx -> tx.getCtrUsdEquivalent() == null)) {
+                continue;
+            }
+            BigDecimal totalReceived = inbound.stream()
+                    .map(TransactionEntity::getCtrUsdEquivalent)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal totalTransferred = outbound.stream()
+                    .map(TransactionEntity::getCtrUsdEquivalent)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal passThroughRatio = totalReceived.signum() == 0
+                    ? BigDecimal.ZERO
+                    : totalTransferred.divide(totalReceived, 4, java.math.RoundingMode.HALF_UP);
+            int sourceIndicators = (int) inbound.stream()
+                    .map(this::sourceIndicator)
+                    .filter(Objects::nonNull)
+                    .distinct()
+                    .count();
 
-            // Funnel pattern: High volume of incoming transactions
-            // Threshold: More than X transactions in Y hours
-            if (windowTxs.size() >= funnelMinTransactions && totalReceived.compareTo(BigDecimal.valueOf(10000)) > 0) {
+            if (totalReceived.compareTo(funnelMinimumUsd) >= 0
+                    && passThroughRatio.compareTo(funnelMinimumPassThroughRatio) >= 0
+                    && sourceIndicators >= funnelMinimumSourceIndicators) {
                 FunnelAccountDetection detection = new FunnelAccountDetection();
                 detection.setMerchantId(merchantId);
                 detection.setAccountId(accountId);
                 detection.setTotalReceived(totalReceived);
-                detection.setTotalTransferred(BigDecimal.ZERO); // Would need to track outbound
+                detection.setTotalTransferred(totalTransferred);
                 detection.setTransactionCount(windowTxs.size());
+                detection.setInboundCount(inbound.size());
+                detection.setOutboundCount(outbound.size());
+                detection.setDistinctSourceIndicators(sourceIndicators);
+                detection.setPassThroughRatio(passThroughRatio);
+                detection.setEvidenceCurrency("USD");
+                detection.setTransactionIds(windowTxs.stream()
+                        .map(TransactionEntity::getTxnId)
+                        .filter(Objects::nonNull)
+                        .toList());
                 detections.add(detection);
             }
         }
 
         logger.info("Detected {} funnel account patterns for merchant {}", detections.size(), merchantId);
         return detections;
+    }
+
+    private boolean isInbound(TransactionEntity transaction) {
+        if (transaction.getDirection() == null) return false;
+        String direction = transaction.getDirection().trim().toUpperCase(Locale.ROOT);
+        return direction.startsWith("IN")
+                || "CREDIT".equals(direction)
+                || "REFUND".equals(direction);
+    }
+
+    private boolean isOutbound(TransactionEntity transaction) {
+        if (transaction.getDirection() == null) return false;
+        String direction = transaction.getDirection().trim().toUpperCase(Locale.ROOT);
+        return direction.startsWith("OUT")
+                || "DEBIT".equals(direction);
+    }
+
+    private String sourceIndicator(TransactionEntity transaction) {
+        if (transaction.getDeviceFingerprint() != null
+                && !transaction.getDeviceFingerprint().isBlank()) {
+            return "DEVICE:" + transaction.getDeviceFingerprint();
+        }
+        if (transaction.getTerminalId() != null && !transaction.getTerminalId().isBlank()) {
+            return "TERMINAL:" + transaction.getTerminalId();
+        }
+        if (transaction.getChannelType() != null && !transaction.getChannelType().isBlank()) {
+            return "CHANNEL:" + transaction.getChannelType();
+        }
+        return null;
     }
 
     /**

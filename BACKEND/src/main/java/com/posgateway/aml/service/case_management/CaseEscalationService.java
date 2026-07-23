@@ -103,9 +103,18 @@ public class CaseEscalationService {
         if (!autoEscalationEnabled || complianceCase.getEscalated()) {
             return;
         }
+        // Single-case entry point: fetch the active rules once, then delegate.
+        checkAutomaticEscalation(complianceCase, escalationRuleRepository.findByEnabledTrue());
+    }
 
-        List<EscalationRule> rules = escalationRuleRepository.findByEnabledTrue();
-
+    /**
+     * Overload used by the scheduled batch: the caller supplies the active-rule set so it is
+     * fetched ONCE per run instead of once per case (was an N+1 across all open cases).
+     */
+    private void checkAutomaticEscalation(ComplianceCase complianceCase, List<EscalationRule> rules) {
+        if (!autoEscalationEnabled || complianceCase.getEscalated()) {
+            return;
+        }
         for (EscalationRule rule : rules) {
             if (matchesEscalationRule(complianceCase, rule)) {
                 String reason = buildEscalationReason(complianceCase, rule);
@@ -374,11 +383,13 @@ public class CaseEscalationService {
                 CaseStatus.IN_PROGRESS);
 
         List<ComplianceCase> casesToCheck = caseRepository.findByStatusIn(openStatuses);
+        // Fetch the active escalation rules once for the whole run (was re-queried per case).
+        List<EscalationRule> activeRules = escalationRuleRepository.findByEnabledTrue();
         int escalated = 0;
 
         for (ComplianceCase complianceCase : casesToCheck) {
             if (!complianceCase.getEscalated()) {
-                checkAutomaticEscalation(complianceCase);
+                checkAutomaticEscalation(complianceCase, activeRules);
                 escalated++;
             }
         }

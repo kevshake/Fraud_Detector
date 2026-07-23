@@ -103,7 +103,8 @@ public class DroolsRulesService {
                     logger.info("Drools Rules Engine initialized successfully.");
                 }
             } else {
-                logger.warn("No rules found (static or dynamic). Using programmatic fallback only.");
+                logger.warn("No compiled DRL rules found; decisioning relies on DB dynamic rules "
+                        + "(RulesExecutionService) and DecisionEngine thresholds.");
                 droolsEnabled = false;
             }
 
@@ -112,7 +113,7 @@ public class DroolsRulesService {
             droolsEnabled = false;
         }
         if (!droolsEnabled) {
-            logger.info("Drools initialized with programmatic rules fallback.");
+            logger.info("Drools has no compiled DRL; evaluation is DB-dynamic-rules only (no hardcoded rules).");
         }
     }
 
@@ -210,65 +211,13 @@ public class DroolsRulesService {
                 session.dispose();
             }
         } else {
-            // Use programmatic rules
-            return evaluateProgrammaticRules(fact);
+            // No compiled DRL available. Rule evaluation is fully DB-driven (dynamic rules edited by
+            // PSPs/banks + each PSP's copies of the defaults), evaluated by RulesExecutionService;
+            // there are deliberately NO hardcoded rules here. ML-score thresholds are still applied
+            // independently by DecisionEngine, so decisioning is not lost.
+            logger.debug("No compiled DRL rules loaded; relying on DB dynamic rules (no programmatic fallback).");
+            return 0;
         }
-    }
-
-    /**
-     * Programmatic rules implementation (fallback when DRL not available).
-     * These mirror the DRL rules for regulatory compliance.
-     */
-    private int evaluateProgrammaticRules(TransactionFact fact) {
-        int rulesTriggered = 0;
-
-        if (fact.getMlScore() > 0.9) {
-            fact.setDecision("BLOCK");
-            fact.addTriggeredRule("ML_SCORE_HIGH_RISK");
-            fact.addReason(String.format("ML risk score exceeds 0.9 threshold: %.3f", fact.getMlScore()));
-            rulesTriggered++;
-        } else if (fact.getMlScore() > 0.7 && !"BLOCK".equals(fact.getDecision())) {
-            fact.setDecision("HOLD");
-            fact.addTriggeredRule("ML_SCORE_MEDIUM_RISK");
-            fact.addReason(String.format("ML risk score requires review: %.3f", fact.getMlScore()));
-            rulesTriggered++;
-        }
-
-        if (fact.getBetweenness() > 0.5 && !"BLOCK".equals(fact.getDecision())) {
-            fact.setDecision("HOLD");
-            fact.addTriggeredRule("HIGH_BETWEENNESS_HUB");
-            fact.addReason(String.format(
-                    "Merchant has high betweenness centrality (potential hub): %.3f",
-                    fact.getBetweenness()));
-            rulesTriggered++;
-        }
-
-        if (fact.getPageRank() > 0.8 && fact.isHighValueTransaction()) {
-            fact.setSarRequired(true);
-            fact.addTriggeredRule("HIGH_INFLUENCE_HIGH_VALUE");
-            fact.addReason(String.format(
-                    "High-influence merchant (PageRank: %.3f) with high-value transaction",
-                    fact.getPageRank()));
-            rulesTriggered++;
-        }
-
-        if (fact.getPanTxnCount1h() > 10 && !"BLOCK".equals(fact.getDecision())) {
-            fact.setDecision("HOLD");
-            fact.addTriggeredRule("VELOCITY_BREACH_1H");
-            fact.addReason("Card velocity breach: " + fact.getPanTxnCount1h() + " transactions in 1 hour");
-            rulesTriggered++;
-        }
-
-        if (fact.getMerchantAmountSum24h() > 100000 && !"BLOCK".equals(fact.getDecision())) {
-            fact.setDecision("HOLD");
-            fact.addTriggeredRule("HIGH_MERCHANT_VOLUME_24H");
-            fact.addReason(String.format(
-                    "Merchant 24h volume exceeds $100,000: $%.2f",
-                    fact.getMerchantAmountSum24h()));
-            rulesTriggered++;
-        }
-
-        return rulesTriggered;
     }
 
     // Helper conversion methods

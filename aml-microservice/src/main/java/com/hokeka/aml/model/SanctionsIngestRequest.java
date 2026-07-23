@@ -38,6 +38,9 @@ public class SanctionsIngestRequest {
         private String country;
         @JsonProperty("birthDate")
         private String birthDate;
+        /** PEP classification derived from OpenSanctions topics: "PEP", "RCA", or null. */
+        @JsonProperty("pepLevel")
+        private String pepLevel;
 
         public SanctionsEntity() {}
 
@@ -72,5 +75,8 @@ public class SanctionsIngestRequest {
 
         public String getBirthDate() { return birthDate; }
         public void setBirthDate(String birthDate) { this.birthDate = birthDate; }
+
+        public String getPepLevel() { return pepLevel; }
+        public void setPepLevel(String pepLevel) { this.pepLevel = pepLevel; }
     }
 }

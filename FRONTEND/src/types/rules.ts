@@ -6,6 +6,8 @@ export type RuleCategory   = "AML" | "FRAUD" | "SCREENING";
 export type RuleAppliesTo  = "Transaction" | "User";
 export type RuleAction     = "BLOCK" | "HOLD" | "ALERT" | "ALLOW";
 export type RuleEngineType = "JAVA_BEAN" | "SPEL" | "DROOLS_DRL";
+export type RuleLifecycleStatus = "DRAFT" | "PENDING_APPROVAL" | "APPROVED" | "SCHEDULED" | "ACTIVE" | "REJECTED" | "SUPERSEDED" | "RETIRED";
+export type RuleChangeType = "CREATE" | "UPDATE" | "ENABLE" | "DISABLE" | "RETIRE" | "ROLLBACK";
 
 export interface AmlRule {
   id?: number;
@@ -23,6 +25,10 @@ export interface AmlRule {
   pspId?: number;
   version?: string;
   parameters?: Record<string, any> | string;
+  lifecycleStatus?: RuleLifecycleStatus;
+  currentVersionNumber?: number;
+  currentVersionId?: number;
+  pendingVersionId?: number;
 
   // System-managed catalog metadata (V134/V135)
   isSystemManaged?: boolean;
@@ -46,6 +52,28 @@ export interface AmlRule {
   };
   isSuperAdmin?: boolean;
   pspThemeColor?: string;
+}
+
+export interface RuleVersion {
+  id: number;
+  ruleId: number;
+  ruleName: string;
+  versionNumber: number;
+  lifecycleStatus: RuleLifecycleStatus;
+  changeType: RuleChangeType;
+  snapshot: Record<string, unknown>;
+  contentHash: string;
+  changeSummary?: string;
+  pspId?: number;
+  createdById: number;
+  createdByUsername: string;
+  createdAt: string;
+  effectiveFrom?: string;
+  reviewedById?: number;
+  reviewedByUsername?: string;
+  reviewedAt?: string;
+  reviewReason?: string;
+  activatedAt?: string;
 }
 
 export interface VelocityRule {

@@ -16,7 +16,8 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "merchant_transaction_limits", 
        uniqueConstraints = @UniqueConstraint(columnNames = "merchant_id"))
-@Data
+@lombok.Getter
+@lombok.Setter
 @EqualsAndHashCode(exclude = {"merchant"})
 @ToString(exclude = {"merchant"})
 public class MerchantTransactionLimit {
@@ -40,6 +41,23 @@ public class MerchantTransactionLimit {
 
     @Column(name = "per_transaction_limit", precision = 19, scale = 2)
     private BigDecimal perTransactionLimit;
+
+    /**
+     * Temporary daily limit override set by a compliance officer via
+     * {@code PUT /risk/limits/merchant/{id}/temporary}. When present and not yet
+     * expired it takes precedence over {@link #dailyLimit} (the tighter of the two
+     * is enforced). Null once cleared or never set.
+     */
+    @Column(name = "temporary_daily_limit", precision = 19, scale = 2)
+    private BigDecimal temporaryDailyLimit;
+
+    /** Instant at which {@link #temporaryDailyLimit} stops applying. */
+    @Column(name = "temporary_limit_expires_at")
+    private LocalDateTime temporaryLimitExpiresAt;
+
+    /** User id that set the temporary limit (audit). */
+    @Column(name = "temporary_limit_set_by")
+    private Long temporaryLimitSetBy;
 
     @Column(name = "status", length = 20)
     private String status = "ACTIVE";
@@ -124,6 +142,49 @@ public class MerchantTransactionLimit {
 
     public void setUpdatedBy(Long updatedBy) {
         this.updatedBy = updatedBy;
+    }
+
+    public BigDecimal getTemporaryDailyLimit() {
+        return temporaryDailyLimit;
+    }
+
+    public void setTemporaryDailyLimit(BigDecimal temporaryDailyLimit) {
+        this.temporaryDailyLimit = temporaryDailyLimit;
+    }
+
+    public LocalDateTime getTemporaryLimitExpiresAt() {
+        return temporaryLimitExpiresAt;
+    }
+
+    public void setTemporaryLimitExpiresAt(LocalDateTime temporaryLimitExpiresAt) {
+        this.temporaryLimitExpiresAt = temporaryLimitExpiresAt;
+    }
+
+    public Long getTemporaryLimitSetBy() {
+        return temporaryLimitSetBy;
+    }
+
+    public void setTemporaryLimitSetBy(Long temporaryLimitSetBy) {
+        this.temporaryLimitSetBy = temporaryLimitSetBy;
+    }
+
+    /**
+     * The daily limit currently in force: the temporary override when it is set and
+     * not expired (the tighter of the two if a base daily limit also exists),
+     * otherwise the configured {@link #dailyLimit}.
+     */
+    @Transient
+    public BigDecimal effectiveDailyLimit(LocalDateTime now) {
+        boolean tempActive = temporaryDailyLimit != null
+                && temporaryLimitExpiresAt != null
+                && now.isBefore(temporaryLimitExpiresAt);
+        if (!tempActive) {
+            return dailyLimit;
+        }
+        if (dailyLimit == null) {
+            return temporaryDailyLimit;
+        }
+        return temporaryDailyLimit.min(dailyLimit);
     }
 }
 

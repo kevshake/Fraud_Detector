@@ -168,8 +168,9 @@ public class HighConcurrencyFraudOrchestrator {
     private FraudDetectionResult createErrorResult(Long txnId) {
         FraudDetectionResult result = new FraudDetectionResult();
         result.setTxnId(txnId);
-        result.setScore(0.0);
-        result.setAction("ALLOW"); // Fail open for availability
+        result.setScore(1.0);
+        result.setAction("HOLD");
+        result.setReasons(java.util.List.of("SCORING_UNAVAILABLE: manual review required"));
         result.setLatencyMs(0L);
         return result;
     }

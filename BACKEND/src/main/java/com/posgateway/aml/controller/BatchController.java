@@ -35,6 +35,7 @@ public class BatchController {
      * @return Success message
      */
     @PostMapping("/score/yesterday")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN')")
     public ResponseEntity<String> batchScoreYesterday() {
         logger.info("Manual batch scoring triggered");
         batchScoringService.batchScoreYesterdayTransactions();
@@ -49,6 +50,7 @@ public class BatchController {
      * @return Number of transactions processed
      */
     @PostMapping("/backfill/features")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN')")
     public ResponseEntity<Map<String, Integer>> backfillFeatures(
             @RequestParam(defaultValue = "1000") int limit) {
         logger.info("Manual feature backfill triggered with limit: {}", limit);

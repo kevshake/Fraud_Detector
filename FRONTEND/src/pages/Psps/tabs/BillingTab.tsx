@@ -38,43 +38,41 @@ import {
 import { useState } from "react";
 import { apiClient } from "../../../lib/apiClient";
 import { getApiUrl } from "../../../config/api";
+import { Link } from "react-router-dom";
 
-const ACCENT = "#8B4049";
+const ACCENT = "var(--gold)";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
-interface PricingTier {
-  id: number;
-  name: string;
-  monthlyFee: number;
-  currency: string;
-  includedChecks: number;
-}
-
+// Matches backend SubscriptionResponse (flat — no nested `tier` object).
 interface Subscription {
-  id: number;
+  subscriptionId: number;
   status: string;
   billingCycle: string;
-  startDate: string;
-  endDate: string | null;
-  trialEndDate: string | null;
-  tier: PricingTier;
+  tierCode: string;
+  tierName: string;
+  monthlyFeeUsd: number;
+  billingCurrency: string;
+  includedChecks: number;
+  contractStart: string;
+  contractEnd: string | null;
+  trialEndsAt: string | null;
 }
 
+// Matches backend UsageSummaryResponse.ServiceBreakdown.
 interface UsageLineItem {
   serviceType: string;
-  requestCount: number;
-  cost: number;
+  count: number;
+  costUsd: number;
 }
 
+// Matches backend UsageSummaryResponse (costs are USD; `period` is a single label).
 interface CurrentUsage {
-  pspId: string;
+  pspId: number;
+  period: string;
   totalRequests: number;
   billableRequests: number;
-  estimatedCost: number;
-  currency: string;
-  periodStart: string;
-  periodEnd: string;
+  totalCostUsd: number;
   breakdown: UsageLineItem[];
 }
 
@@ -326,8 +324,8 @@ function PaymentDialog({
             p: 1.5,
             mb: 2,
             borderRadius: 1,
-            backgroundColor: "rgba(139,64,73,0.05)",
-            border: "1px solid rgba(139,64,73,0.15)",
+            backgroundColor: "var(--surface-2)",
+            border: "1px solid color-mix(in srgb, var(--gold) 15%, transparent)",
           }}
         >
           <Grid container spacing={1}>
@@ -501,7 +499,7 @@ function PaymentDialog({
             sx={{
               textTransform: "none",
               backgroundColor: ACCENT,
-              "&:hover": { backgroundColor: "#6e3139" },
+              "&:hover": { backgroundColor: "var(--surface-3)" },
             }}
           >
             {paying
@@ -624,15 +622,15 @@ export default function BillingTab({ pspId }: BillingTabProps) {
       {!subLoading && !subError && subscription && (
         <Card
           variant="outlined"
-          sx={{ borderRadius: 2, mb: 4, borderColor: "rgba(139,64,73,0.25)" }}
+          sx={{ borderRadius: 2, mb: 4, borderColor: "color-mix(in srgb, var(--gold) 25%, transparent)" }}
         >
           <CardContent>
             <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
               <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                {subscription.tier.name}
+                <Link to={`/records/SUBSCRIPTION/${subscription.subscriptionId}`}>{subscription.tierName}</Link>
               </Typography>
               <Chip
-                label={subscription.tier.name.toUpperCase()}
+                label={subscription.tierName.toUpperCase()}
                 size="small"
                 sx={{
                   backgroundColor: ACCENT,
@@ -657,7 +655,7 @@ export default function BillingTab({ pspId }: BillingTabProps) {
             </Box>
 
             {/* Trial warning */}
-            {subscription.trialEndDate && (
+            {subscription.trialEndsAt && (
               <Alert
                 severity="warning"
                 sx={{
@@ -667,7 +665,7 @@ export default function BillingTab({ pspId }: BillingTabProps) {
                 }}
               >
                 Trial ends on{" "}
-                <strong>{fmtDate(subscription.trialEndDate)}</strong>. After
+                <strong>{fmtDate(subscription.trialEndsAt)}</strong>. After
                 this date your plan will transition to the standard billing
                 cycle.
               </Alert>
@@ -688,8 +686,8 @@ export default function BillingTab({ pspId }: BillingTabProps) {
                 </Typography>
                 <Typography variant="body1" sx={{ fontWeight: 600 }}>
                   {fmtMoney(
-                    subscription.tier.monthlyFee,
-                    subscription.tier.currency
+                    subscription.monthlyFeeUsd,
+                    subscription.billingCurrency
                   )}
                 </Typography>
               </Grid>
@@ -722,7 +720,7 @@ export default function BillingTab({ pspId }: BillingTabProps) {
                   Included Checks
                 </Typography>
                 <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                  {fmtNumber(subscription.tier.includedChecks)} / month
+                  {fmtNumber(subscription.includedChecks)} / month
                 </Typography>
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
@@ -738,7 +736,7 @@ export default function BillingTab({ pspId }: BillingTabProps) {
                   Currency
                 </Typography>
                 <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                  {subscription.tier.currency}
+                  {subscription.billingCurrency}
                 </Typography>
               </Grid>
             </Grid>
@@ -759,10 +757,10 @@ export default function BillingTab({ pspId }: BillingTabProps) {
                   Contract Start
                 </Typography>
                 <Typography variant="body2">
-                  {fmtDate(subscription.startDate)}
+                  {fmtDate(subscription.contractStart)}
                 </Typography>
               </Grid>
-              {subscription.endDate && (
+              {subscription.contractEnd && (
                 <Grid item xs={12} sm={6}>
                   <Typography
                     variant="caption"
@@ -776,7 +774,7 @@ export default function BillingTab({ pspId }: BillingTabProps) {
                     Contract End
                   </Typography>
                   <Typography variant="body2">
-                    {fmtDate(subscription.endDate)}
+                    {fmtDate(subscription.contractEnd)}
                   </Typography>
                 </Grid>
               )}
@@ -832,9 +830,7 @@ export default function BillingTab({ pspId }: BillingTabProps) {
               <KpiCard
                 label="Total API Requests"
                 value={fmtNumber(usage.totalRequests)}
-                sub={`Period: ${fmtDate(usage.periodStart)} – ${fmtDate(
-                  usage.periodEnd
-                )}`}
+                sub={`Period: ${usage.period}`}
               />
             </Grid>
             <Grid item xs={12} sm={4}>
@@ -847,7 +843,7 @@ export default function BillingTab({ pspId }: BillingTabProps) {
             <Grid item xs={12} sm={4}>
               <KpiCard
                 label="Estimated Cost"
-                value={fmtMoney(usage.estimatedCost, usage.currency)}
+                value={fmtMoney(usage.totalCostUsd, "USD")}
                 sub="Current month estimate"
               />
             </Grid>
@@ -861,7 +857,7 @@ export default function BillingTab({ pspId }: BillingTabProps) {
             >
               <Table size="small">
                 <TableHead>
-                  <TableRow sx={{ backgroundColor: "rgba(139,64,73,0.05)" }}>
+                  <TableRow sx={{ backgroundColor: "var(--surface-2)" }}>
                     <TableCell sx={{ fontWeight: 700, fontSize: "0.8rem" }}>
                       Service Type
                     </TableCell>
@@ -886,10 +882,10 @@ export default function BillingTab({ pspId }: BillingTabProps) {
                         {line.serviceType}
                       </TableCell>
                       <TableCell align="right" sx={{ fontSize: "0.85rem" }}>
-                        {fmtNumber(line.requestCount)}
+                        {fmtNumber(line.count)}
                       </TableCell>
                       <TableCell align="right" sx={{ fontSize: "0.85rem" }}>
-                        {fmtMoney(line.cost, "USD")}
+                        {fmtMoney(line.costUsd, "USD")}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -936,7 +932,7 @@ export default function BillingTab({ pspId }: BillingTabProps) {
         >
           <Table size="small">
             <TableHead>
-              <TableRow sx={{ backgroundColor: "rgba(139,64,73,0.05)" }}>
+              <TableRow sx={{ backgroundColor: "var(--surface-2)" }}>
                 <TableCell sx={{ fontWeight: 700, fontSize: "0.8rem" }}>
                   Invoice #
                 </TableCell>
@@ -972,7 +968,7 @@ export default function BillingTab({ pspId }: BillingTabProps) {
                       fontFamily: "monospace",
                     }}
                   >
-                    {inv.invoiceNumber}
+                    <Link to={`/records/INVOICE/${inv.invoiceId}`}>{inv.invoiceNumber}</Link>
                   </TableCell>
                   <TableCell sx={{ fontSize: "0.85rem" }}>
                     {fmtDate(inv.billingPeriodStart)} –{" "}
@@ -1012,7 +1008,7 @@ export default function BillingTab({ pspId }: BillingTabProps) {
                           fontSize: "0.78rem",
                           minWidth: 0,
                           "&:hover": {
-                            backgroundColor: "rgba(139,64,73,0.06)",
+                            backgroundColor: "var(--surface-3)",
                           },
                         }}
                       >
@@ -1033,8 +1029,8 @@ export default function BillingTab({ pspId }: BillingTabProps) {
                             borderColor: ACCENT,
                             color: ACCENT,
                             "&:hover": {
-                              borderColor: "#6e3139",
-                              backgroundColor: "rgba(139,64,73,0.06)",
+                              borderColor: "var(--gold)",
+                              backgroundColor: "var(--surface-3)",
                             },
                           }}
                         >

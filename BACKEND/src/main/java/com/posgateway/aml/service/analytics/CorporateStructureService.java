@@ -27,6 +27,11 @@ public class CorporateStructureService {
 
     @Transactional(readOnly = true)
     public CorporateGraph buildCorporateGraph(Long merchantId) {
+        return buildCorporateGraph(merchantId, null);
+    }
+
+    @Transactional(readOnly = true)
+    public CorporateGraph buildCorporateGraph(Long merchantId, Long allowedPspId) {
         log.info("Building Corporate Graph for Merchant ID: {}", merchantId);
 
         Merchant rootMerchant = merchantRepository.findById(merchantId)
@@ -45,7 +50,7 @@ public class CorporateStructureService {
                     owner.getFullName(),
                     "UBO",
                     "Passport: " + (owner.getPassportNumber() != null
-                            ? "***" + owner.getPassportNumber().substring(owner.getPassportNumber().length() - 4)
+                            ? "***" + owner.getPassportNumber().substring(Math.max(0, owner.getPassportNumber().length() - 4))
                             : "N/A"),
                     null,
                     false);
@@ -55,15 +60,19 @@ public class CorporateStructureService {
             // 2. Find Related Companies (Merchants shared by this Owner)
             // Query by Passport/National ID
             List<BeneficialOwner> otherAppearances = new ArrayList<>();
-            if (owner.getPassportNumber() != null) {
-                otherAppearances.addAll(beneficialOwnerRepository.findByPassportNumber(owner.getPassportNumber()));
-            } else if (owner.getNationalId() != null) {
-                otherAppearances.addAll(beneficialOwnerRepository.findByNationalId(owner.getNationalId()));
+            if (owner.getPassportHash() != null) {
+                otherAppearances.addAll(beneficialOwnerRepository.findByPassportHash(owner.getPassportHash()));
+            } else if (owner.getNationalIdHash() != null) {
+                otherAppearances.addAll(beneficialOwnerRepository.findByNationalIdHash(owner.getNationalIdHash()));
             }
 
             for (BeneficialOwner other : otherAppearances) {
                 if (!other.getMerchant().getMerchantId().equals(merchantId)) {
                     Merchant related = other.getMerchant();
+                    if (allowedPspId != null && (related.getPsp() == null
+                            || !allowedPspId.equals(related.getPsp().getPspId()))) {
+                        continue;
+                    }
 
                     GraphNode relatedMerchantNode = new GraphNode(
                             "MERCHANT-" + related.getMerchantId(),

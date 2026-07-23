@@ -40,18 +40,33 @@ interface ReportChartProps {
   title?: string;
 }
 
+/*
+ * Categorical series, ordered for maximum hue separation. Distinguished by hue
+ * rather than luminance, so every entry sits between 6.3:1 and 9.4:1 on the card
+ * surface and none of them disappears. Literal hexes: recharts writes these into
+ * SVG fills, and a `var()` cannot be interpolated by its animation layer.
+ */
 const COLORS = [
-  "#800020", // Burgundy
-  "#FFD700", // Gold
-  "#C9A961", // Muted Gold
-  "#A0525C", // Indian Red
-  "#D4AC0D", // Dark Gold
-  "#8B4513", // Saddle Brown
-  "#CD853F", // Peru
-  "#D2691E", // Chocolate
-  "#BC8F8F", // Rosy Brown
-  "#F4A460", // Sandy Brown
+  "#d3b371", // gold
+  "#75b7ab", // teal
+  "#e08a4f", // rust
+  "#84a9c4", // steel
+  "#b094c2", // plum
+  "#e8776b", // coral
+  "#e2b25d", // amber
+  "#9cb583", // sage
 ];
+
+const AXIS_TICK = { fontSize: 11, fill: "#a8aba8" };
+const AXIS_LINE = { stroke: "rgba(255,255,255,0.12)" };
+const LEGEND_STYLE = { fontSize: 11, color: "#a8aba8" };
+const TOOLTIP_CONTENT = {
+  backgroundColor: "#191c1b",
+  border: "1px solid rgba(255,255,255,0.12)",
+  borderRadius: "3px",
+  fontSize: "12px",
+  color: "#f5f2eb",
+};
 
 export default function ReportChart({
   data,
@@ -93,17 +108,13 @@ export default function ReportChart({
         return (
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
-              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" vertical={false} />
+              <XAxis dataKey="name" tick={AXIS_TICK} axisLine={AXIS_LINE} tickLine={AXIS_LINE} />
+              <YAxis tick={AXIS_TICK} axisLine={AXIS_LINE} tickLine={AXIS_LINE} />
               <Tooltip
-                contentStyle={{
-                  backgroundColor: "#fff",
-                  border: "1px solid #e0e0e0",
-                  borderRadius: "8px",
-                }}
+                contentStyle={TOOLTIP_CONTENT} itemStyle={{ color: "#f5f2eb" }} labelStyle={{ color: "#a8aba8" }} cursor={{ fill: "rgba(255,255,255,0.04)" }}
               />
-              <Legend />
+              <Legend wrapperStyle={LEGEND_STYLE} />
               {keys.map((key, index) => (
                 <Line
                   key={key}
@@ -122,17 +133,13 @@ export default function ReportChart({
         return (
           <ResponsiveContainer width="100%" height={300}>
             <AreaChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
-              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" vertical={false} />
+              <XAxis dataKey="name" tick={AXIS_TICK} axisLine={AXIS_LINE} tickLine={AXIS_LINE} />
+              <YAxis tick={AXIS_TICK} axisLine={AXIS_LINE} tickLine={AXIS_LINE} />
               <Tooltip
-                contentStyle={{
-                  backgroundColor: "#fff",
-                  border: "1px solid #e0e0e0",
-                  borderRadius: "8px",
-                }}
+                contentStyle={TOOLTIP_CONTENT} itemStyle={{ color: "#f5f2eb" }} labelStyle={{ color: "#a8aba8" }} cursor={{ fill: "rgba(255,255,255,0.04)" }}
               />
-              <Legend />
+              <Legend wrapperStyle={LEGEND_STYLE} />
               {keys.map((key, index) => (
                 <Area
                   key={key}
@@ -147,7 +154,7 @@ export default function ReportChart({
           </ResponsiveContainer>
         );
 
-      case "pie":
+      case "pie": {
         const pieData = chartData.map((item) => ({
           name: item.name || item.label || item.category,
           value: item.value || item.count || item.amount || Object.values(item)[1],
@@ -164,7 +171,7 @@ export default function ReportChart({
                   `${name}: ${((percent || 0) * 100).toFixed(0)}%`
                 }
                 outerRadius={100}
-                fill="#8884d8"
+                fill="#b094c2"
                 dataKey="value"
               >
                 {pieData.map((_, index) => (
@@ -175,33 +182,26 @@ export default function ReportChart({
                 ))}
               </Pie>
               <Tooltip
-                contentStyle={{
-                  backgroundColor: "#fff",
-                  border: "1px solid #e0e0e0",
-                  borderRadius: "8px",
-                }}
+                contentStyle={TOOLTIP_CONTENT} itemStyle={{ color: "#f5f2eb" }} labelStyle={{ color: "#a8aba8" }} cursor={{ fill: "rgba(255,255,255,0.04)" }}
               />
-              <Legend />
+              <Legend wrapperStyle={LEGEND_STYLE} />
             </PieChart>
           </ResponsiveContainer>
         );
+      }
 
       case "bar":
       default:
         return (
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
-              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" vertical={false} />
+              <XAxis dataKey="name" tick={AXIS_TICK} axisLine={AXIS_LINE} tickLine={AXIS_LINE} />
+              <YAxis tick={AXIS_TICK} axisLine={AXIS_LINE} tickLine={AXIS_LINE} />
               <Tooltip
-                contentStyle={{
-                  backgroundColor: "#fff",
-                  border: "1px solid #e0e0e0",
-                  borderRadius: "8px",
-                }}
+                contentStyle={TOOLTIP_CONTENT} itemStyle={{ color: "#f5f2eb" }} labelStyle={{ color: "#a8aba8" }} cursor={{ fill: "rgba(255,255,255,0.04)" }}
               />
-              <Legend />
+              <Legend wrapperStyle={LEGEND_STYLE} />
               {keys.map((key, index) => (
                 <Bar
                   key={key}
@@ -219,10 +219,11 @@ export default function ReportChart({
   return (
     <Paper
       sx={{
-        p: 3,
-        borderRadius: "16px",
-        background: "linear-gradient(135deg, #ffffff 0%, #faf8f5 100%)",
-        boxShadow: "0 4px 20px rgba(0, 0, 0, 0.05)",
+        p: 2.5,
+        borderRadius: "var(--radius)",
+        backgroundColor: "var(--surface-2)",
+        border: "1px solid var(--line)",
+        boxShadow: "none",
       }}
     >
       <Box
@@ -234,7 +235,7 @@ export default function ReportChart({
         }}
       >
         {title && (
-          <Typography variant="h6" sx={{ fontWeight: 600, color: "#2c3e50" }}>
+          <Typography variant="h6" sx={{ fontWeight: 600, color: "var(--ink)", fontSize: "0.9375rem" }}>
             {title}
           </Typography>
         )}
@@ -243,17 +244,7 @@ export default function ReportChart({
           exclusive
           onChange={handleChartTypeChange}
           size="small"
-          sx={{
-            "& .MuiToggleButton-root": {
-              borderColor: "rgba(128, 0, 32, 0.3)",
-              color: "#666",
-              "&. Mui-selected": {
-                backgroundColor: "rgba(128, 0, 32, 0.1)",
-                color: "#800020",
-                borderColor: "#800020",
-              },
-            },
-          }}
+          sx={{ "& .MuiToggleButton-root": { px: 1.5, fontSize: "0.75rem" } }}
         >
           <ToggleButton value="bar">Bar</ToggleButton>
           <ToggleButton value="line">Line</ToggleButton>

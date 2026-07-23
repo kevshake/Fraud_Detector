@@ -10,15 +10,16 @@ import java.time.LocalDateTime;
  * Stores country-specific compliance rules and restrictions
  */
 @Entity
-@Table(name = "country_compliance_rules", uniqueConstraints = @UniqueConstraint(columnNames = "country_code"))
-@Data
+@Table(name = "country_compliance_rules")
+@lombok.Getter
+@lombok.Setter
 public class CountryComplianceRule {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "country_code", nullable = false, length = 3, unique = true)
+    @Column(name = "country_code", nullable = false, length = 3)
     private String countryCode;
 
     @Column(name = "country_name", nullable = false, length = 100)
@@ -47,6 +48,9 @@ public class CountryComplianceRule {
 
     @Column(name = "updated_by")
     private Long updatedBy;
+
+    @Column(name = "psp_id")
+    private Long pspId;
 
     @PrePersist
     protected void onCreate() {
@@ -128,6 +132,14 @@ public class CountryComplianceRule {
 
     public void setUpdatedBy(Long updatedBy) {
         this.updatedBy = updatedBy;
+    }
+
+    public Long getPspId() {
+        return pspId;
+    }
+
+    public void setPspId(Long pspId) {
+        this.pspId = pspId;
     }
 }
 

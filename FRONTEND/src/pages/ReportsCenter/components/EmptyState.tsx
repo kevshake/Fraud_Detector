@@ -62,11 +62,12 @@ export default function EmptyState({
     <Paper
       elevation={0}
       sx={{
-        p: 6,
+        p: 5,
         textAlign: "center",
-        borderRadius: "16px",
-        backgroundColor: "#fafafa",
-        border: "1px dashed rgba(0, 0, 0, 0.1)",
+        borderRadius: "var(--radius)",
+        background:
+          "radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--gold) 18%, transparent), transparent 55%), rgba(12,6,8,0.45)",
+        border: "1px dashed var(--line-strong)",
       }}
     >
       <Box
@@ -74,7 +75,8 @@ export default function EmptyState({
           width: 80,
           height: 80,
           borderRadius: "50%",
-          backgroundColor: "rgba(128, 0, 32, 0.05)",
+          backgroundColor: "var(--surface-2)",
+          border: "1px solid var(--line-strong)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -82,14 +84,17 @@ export default function EmptyState({
           mb: 3,
         }}
       >
-        <IconComponent sx={{ fontSize: 40, color: "#800020" }} />
+        <IconComponent sx={{ fontSize: 30, color: "var(--gold)" }} />
       </Box>
 
-      <Typography variant="h6" sx={{ fontWeight: 600, color: "#2c3e50", mb: 1 }}>
+      <Typography variant="h6" sx={{ fontWeight: 600, color: "var(--ink)", mb: 1 }}>
         {config.title}
       </Typography>
 
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3, maxWidth: 400, mx: "auto" }}>
+      <Typography
+        variant="body2"
+        sx={{ mb: 3, maxWidth: 400, mx: "auto", color: "var(--text-secondary)" }}
+      >
         {config.description}
       </Typography>
 
@@ -98,10 +103,10 @@ export default function EmptyState({
           variant="contained"
           startIcon={<AddIcon />}
           onClick={config.action.onClick}
+          color="primary"
           sx={{
-            backgroundColor: "#800020",
-            "&:hover": { backgroundColor: "#600018" },
-            borderRadius: "10px",
+            textTransform: "none",
+            fontWeight: 600,
           }}
         >
           {config.action.label}

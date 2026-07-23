@@ -5,6 +5,7 @@
  */
 
 import { useState, useMemo, useCallback } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   Box,
   Typography,
@@ -93,6 +94,7 @@ const CATEGORY_ICONS: Record<string, typeof Gavel> = {
 };
 
 export default function ReportsCenterPage() {
+  const [searchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState(0);
@@ -101,12 +103,17 @@ export default function ReportsCenterPage() {
   const [selectedReport, setSelectedReport] = useState<ReportDefinition | null>(null);
   const [previewParams, setPreviewParams] = useState<Record<string, unknown>>({});
   const [generatingReportId, setGeneratingReportId] = useState<string | null>(null);
+  const recordContext = useMemo(() => {
+    const recordType = searchParams.get("recordType");
+    const recordId = searchParams.get("recordId");
+    return recordType && recordId ? { recordType, recordId } : {};
+  }, [searchParams]);
 
   // Toast notifications
   const { toast, showSuccess, showError, hideToast } = useToast();
 
   // API hooks with error handling
-  // Live report catalog from the DB `reports` table (no hardcoded mock catalog).
+  // Live report catalog from the DB `reports` table.
   const {
     data: reportCatalog,
     isLoading: catalogLoading,
@@ -227,12 +234,12 @@ export default function ReportsCenterPage() {
         const result = await generateMutation.mutateAsync({
           // Send the DB report_code; useGenerateReport maps reportId -> reportType.
           reportId: report.code,
-          parameters,
+          parameters: { ...parameters, ...recordContext },
           format: format as ExportFormat,
         });
 
         // Track generation progress — backend returns executionId for /reports/status polling
-        setGeneratingReportId((result as any).executionId ?? result.id ?? null);
+        setGeneratingReportId(result.executionId ?? null);
 
         showSuccess(`Report "${report.name}" generation started`);
         refetchHistory();
@@ -241,7 +248,7 @@ export default function ReportsCenterPage() {
         showError(apiError.message || "Failed to generate report");
       }
     },
-    [allReports, generateMutation, showSuccess, showError, refetchHistory]
+    [allReports, generateMutation, showSuccess, showError, refetchHistory, recordContext]
   );
 
   const handleScheduleReport = useCallback((report: ReportDefinition) => {
@@ -251,18 +258,22 @@ export default function ReportsCenterPage() {
 
   const handleScheduleSubmit = useCallback(
     async (scheduleConfig: {
-      frequency: "once" | "hourly" | "daily" | "weekly" | "monthly" | "quarterly" | "yearly";
+      frequency: "daily" | "weekly" | "monthly" | "quarterly" | "yearly";
       timezone: string;
       recipients: string[];
       formats: ExportFormat[];
     }) => {
       if (!selectedReport) return;
+      if (!selectedReport.databaseId) {
+        showError("This report is not available for scheduling");
+        return;
+      }
 
       try {
         await scheduleMutation.mutateAsync({
-          reportId: selectedReport.id,
+          reportId: selectedReport.databaseId,
           schedule: scheduleConfig,
-          parameters: {},
+          parameters: recordContext,
         });
 
         showSuccess(`Report "${selectedReport.name}" scheduled successfully`);
@@ -273,7 +284,7 @@ export default function ReportsCenterPage() {
         showError(apiError.message || "Failed to schedule report");
       }
     },
-    [scheduleMutation, selectedReport, showSuccess, showError]
+    [scheduleMutation, selectedReport, showSuccess, showError, recordContext]
   );
 
   const handleDownloadReport = useCallback(
@@ -284,7 +295,8 @@ export default function ReportsCenterPage() {
           format,
         });
 
-        const filename = `${instance.reportName || "report"}-${instance.id}.${format.toLowerCase()}`;
+        const extension = format === "Excel" ? "xlsx" : format.toLowerCase();
+        const filename = `${instance.reportName || "report"}-${instance.id}.${extension}`;
         downloadBlob(blob, filename);
 
         showSuccess("Report downloaded successfully");
@@ -338,6 +350,11 @@ export default function ReportsCenterPage() {
         noCard
       >
       <Box sx={{ p: { xs: 0, md: 0 } }}>
+          {recordContext.recordType && recordContext.recordId && (
+            <Alert severity="info" sx={{ mb: 2 }} action={<Button component={Link} to={`/records/${recordContext.recordType}/${recordContext.recordId}`} size="small">View source</Button>}>
+              New reports will include the selected {recordContext.recordType.replace(/_/g, " ").toLowerCase()} record and its traceable relationships.
+            </Alert>
+          )}
           {/* Progress indicator for active generation */}
           {generatingReportId && progressData && (
             <Fade in>
@@ -351,7 +368,7 @@ export default function ReportsCenterPage() {
         {historyError && (
           <Alert
             severity="error"
-            sx={{ mb: 2, borderRadius: "12px" }}
+            sx={{ mb: 2, borderRadius: "var(--radius)" }}
             action={
               <Button color="inherit" size="small" onClick={() => refetchHistory()}>
                 Retry
@@ -366,7 +383,7 @@ export default function ReportsCenterPage() {
         {catalogError && (
           <Alert
             severity="error"
-            sx={{ mb: 2, borderRadius: "12px" }}
+            sx={{ mb: 2, borderRadius: "var(--radius)" }}
             action={
               <Button color="inherit" size="small" onClick={() => refetchCatalog()}>
                 Retry
@@ -382,13 +399,6 @@ export default function ReportsCenterPage() {
           <Tabs
             value={activeTab}
             onChange={(_, value) => setActiveTab(value)}
-            sx={{
-              "& .MuiTabs-indicator": {
-                backgroundColor: "#800020",
-                height: 3,
-                borderRadius: "3px 3px 0 0",
-              },
-            }}
           >
             <Tab
               label={
@@ -401,17 +411,14 @@ export default function ReportsCenterPage() {
                     sx={{
                       height: 20,
                       fontSize: "0.7rem",
-                      backgroundColor: activeTab === 0 ? "#800020" : "rgba(0,0,0,0.1)",
-                      color: activeTab === 0 ? "#fff" : "inherit",
+                      backgroundColor: activeTab === 0 ? "var(--brand-soft)" : "var(--surface-3)",
+                      color: activeTab === 0 ? "var(--gold)" : "var(--muted)",
+                      border: "1px solid var(--line)",
                     }}
                   />
                 </Box>
               }
-              sx={{
-                textTransform: "none",
-                fontWeight: 600,
-                color: activeTab === 0 ? "#800020 !important" : "text.secondary",
-              }}
+              sx={{ fontWeight: 600 }}
             />
             <Tab
               label={
@@ -425,36 +432,35 @@ export default function ReportsCenterPage() {
                       sx={{
                         height: 20,
                         fontSize: "0.7rem",
-                        backgroundColor: activeTab === 1 ? "#800020" : "rgba(0,0,0,0.1)",
-                        color: activeTab === 1 ? "#fff" : "inherit",
+                        backgroundColor: activeTab === 1 ? "var(--brand-soft)" : "var(--surface-3)",
+                        color: activeTab === 1 ? "var(--gold)" : "var(--muted)",
+                        border: "1px solid var(--line)",
                       }}
                     />
                   )}
                 </Box>
               }
-              sx={{
-                textTransform: "none",
-                fontWeight: 600,
-                color: activeTab === 1 ? "#800020 !important" : "text.secondary",
-              }}
+              sx={{ fontWeight: 600 }}
             />
           </Tabs>
         </Box>
 
         {activeTab === 0 ? (
-          <Grid container spacing={3}>
+          <Grid container spacing={2}>
             {/* Sidebar - Categories */}
             <Grid item xs={12} md={3} lg={2.5}>
               <Paper
                 sx={{
-                  borderRadius: "16px",
-                  boxShadow: "0 4px 20px rgba(0, 0, 0, 0.05)",
+                  borderRadius: "var(--radius)",
+                  backgroundColor: "var(--surface-2)",
+                  border: "1px solid var(--line)",
+                  boxShadow: "none",
                   overflow: "hidden",
                   position: { md: "sticky" },
-                  top: { md: 24 },
+                  top: { md: 16 },
                 }}
               >
-                <Box sx={{ p: 2, borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
+                <Box sx={{ p: 2, borderBottom: "1px solid var(--line)" }}>
                   <TextField
                     fullWidth
                     placeholder="Search reports..."
@@ -469,8 +475,8 @@ export default function ReportsCenterPage() {
                     }}
                     sx={{
                       "& .MuiOutlinedInput-root": {
-                        borderRadius: "12px",
-                        backgroundColor: "#fafafa",
+                        borderRadius: "var(--radius)",
+                        backgroundColor: "var(--surface-2)",
                       },
                     }}
                   />
@@ -483,16 +489,16 @@ export default function ReportsCenterPage() {
                       onClick={() => handleCategorySelect(null)}
                       sx={{
                         py: 1.2,
-                        "&. Mui-selected": {
-                          backgroundColor: "rgba(128, 0, 32, 0.08)",
-                          borderLeft: "3px solid #800020",
+                        "&.Mui-selected": {
+                          backgroundColor: "var(--surface-3)",
+                          borderLeft: "3px solid var(--gold)",
                         },
                       }}
                     >
                       <ListItemIcon sx={{ minWidth: 40 }}>
                         <ReportsIcon
                           sx={{
-                            color: selectedCategory === null && !searchQuery ? "#800020" : "text.secondary",
+                            color: selectedCategory === null && !searchQuery ? "var(--gold)" : "text.secondary",
                           }}
                         />
                       </ListItemIcon>
@@ -500,7 +506,7 @@ export default function ReportsCenterPage() {
                         primary="All Reports"
                         primaryTypographyProps={{
                           fontWeight: selectedCategory === null && !searchQuery ? 600 : 400,
-                          color: selectedCategory === null && !searchQuery ? "#800020" : "inherit",
+                          color: selectedCategory === null && !searchQuery ? "var(--gold)" : "inherit",
                         }}
                       />
                       <Chip
@@ -510,8 +516,9 @@ export default function ReportsCenterPage() {
                           height: 20,
                           fontSize: "0.7rem",
                           backgroundColor:
-                            selectedCategory === null && !searchQuery ? "#800020" : "rgba(0,0,0,0.08)",
-                          color: selectedCategory === null && !searchQuery ? "#fff" : "inherit",
+                            selectedCategory === null && !searchQuery ? "var(--brand-soft)" : "var(--surface-3)",
+                          color: selectedCategory === null && !searchQuery ? "var(--gold)" : "var(--muted)",
+                          border: "1px solid var(--line)",
                         }}
                       />
                     </ListItemButton>
@@ -529,18 +536,12 @@ export default function ReportsCenterPage() {
                         <ListItemButton
                           selected={isSelected}
                           onClick={() => handleCategorySelect(category.id)}
-                          sx={{
-                            py: 1.2,
-                            "&. Mui-selected": {
-                              backgroundColor: "rgba(128, 0, 32, 0.08)",
-                              borderLeft: "3px solid #800020",
-                            },
-                          }}
+                          sx={{ py: 1 }}
                         >
                           <ListItemIcon sx={{ minWidth: 40 }}>
                             <CategoryIcon
                               sx={{
-                                color: isSelected ? "#800020" : "text.secondary",
+                                color: isSelected ? "var(--gold)" : "text.secondary",
                                 fontSize: 20,
                               }}
                             />
@@ -551,7 +552,7 @@ export default function ReportsCenterPage() {
                             primaryTypographyProps={{
                               fontSize: "0.9rem",
                               fontWeight: isSelected ? 600 : 400,
-                              color: isSelected ? "#800020" : "inherit",
+                              color: isSelected ? "var(--gold)" : "inherit",
                             }}
                             secondaryTypographyProps={{
                               fontSize: "0.75rem",
@@ -564,8 +565,9 @@ export default function ReportsCenterPage() {
                             sx={{
                               height: 18,
                               fontSize: "0.65rem",
-                              backgroundColor: isSelected ? "#800020" : "rgba(0,0,0,0.08)",
-                              color: isSelected ? "#fff" : "inherit",
+                              backgroundColor: isSelected ? "var(--brand-soft)" : "var(--surface-3)",
+                              color: isSelected ? "var(--gold)" : "var(--muted)",
+                              border: "1px solid var(--line)",
                             }}
                           />
                         </ListItemButton>
@@ -590,7 +592,7 @@ export default function ReportsCenterPage() {
                     gap: 2,
                   }}
                 >
-                  <CircularProgress sx={{ color: "#800020" }} />
+                  <CircularProgress sx={{ color: "var(--gold)" }} />
                   <Typography variant="body2" color="text.secondary">
                     Loading report catalog...
                   </Typography>
@@ -600,7 +602,7 @@ export default function ReportsCenterPage() {
               {/* Loading State */}
               {generateMutation.isPending && (
                 <Box sx={{ mb: 2, display: "flex", alignItems: "center", gap: 1 }}>
-                  <CircularProgress size={16} sx={{ color: "#800020" }} />
+                  <CircularProgress size={16} sx={{ color: "var(--gold)" }} />
                   <Typography variant="body2" color="text.secondary">
                     Generating report...
                   </Typography>
@@ -624,15 +626,15 @@ export default function ReportsCenterPage() {
                 return (
                   <Box key={categoryId} sx={{ mb: 2 }}>
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
-                      <Typography variant="h6" sx={{ fontWeight: 600, color: "#2c3e50" }}>
+                      <Typography variant="h6" sx={{ fontWeight: 600, color: "var(--ink)" }}>
                         {category.name}
                       </Typography>
                       <Chip
                         label={`${reports.length} reports`}
                         size="small"
                         sx={{
-                          backgroundColor: "rgba(128, 0, 32, 0.1)",
-                          color: "#800020",
+                          backgroundColor: "var(--brand-soft)",
+                          color: "var(--gold)",
                         }}
                       />
                     </Box>
@@ -742,7 +744,7 @@ export default function ReportsCenterPage() {
           <Alert
             severity={toast.severity}
             onClose={hideToast}
-            sx={{ borderRadius: "12px" }}
+            sx={{ borderRadius: "var(--radius)" }}
           >
             {toast.message}
           </Alert>

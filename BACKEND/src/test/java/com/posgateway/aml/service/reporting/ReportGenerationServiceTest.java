@@ -8,10 +8,12 @@ import com.posgateway.aml.entity.reporting.*;
 import com.posgateway.aml.repository.UserRepository;
 import com.posgateway.aml.repository.reporting.ReportDefinitionRepository;
 import com.posgateway.aml.repository.reporting.ReportExecutionRepository;
+import com.posgateway.aml.repository.reporting.ReportResultRepository;
 import com.posgateway.aml.repository.reporting.ReportRepository;
 import com.posgateway.aml.service.security.PspIsolationService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Query;
+import org.hibernate.query.NativeQuery;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,6 +40,9 @@ class ReportGenerationServiceTest {
 
     @Mock
     private ReportExecutionRepository reportExecutionRepository;
+
+    @Mock
+    private ReportResultRepository reportResultRepository;
 
     @Mock
     private UserRepository userRepository;
@@ -72,7 +77,8 @@ class ReportGenerationServiceTest {
         testDefinition.setId(1L);
         testDefinition.setReport(testReport);
         testDefinition.setVersion(1);
-        testDefinition.setSqlQuery("SELECT * FROM test_table WHERE psp_id = :pspId");
+        testDefinition.setSqlQuery("SELECT * FROM test_table WHERE psp_id = :pspId " +
+                "AND created_at BETWEEN :dateFrom AND :dateTo");
         testDefinition.setIsActive(true);
         testDefinition.setColumns(List.of(Map.of("name", "id", "type", "INTEGER")));
 
@@ -107,18 +113,23 @@ class ReportGenerationServiceTest {
             return exec;
         });
         when(reportExecutionRepository.findByExecutionId(anyString())).thenReturn(Optional.of(testExecution));
-        // Note: entityManager.createNativeQuery returns null by default, so the SQL execution
-        // path inside generateReport will throw and the catch block will save a FAILED execution.
-        // The test only asserts that a save happened, so we don't need to stub the query path.
+        Query query = mock(Query.class);
+        NativeQuery<?> nativeQuery = mock(NativeQuery.class);
+        when(entityManager.createNativeQuery(anyString())).thenReturn(query);
+        when(query.unwrap(NativeQuery.class)).thenReturn(nativeQuery);
+        when(nativeQuery.getResultList()).thenReturn(List.of());
+        when(reportExportService.exportToPDF(anyList(), eq("Test Report"))).thenReturn(new byte[]{1, 2, 3});
 
         // When
         CompletableFuture<ReportExecutionDTO> future = reportGenerationService.generateReport(
-            reportType, parameters, 1L, 1L
+            "EXEC_12345", reportType, parameters, 1L, 1L
         );
 
         // Then
         assertNotNull(future);
         verify(reportExecutionRepository, atLeastOnce()).save(any(ReportExecution.class));
+        verify(query).setParameter(eq("dateFrom"), any(LocalDateTime.class));
+        verify(query).setParameter(eq("dateTo"), any(LocalDateTime.class));
     }
 
     @Test
@@ -134,8 +145,10 @@ class ReportGenerationServiceTest {
         // Stub the dynamic-query path so executeDynamicQuery returns an empty result set
         // rather than NPEing on a null Query.
         Query query = mock(Query.class);
+        NativeQuery<?> nativeQuery = mock(NativeQuery.class);
         when(entityManager.createNativeQuery(anyString())).thenReturn(query);
-        when(query.getResultList()).thenReturn(List.of());
+        when(query.unwrap(NativeQuery.class)).thenReturn(nativeQuery);
+        when(nativeQuery.getResultList()).thenReturn(List.of());
 
         // When
         ReportPreviewDTO preview = reportGenerationService.previewReport(reportType, parameters, 1L);
@@ -144,6 +157,9 @@ class ReportGenerationServiceTest {
         assertNotNull(preview);
         assertEquals("TEST_REPORT", preview.getReportType());
         assertEquals("Test Report", preview.getReportName());
+        verify(entityManager).createNativeQuery("SELECT * FROM test_table WHERE psp_id = :pspId " +
+                "AND created_at BETWEEN :dateFrom AND :dateTo LIMIT 100");
+        verify(query).setParameter("pspId", 1L);
     }
 
     @Test
@@ -161,6 +177,21 @@ class ReportGenerationServiceTest {
         });
         assertTrue(ex.getCause() instanceof IllegalArgumentException,
                 "expected wrapped IllegalArgumentException but got: " + ex.getCause());
+    }
+
+    @Test
+    void previewReport_rejectsTenantDefinitionWithoutExplicitPspParameter() {
+        testDefinition.setSqlQuery("SELECT id FROM test_table");
+        when(reportRepository.findByReportCode("TEST_REPORT")).thenReturn(Optional.of(testReport));
+        when(reportDefinitionRepository.findByReportIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testDefinition));
+        when(pspIsolationService.sanitizePspId(1L)).thenReturn(1L);
+
+        RuntimeException error = assertThrows(RuntimeException.class,
+                () -> reportGenerationService.previewReport("TEST_REPORT", Map.of(), 1L));
+
+        Throwable cause = error;
+        while (cause.getCause() != null) cause = cause.getCause();
+        assertInstanceOf(SecurityException.class, cause);
     }
 
     @Test

@@ -26,7 +26,7 @@ public class CaseAlert {
     @Column(nullable = false)
     private String alertType; // RULE, ML_SCORE, SANCTIONS, MANUAL
 
-    private String ruleName; // e.g. "CTR_THRESHOLD_10K"
+    private String ruleName; // e.g. "CASH_STRUCTURING_24H"
     private String ruleId;
 
     private String modelVersion; // e.g. "XGBoost-v2.1"

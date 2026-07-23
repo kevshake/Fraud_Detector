@@ -7,8 +7,12 @@ import org.hibernate.envers.Audited;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "rule_definitions")
-@Data
+// Rule names are unique per owner, not globally: a system default (psp_id NULL) and each PSP's
+// editable copy of it share the same name but differ by psp_id.
+@Table(name = "rule_definitions",
+        uniqueConstraints = @UniqueConstraint(name = "uq_rule_name_psp", columnNames = {"name", "psp_id"}))
+@lombok.Getter
+@lombok.Setter
 @Audited
 public class RuleDefinition {
 
@@ -16,7 +20,7 @@ public class RuleDefinition {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
     private String name;
 
     private String description;
@@ -62,6 +66,15 @@ public class RuleDefinition {
     @Column(name = "is_system_managed", nullable = false)
     private boolean systemManaged = false;
 
+    /**
+     * When this rule is a PSP's editable copy of a system default, the id of the source default.
+     * Null for the system defaults themselves and for a PSP's own custom rules. A non-null value
+     * marks the rule as "provisioned from a default" — the PSP may edit or disable it but cannot
+     * delete it (the initial rule set is fixed for every PSP).
+     */
+    @Column(name = "derived_from_rule_id")
+    private Long derivedFromRuleId;
+
     @Column(name = "category", length = 20)
     private String category; // AML | FRAUD | SCREENING
 
@@ -88,6 +101,19 @@ public class RuleDefinition {
 
     @Column(name = "parameters", columnDefinition = "TEXT")
     private String parameters; // JSON string — editor renders dropdown form from this schema
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "lifecycle_status", nullable = false, length = 32)
+    private RuleLifecycleStatus lifecycleStatus = RuleLifecycleStatus.ACTIVE;
+
+    @Column(name = "current_version_number", nullable = false)
+    private int currentVersionNumber;
+
+    @Column(name = "current_version_id")
+    private Long currentVersionId;
+
+    @Column(name = "pending_version_id")
+    private Long pendingVersionId;
 
     @PrePersist
     protected void onCreate() {
@@ -258,4 +284,12 @@ public class RuleDefinition {
 
     public String getParameters() { return parameters; }
     public void setParameters(String parameters) { this.parameters = parameters; }
+    public RuleLifecycleStatus getLifecycleStatus() { return lifecycleStatus; }
+    public void setLifecycleStatus(RuleLifecycleStatus lifecycleStatus) { this.lifecycleStatus = lifecycleStatus; }
+    public int getCurrentVersionNumber() { return currentVersionNumber; }
+    public void setCurrentVersionNumber(int currentVersionNumber) { this.currentVersionNumber = currentVersionNumber; }
+    public Long getCurrentVersionId() { return currentVersionId; }
+    public void setCurrentVersionId(Long currentVersionId) { this.currentVersionId = currentVersionId; }
+    public Long getPendingVersionId() { return pendingVersionId; }
+    public void setPendingVersionId(Long pendingVersionId) { this.pendingVersionId = pendingVersionId; }
 }

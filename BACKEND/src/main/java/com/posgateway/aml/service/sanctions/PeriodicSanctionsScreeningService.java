@@ -76,6 +76,10 @@ public class PeriodicSanctionsScreeningService {
         ScreeningResult merchantResult = screeningService.screenMerchant(merchant.getLegalName(),
                 merchant.getTradingName());
 
+        if (merchantResult.getStatus() == ScreeningResult.ScreeningStatus.UNAVAILABLE) {
+            throw new IllegalStateException("Sanctions screening unavailable for merchant " + merchant.getMerchantId());
+        }
+
         if (merchantResult.hasMatches()) {
             logger.warn("SANCTIONS HIT: Merchant {} matched {}", merchant.getLegalName(),
                     merchantResult.getHighestMatchScore());
@@ -93,6 +97,10 @@ public class PeriodicSanctionsScreeningService {
         // 2. Screen Beneficial Owners
         for (BeneficialOwner ubo : merchant.getBeneficialOwners()) {
             ScreeningResult uboResult = screeningService.screenBeneficialOwner(ubo.getFullName(), ubo.getDateOfBirth());
+
+            if (uboResult.getStatus() == ScreeningResult.ScreeningStatus.UNAVAILABLE) {
+                throw new IllegalStateException("Sanctions screening unavailable for beneficial owner " + ubo.getOwnerId());
+            }
 
             if (uboResult.hasMatches()) {
                 logger.warn("SANCTIONS HIT: UBO {} matched {}", ubo.getFullName(), uboResult.getHighestMatchScore());

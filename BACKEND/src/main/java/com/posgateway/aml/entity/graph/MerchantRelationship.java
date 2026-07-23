@@ -43,7 +43,8 @@ public class MerchantRelationship {
         this.totalAmount = totalAmount;
         this.txnCount = txnCount;
         this.avgAmount = txnCount > 0 ? totalAmount / txnCount : 0.0;
-        this.lastTxnAt = LocalDateTime.now();
+        this.firstTxnAt = LocalDateTime.now();
+        this.lastTxnAt = this.firstTxnAt;
     }
 
     // Getters and Setters

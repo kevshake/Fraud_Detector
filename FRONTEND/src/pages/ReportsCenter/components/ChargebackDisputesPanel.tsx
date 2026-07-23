@@ -11,20 +11,16 @@ import {
   CircularProgress,
 } from "@mui/material";
 import { useChargebackDisputes } from "../../../features/api/queries";
+import { Link } from "react-router-dom";
 
 export default function ChargebackDisputesPanel() {
   const { data: disputes = [], isLoading } = useChargebackDisputes();
 
   return (
-    <Paper sx={{ p: 2, mt: 3, borderRadius: "12px" }}>
+    <Paper sx={{ p: 2, mt: 3, borderRadius: "var(--radius)" }}>
       <Typography variant="h6" gutterBottom>
         Verifi RDR / Chargeback Disputes
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Live disputes ingested from Visa/Verifi RDR webhooks. Configure webhooks at{" "}
-        <code>POST /api/v1/integrations/verifi/rdr</code>.
-      </Typography>
-
       {isLoading ? (
         <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
           <CircularProgress size={28} />
@@ -48,7 +44,7 @@ export default function ChargebackDisputesPanel() {
           <TableBody>
             {disputes.slice(0, 20).map((d: any) => (
               <TableRow key={d.id}>
-                <TableCell>{d.caseDate || d.createdAt?.slice?.(0, 10) || "—"}</TableCell>
+                <TableCell><Link to={`/records/CHARGEBACK_DISPUTE/${d.id}`}>{d.caseDate || d.createdAt?.slice?.(0, 10) || "-"}</Link></TableCell>
                 <TableCell>{d.notificationType}</TableCell>
                 <TableCell>
                   {d.rdrStatus ? (

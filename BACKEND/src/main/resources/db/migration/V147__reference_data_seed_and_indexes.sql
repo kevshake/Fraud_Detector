@@ -32,19 +32,19 @@ WHERE NOT EXISTS (
 -- 2. Seed country_risk_scores (if table is empty)
 INSERT INTO country_risk_scores (country_code, country_name, risk_score, risk_tier, fatf_listed, fatf_status, source)
 SELECT * FROM (VALUES
-    ('PRK', 'North Korea', 100, 'VERY_HIGH', TRUE, 'BLACKLIST', 'FATF'),
-    ('IRN', 'Iran', 100, 'VERY_HIGH', TRUE, 'BLACKLIST', 'FATF'),
-    ('MMR', 'Myanmar', 95, 'VERY_HIGH', TRUE, 'BLACKLIST', 'FATF'),
-    ('SYR', 'Syria', 95, 'VERY_HIGH', TRUE, 'BLACKLIST', 'FATF'),
-    ('YEM', 'Yemen', 85, 'HIGH', TRUE, 'BLACKLIST', 'FATF'),
-    ('SDN', 'Sudan', 85, 'HIGH', TRUE, 'BLACKLIST', 'FATF'),
-    ('LBY', 'Libya', 80, 'HIGH', TRUE, 'GREYLIST', 'FATF'),
-    ('SOM', 'Somalia', 80, 'HIGH', TRUE, 'GREYLIST', 'FATF'),
-    ('CAF', 'Central African Republic', 75, 'HIGH', TRUE, 'GREYLIST', 'FATF'),
-    ('SSD', 'South Sudan', 75, 'HIGH', TRUE, 'GREYLIST', 'FATF'),
-    ('AFG', 'Afghanistan', 70, 'HIGH', TRUE, 'GREYLIST', 'FATF'),
-    ('IRQ', 'Iraq', 65, 'MEDIUM', TRUE, 'GREYLIST', 'FATF'),
-    ('KEN', 'Kenya', 30, 'LOW', FALSE, NULL, 'MANUAL')
+    ('KP', 'North Korea', 100, 'VERY_HIGH', TRUE, 'BLACKLIST', 'FATF'),
+    ('IR', 'Iran', 100, 'VERY_HIGH', TRUE, 'BLACKLIST', 'FATF'),
+    ('MM', 'Myanmar', 95, 'VERY_HIGH', TRUE, 'BLACKLIST', 'FATF'),
+    ('SY', 'Syria', 95, 'VERY_HIGH', TRUE, 'GREYLIST', 'FATF'),
+    ('YE', 'Yemen', 85, 'HIGH', TRUE, 'GREYLIST', 'FATF'),
+    ('SD', 'Sudan', 85, 'HIGH', FALSE, NULL, 'MANUAL'),
+    ('LY', 'Libya', 80, 'HIGH', FALSE, NULL, 'MANUAL'),
+    ('SO', 'Somalia', 80, 'HIGH', FALSE, NULL, 'MANUAL'),
+    ('CF', 'Central African Republic', 75, 'HIGH', FALSE, NULL, 'MANUAL'),
+    ('SS', 'South Sudan', 75, 'HIGH', TRUE, 'GREYLIST', 'FATF'),
+    ('AF', 'Afghanistan', 70, 'HIGH', FALSE, NULL, 'MANUAL'),
+    ('IQ', 'Iraq', 65, 'MEDIUM', FALSE, NULL, 'MANUAL'),
+    ('KE', 'Kenya', 68, 'HIGH', TRUE, 'GREYLIST', 'FATF')
 ) AS src(cc, cn, rs, rt, fl, fs, so)
 WHERE NOT EXISTS (
     SELECT 1 FROM country_risk_scores c WHERE c.country_code = src.cc

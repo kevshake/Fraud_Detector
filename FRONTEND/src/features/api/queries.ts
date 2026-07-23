@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "../../lib/apiClient";
 import type {
   Case,
+  CaseTimeline,
   SarReport,
   Alert,
   Transaction,
@@ -14,6 +15,11 @@ import type {
 } from "../../types";
 import type { User as UserManagementUser, Role as UserManagementRole } from "../../types/userManagement";
 import type { RevenueSummary, Invoice, Subscription, UsageSummary, PricingTier } from "../../types/billing";
+import type { Customer360, MultiAssetCustomer, PageResult } from "../../types/multiAsset";
+import type { RuleVersion } from "../../types/rules";
+import type { MarketOrder, MarketSurveillanceSignal } from "../../types/marketSurveillance";
+import type { MobileMoneyContext, MobileMoneyEntityType, MobileMoneyNetwork, MobileMoneyRiskProfile } from "../../types/mobileMoney";
+import type { CryptoTransactionSummary, CryptoWalletProfile, RegulatorGrant, TravelRulePolicy, TravelRuleTransfer, VaspEntry, VaspScreeningRecord, WalletScreeningRecord } from "../../types/virtualAssets";
 
 // Dashboard
 export const useDashboardStats = () => {
@@ -96,9 +102,9 @@ export const useCase = (id: number) => {
 };
 
 export const useCaseTimeline = (caseId: number) => {
-  return useQuery({
+  return useQuery<CaseTimeline>({
     queryKey: ["case", caseId, "timeline"],
-    queryFn: () => apiClient.get(`cases/${caseId}/timeline`),
+    queryFn: () => apiClient.get<CaseTimeline>(`cases/${caseId}/timeline`),
     enabled: !!caseId,
   });
 };
@@ -871,3 +877,114 @@ export const useTransactionStats = () => {
     queryFn: () => apiClient.get<TransactionStats>("monitoring/dashboard/stats"),
   });
 };
+
+export const useMyPsp = (enabled = true) => {
+  return useQuery<Psp>({
+    queryKey: ["psp", "me"],
+    queryFn: () => apiClient.get<Psp>("psps/me"),
+    enabled,
+  });
+};
+
+export const usePendingRuleVersions = () => {
+  return useQuery<RuleVersion[]>({
+    queryKey: ["rules", "governance", "pending"],
+    queryFn: () => apiClient.get<RuleVersion[]>("rules/governance/pending"),
+    refetchInterval: 30_000,
+  });
+};
+
+export const useRuleVersions = (id: number) => {
+  return useQuery<RuleVersion[]>({
+    queryKey: ["rule", id, "versions"],
+    queryFn: () => apiClient.get<RuleVersion[]>(`rules/${id}/versions`),
+    enabled: id > 0,
+  });
+};
+
+// Multi-asset customer intelligence
+export const useMultiAssetCustomers = (search = "", page = 0, size = 25) => {
+  const query = new URLSearchParams({ page: String(page), size: String(size) });
+  if (search.trim()) query.set("search", search.trim());
+  return useQuery<PageResult<MultiAssetCustomer>>({
+    queryKey: ["multi-asset", "customers", search, page, size],
+    queryFn: () => apiClient.get<PageResult<MultiAssetCustomer>>(`multi-asset/customers?${query}`),
+  });
+};
+
+export const useCustomer360 = (customerId: number | null) =>
+  useQuery<Customer360>({
+    queryKey: ["multi-asset", "customers", customerId, "360"],
+    queryFn: () => apiClient.get<Customer360>(`multi-asset/customers/${customerId}/360`),
+    enabled: customerId !== null,
+  });
+
+export const useMarketOrders = (page = 0, size = 50) => {
+  return useQuery<PageResult<MarketOrder>>({
+    queryKey: ["market-surveillance", "orders", page, size],
+    queryFn: () => apiClient.get<PageResult<MarketOrder>>(`market-surveillance/orders?page=${page}&size=${size}`),
+    refetchInterval: 15_000,
+  });
+};
+
+export const useMarketSignals = (page = 0, size = 50) => {
+  return useQuery<PageResult<MarketSurveillanceSignal>>({
+    queryKey: ["market-surveillance", "signals", page, size],
+    queryFn: () => apiClient.get<PageResult<MarketSurveillanceSignal>>(`market-surveillance/signals?page=${page}&size=${size}`),
+    refetchInterval: 15_000,
+  });
+};
+
+export const useMobileMoneyTransactions = (page = 0, size = 50) =>
+  useQuery<PageResult<MobileMoneyContext>>({
+    queryKey: ["mobile-money", "transactions", page, size],
+    queryFn: () => apiClient.get<PageResult<MobileMoneyContext>>(`mobile-money/transactions?page=${page}&size=${size}`),
+    refetchInterval: 15_000,
+  });
+
+export const useMobileMoneyRiskProfiles = (page = 0, size = 50) =>
+  useQuery<PageResult<MobileMoneyRiskProfile>>({
+    queryKey: ["mobile-money", "risk-profiles", page, size],
+    queryFn: () => apiClient.get<PageResult<MobileMoneyRiskProfile>>(`mobile-money/risk-profiles?page=${page}&size=${size}`),
+    refetchInterval: 15_000,
+  });
+
+export const useMobileMoneyNetwork = (entityType: MobileMoneyEntityType | null, entityReference: string | null) =>
+  useQuery<MobileMoneyNetwork>({
+    queryKey: ["mobile-money", "network", entityType, entityReference],
+    queryFn: () => apiClient.get<MobileMoneyNetwork>(
+      `mobile-money/network?entityType=${entityType}&entityReference=${encodeURIComponent(entityReference || "")}`),
+    enabled: entityType !== null && entityReference !== null,
+  });
+
+export const useVaspDirectory = (search = "", page = 0, size = 50) => {
+  const params = new URLSearchParams({ page: String(page), size: String(size) });
+  if (search.trim()) params.set("search", search.trim());
+  return useQuery<PageResult<VaspEntry>>({ queryKey: ["virtual-assets", "vasps", search, page, size],
+    queryFn: () => apiClient.get<PageResult<VaspEntry>>(`virtual-assets/vasps?${params}`) });
+};
+export const useVaspScreeningHistory = (vaspId?: number, page = 0, size = 50) => {
+  const params = new URLSearchParams({ page: String(page), size: String(size) });
+  if (vaspId) params.set("vaspId", String(vaspId));
+  return useQuery<PageResult<VaspScreeningRecord>>({ queryKey: ["virtual-assets", "vasp-screenings", vaspId, page, size],
+    queryFn: () => apiClient.get<PageResult<VaspScreeningRecord>>(`virtual-assets/vasp-screenings?${params}`) });
+};
+export const useCryptoWalletProfiles = (page = 0, size = 50) =>
+  useQuery<PageResult<CryptoWalletProfile>>({ queryKey: ["virtual-assets", "wallets", page, size],
+    queryFn: () => apiClient.get<PageResult<CryptoWalletProfile>>(`virtual-assets/wallets?page=${page}&size=${size}`), refetchInterval: 30_000 });
+export const useWalletScreeningHistory = (walletId?: number, page = 0, size = 50) => {
+  const params = new URLSearchParams({ page: String(page), size: String(size) });
+  if (walletId) params.set("walletId", String(walletId));
+  return useQuery<PageResult<WalletScreeningRecord>>({ queryKey: ["virtual-assets", "screenings", walletId, page, size],
+    queryFn: () => apiClient.get<PageResult<WalletScreeningRecord>>(`virtual-assets/wallet-screenings?${params}`) });
+};
+export const useCryptoTransactions = (page = 0, size = 100) =>
+  useQuery<PageResult<CryptoTransactionSummary>>({ queryKey: ["virtual-assets", "transactions", page, size],
+    queryFn: () => apiClient.get<PageResult<CryptoTransactionSummary>>(`virtual-assets/transactions?page=${page}&size=${size}`) });
+export const useTravelRulePolicies = () => useQuery<TravelRulePolicy[]>({ queryKey: ["virtual-assets", "travel-rule", "policies"],
+  queryFn: () => apiClient.get<TravelRulePolicy[]>("virtual-assets/travel-rule/policies") });
+export const useTravelRuleTransfers = (page = 0, size = 50) => useQuery<PageResult<TravelRuleTransfer>>({
+  queryKey: ["virtual-assets", "travel-rule", "transfers", page, size],
+  queryFn: () => apiClient.get<PageResult<TravelRuleTransfer>>(`virtual-assets/travel-rule/transfers?page=${page}&size=${size}`), refetchInterval: 30_000 });
+export const useRegulatorGrants = () => useQuery<RegulatorGrant[]>({ queryKey: ["virtual-assets", "regulator-grants"],
+  queryFn: () => apiClient.get<RegulatorGrant[]>("virtual-assets/regulator-grants") });

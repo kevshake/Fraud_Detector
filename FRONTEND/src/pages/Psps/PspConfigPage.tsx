@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { usePsp } from "../../features/api/queries";
+import { useMyPsp, usePsp } from "../../features/api/queries";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { apiClient } from "../../lib/apiClient";
@@ -14,12 +14,14 @@ import ProductsTab from "./tabs/ProductsTab";
 import TrustAccountsTab from "./tabs/TrustAccountsTab";
 import TariffsTab from "./tabs/TariffsTab";
 import BillingTab from "./tabs/BillingTab";
+import BrandingTab from "./tabs/BrandingTab";
+import KycTab from "./tabs/KycTab";
 import HokekaPageShell from "../../components/Layout/HokekaPageShell";
 import { useQueryClient } from "@tanstack/react-query";
 
 const TAB_LABELS = [
   "Company", "CBK Reporting", "Directors", "Shareholders", "Trustees",
-  "Senior Management", "Products", "Trust Accounts", "Tariffs", "Billing",
+  "Senior Management", "Products", "Trust Accounts", "Tariffs", "Branding", "Billing", "KYC",
 ];
 
 const LIST_QUERIES: Record<string, string> = {
@@ -34,38 +36,47 @@ export default function PspConfigPage() {
   const [tab, setTab] = useState(0);
   const queryClient = useQueryClient();
 
+  const selfService = !pspId;
   const numericId = Number(pspId ?? 0);
-  const { data: psp, isLoading, isError } = usePsp(numericId);
+  const directPsp = usePsp(numericId);
+  const myPsp = useMyPsp(selfService);
+  const psp = selfService ? myPsp.data : directPsp.data;
+  const isLoading = selfService ? myPsp.isLoading : directPsp.isLoading;
+  const isError = selfService ? myPsp.isError : directPsp.isError;
+  const effectivePspId = pspId ?? String((psp as any)?.id ?? "");
 
   const listKeys = Object.keys(LIST_QUERIES);
   const listIndex = tab >= 2 ? tab - 2 : -1;
   const listKey = listIndex >= 0 && listIndex < listKeys.length ? listKeys[listIndex] : null;
 
   const { data: listData, refetch: refetchList } = useQuery({
-    queryKey: ["psp", pspId, "list", listKey],
+    queryKey: ["psp", effectivePspId, "list", listKey],
     queryFn: async () => {
-      if (!listKey || !pspId) return [];
-      return apiClient.get<any[]>(`psps/${pspId}/${LIST_QUERIES[listKey]}`);
+      if (!listKey || !effectivePspId) return [];
+      // CBK sub-resource lists live under /psps/{pspId}/cbk/{entity} (see PspListCrud + the
+      // Psp*Controllers under controller/psp/cbk). Reads must match that path or every tab 404s.
+      return apiClient.get<any[]>(`psps/${effectivePspId}/cbk/${LIST_QUERIES[listKey]}`);
     },
-    enabled: listKey !== null && pspId !== undefined,
+    enabled: listKey !== null && !!effectivePspId,
   });
 
   const onRefresh = () => {
-    queryClient.invalidateQueries({ queryKey: ["psp", pspId, "list"] });
+    queryClient.invalidateQueries({ queryKey: ["psp", effectivePspId, "list"] });
     if (refetchList) refetchList();
   };
 
-  if (!pspId) return <div className="rounded-lg border border-red-700/30 bg-red-900/30 px-4 py-3 text-sm text-red-200">Invalid PSP ID.</div>;
+  if (!selfService && !pspId) return <div className="rounded-lg border border-red-700/30 bg-red-900/30 px-4 py-3 text-sm text-red-200">Invalid PSP ID.</div>;
+  if (!isLoading && !effectivePspId) return <div className="rounded-lg border border-red-700/30 bg-red-900/30 px-4 py-3 text-sm text-red-200">Your account is not linked to an organization.</div>;
 
-  const pspName = (psp as any)?.legalName ?? (psp as any)?.tradingName ?? (psp as any)?.name ?? `PSP ${pspId}`;
+  const pspName = (psp as any)?.legalName ?? (psp as any)?.tradingName ?? (psp as any)?.name ?? "Organization";
 
   return (
     <HokekaPageShell title={pspName} subtitle="PSP configuration and compliance settings" noCard>
       <div className="mb-4 flex items-center gap-2">
-        <button onClick={() => navigate("/psps")} className="flex items-center gap-1 rounded p-1 text-xs text-burgundy-400 transition-colors hover:bg-white/10">
-          <ArrowLeft size={16} /> Back
+        <button onClick={() => navigate(selfService ? "/dashboard" : "/psps")} className="flex items-center gap-1 rounded p-1 text-xs text-burgundy-400 transition-colors hover:bg-white/10">
+          <ArrowLeft size={16} /> {selfService ? "Dashboard" : "Back"}
         </button>
-        <h3 className="text-base font-semibold text-white">{isLoading ? "Loading…" : `Configure ${pspName}`}</h3>
+        <h3 className="text-base font-semibold text-white">{isLoading ? "Loading..." : selfService ? "My Organization" : `Configure ${pspName}`}</h3>
       </div>
 
       {isError && <div className="mb-3 rounded-lg border border-amber-700/30 bg-amber-900/30 px-4 py-3 text-sm text-amber-200">Could not load PSP details. You can still manage entities below.</div>}
@@ -87,11 +98,11 @@ export default function PspConfigPage() {
           </div>
 
           <div className="mt-2">
-            {tab === 0 && <CompanyTab pspId={pspId} psp={psp} />}
-            {tab === 1 && <CbkReportingTab pspId={pspId} psp={psp} />}
+            {tab === 0 && <CompanyTab pspId={effectivePspId} psp={psp} />}
+            {tab === 1 && <CbkReportingTab pspId={effectivePspId} psp={psp} />}
             {tab >= 2 && listKey && (() => {
               const items = listData || [];
-              const props = { pspId, items, onRefresh };
+              const props = { pspId: effectivePspId, items, onRefresh };
               switch (listKey) {
                 case "directors": return <DirectorsTab {...props} directors={items} />;
                 case "shareholders": return <ShareholdersTab {...props} shareholders={items} />;
@@ -100,10 +111,12 @@ export default function PspConfigPage() {
                 case "products": return <ProductsTab {...props} products={items} />;
                 case "trust-accounts": return <TrustAccountsTab {...props} trustAccounts={items} />;
                 case "tariffs": return <TariffsTab {...props} tariffs={items} />;
-                default: return <p className="text-sm text-glass-muted">Tab not implemented.</p>;
+                default: return null;
               }
             })()}
-            {tab === 9 && <BillingTab pspId={pspId} />}
+            {tab === 9 && <BrandingTab pspId={effectivePspId} />}
+            {tab === 10 && <BillingTab pspId={effectivePspId} />}
+            {tab === 11 && <KycTab pspId={effectivePspId} psp={psp} />}
           </div>
         </>
       )}

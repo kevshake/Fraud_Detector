@@ -12,6 +12,12 @@ interface PspListCrudProps {
   extraFields?: { key: string; label: string; placeholder?: string; type?: string }[];
 }
 
+// Backend CBK sub-resource controllers are all mapped under
+// `/psps/{pspId}/cbk/{entity}` (e.g. PspDirectorController = /psps/{pspId}/cbk/directors),
+// with POST on the collection and DELETE on `/{id}`. `apiPath` is the bare entity
+// segment (e.g. "directors", "trust-accounts").
+const cbkBase = (apiPath: string, pspId: string) => `/api/v1/psps/${pspId}/cbk/${apiPath}`;
+
 export default function PspListCrud({ title, items, pspId, apiPath, onRefresh, extraFields }: PspListCrudProps) {
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState<Record<string, string>>({ name: "" });
@@ -19,17 +25,18 @@ export default function PspListCrud({ title, items, pspId, apiPath, onRefresh, e
   const [deleting, setDeleting] = useState<number | null>(null);
   const [toast, setToast] = useState<{ open: boolean; severity: "success" | "error"; message: string }>({ open: false, severity: "success", message: "" });
 
-  const ic = "w-full rounded-lg border border-white/10 bg-[#1a2744] px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-burgundy-700";
+  const ic = "w-full rounded-lg border border-white/10 bg-[var(--surface-3)] px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-burgundy-700";
 
   const handleAdd = async () => {
     if (!form.name?.trim()) return;
     setSaving(true);
     try {
-      await fetch(`/api/v1/${apiPath}/${pspId}`, {
+      const res = await fetch(cbkBase(apiPath, pspId), {
         method: "POST", credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       onRefresh();
       setForm({ name: "" });
       setAdding(false);
@@ -44,7 +51,8 @@ export default function PspListCrud({ title, items, pspId, apiPath, onRefresh, e
   const handleDelete = async (id: number) => {
     setDeleting(id);
     try {
-      await fetch(`/api/v1/${apiPath}/${pspId}/${id}`, { method: "DELETE", credentials: "include" });
+      const res = await fetch(`${cbkBase(apiPath, pspId)}/${id}`, { method: "DELETE", credentials: "include" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       onRefresh();
       setToast({ open: true, severity: "success", message: "Removed." });
     } catch {
@@ -66,7 +74,7 @@ export default function PspListCrud({ title, items, pspId, apiPath, onRefresh, e
       </div>
 
       {adding && (
-        <div className="mb-3 space-y-2 rounded-lg border border-white/10 bg-[#0f1a2e] p-3">
+        <div className="mb-3 space-y-2 rounded-lg border border-white/10 bg-[var(--surface-2)] p-3">
           <div className="flex flex-wrap gap-2">
             {allFields.map((f) => (
               <div key={f.key} className="flex-1 min-w-[120px]">

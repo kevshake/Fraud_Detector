@@ -1,9 +1,10 @@
 import * as Tabs from '@radix-ui/react-tabs'
+import { Search } from 'lucide-react'
 import { useState } from 'react'
-import GlassButton from '../Common/GlassButton'
-import GlassCard from '../Common/GlassCard'
-import GlassInput from '../Common/GlassInput'
-import RiskBadge from '../Common/RiskBadge'
+import { Link } from 'react-router-dom'
+import DashboardPanel from '../dashboard/DashboardPanel'
+import DashboardRiskBadge from '../dashboard/DashboardRiskBadge'
+import { DashboardEmpty, DashboardLoading } from '../dashboard/DashboardState'
 import { useCase, useCases } from '../../features/api/queries'
 import { useLiveAlerts } from '../../hooks/useDashboard'
 import { cn } from '../../lib/utils'
@@ -95,9 +96,10 @@ const CLOSED_STATUSES = new Set([
   'CLOSED_REJECTED',
 ])
 
+/** Right rail: filterable alert stream + featured open case. */
 export default function InsightsPanel() {
   const { data, isLoading } = useLiveAlerts(12)
-  const { data: casesPage, isLoading: caseLoading } = useCases({ page: 0, size: 10 })
+  const { data: casesPage, isLoading: caseLoading, error: caseError } = useCases({ page: 0, size: 10 })
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>('All')
   const [search, setSearch] = useState('')
 
@@ -126,148 +128,185 @@ export default function InsightsPanel() {
   })
 
   return (
-    <aside className="sticky top-0 hidden h-[calc(100vh-7rem)] w-[300px] min-w-[300px] flex-shrink-0 flex-col gap-4 xl:flex">
-      <GlassCard className="flex min-h-0 flex-1 flex-col overflow-hidden" padding="md">
-        <h3 className="mb-3 text-sm font-semibold text-white">Alerts</h3>
+    <aside className="flex w-full flex-shrink-0 flex-col gap-4 xl:sticky xl:top-0 xl:w-[300px] xl:min-w-[300px]">
+      <DashboardPanel aria-labelledby="db-insights-alerts" padding="md" className="min-h-0 flex-1">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h3 id="db-insights-alerts" className="db-title">
+            Alert inbox
+          </h3>
+          <Link to="/alerts" className="db-link text-[11px]">
+            Open alerts
+          </Link>
+        </div>
 
-        <div className="mb-3 flex flex-wrap gap-1.5">
+        <div className="mb-3 flex flex-wrap gap-1.5" role="tablist" aria-label="Alert status filter">
           {FILTERS.map((f) => (
             <button
               key={f}
               type="button"
+              role="tab"
+              aria-selected={filter === f}
               onClick={() => setFilter(f)}
-              className={cn(
-                'rounded-lg px-2.5 py-1 text-[11px] font-medium transition-colors',
-                filter === f
-                  ? 'hokeka-nav-active text-white'
-                  : 'border border-glass-border bg-burgundy-950/60 text-white/55 hover:border-glass-border-hover hover:bg-burgundy-850/60 hover:text-white/90',
-              )}
+              className={cn('db-chip', filter === f && 'db-chip--active')}
             >
               {f}
             </button>
           ))}
         </div>
 
-        <GlassInput
-          placeholder="Search alerts..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          showSearchIcon
-          className="mb-3"
-        />
+        <div className="relative mb-3">
+          <Search
+            size={14}
+            className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--db-text-muted)]"
+            aria-hidden
+          />
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search alerts…"
+            className="db-input"
+            aria-label="Search alerts"
+          />
+        </div>
 
-        <div className="flex-1 space-y-2 overflow-y-auto pr-1">
-          {isLoading ? (
-            Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-14 animate-pulse rounded-xl bg-glass-skeleton" />
-            ))
+        <div className="max-h-[320px] flex-1 space-y-2 overflow-y-auto pr-0.5 xl:max-h-[calc(100vh-28rem)]">
+          {isLoading && !data ? (
+            <DashboardLoading rows={4} />
           ) : alerts.length === 0 ? (
-            <p className="py-8 text-center text-xs text-glass-muted">No alerts</p>
+            <DashboardEmpty message="No alerts match this filter." />
           ) : (
             alerts.map((a) => (
-              <div
+              <article
                 key={a.id}
-                className="rounded-xl border border-glass-border bg-glass-surface p-3 transition-colors hover:border-glass-border-hover hover:bg-burgundy-850/55"
+                className="rounded-[var(--db-radius-sm)] border border-[var(--db-border)] bg-[var(--db-surface)] p-3 transition-colors hover:bg-[var(--db-surface-muted)]"
               >
                 <div className="flex items-start justify-between gap-2">
-                  <p className="truncate text-xs font-medium text-white">{a.alertType}</p>
-                  <RiskBadge level={a.priority} />
+                  <p className="truncate text-xs font-medium text-[var(--db-text)]">{a.alertType}</p>
+                  <DashboardRiskBadge level={a.priority} />
                 </div>
-                <p className="mt-1 truncate text-[11px] text-glass-muted">
+                <p className="mt-1 truncate text-[11px] text-[var(--db-text-muted)]">
                   {a.description || `#${a.id}`}
                 </p>
-                <p className="mt-1.5 text-[10px] text-glass-subtle">{timeAgo(a.createdAt)}</p>
-              </div>
+                <p className="mt-1.5 text-[10px] text-[var(--db-text-muted)]">{timeAgo(a.createdAt)}</p>
+              </article>
             ))
           )}
         </div>
-      </GlassCard>
+      </DashboardPanel>
 
-      <GlassCard className="flex-shrink-0" padding="md" static>
-        <h3 className="mb-3 text-sm font-semibold text-white">Case Details</h3>
-        {caseLoading ? (
-          <div className="h-40 animate-pulse rounded-xl bg-glass-skeleton" />
+      <DashboardPanel aria-labelledby="db-insights-case" padding="md" flat>
+        <h3 id="db-insights-case" className="db-title mb-3">
+          Featured case
+        </h3>
+        {caseLoading && !casesPage ? (
+          <DashboardLoading rows={5} />
+        ) : caseError ? (
+          <p className="db-error text-left" role="alert">
+            Cases could not be loaded.
+          </p>
         ) : !featuredCase ? (
-          <p className="py-8 text-center text-xs text-glass-muted">No active cases</p>
+          <DashboardEmpty message="No active cases to feature." />
         ) : (
           <>
-            <p className="text-xs font-medium text-gold">#{caseRef}</p>
-            <div className="mt-1 flex items-center gap-2">
-              <p className="text-sm font-semibold text-white">{caseName}</p>
-              <span className="rounded-md bg-warning/20 px-2 py-0.5 text-[10px] font-semibold text-warning">
-                {statusLabel(caseStatus)}
-              </span>
+            <p className="text-xs font-medium text-[var(--db-accent)]">#{caseRef}</p>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <p className="text-sm font-semibold text-[var(--db-text)]">{caseName}</p>
+              <span className="db-chip db-chip--warning">{statusLabel(caseStatus)}</span>
             </div>
 
             <div className="mt-3 grid grid-cols-2 gap-2 text-[11px]">
               <div>
-                <p className="text-glass-subtle">Risk</p>
-                {caseRisk ? <RiskBadge level={caseRisk} className="mt-1" /> : <p className="mt-1 text-white/50">—</p>}
+                <p className="text-[var(--db-text-muted)]">Risk</p>
+                {caseRisk ? (
+                  <div className="mt-1">
+                    <DashboardRiskBadge level={caseRisk} />
+                  </div>
+                ) : (
+                  <p className="mt-1 text-[var(--db-text-muted)]">—</p>
+                )}
               </div>
               <div>
-                <p className="text-glass-subtle">Alerts</p>
-                <p className="mt-1 font-semibold text-white">
+                <p className="text-[var(--db-text-muted)]">Linked alerts</p>
+                <p className="mt-1 font-semibold tabular-nums text-[var(--db-text)]">
                   {caseAlertCount !== undefined ? caseAlertCount : '—'}
                 </p>
               </div>
               <div className="col-span-2">
-                <p className="text-glass-subtle">Owner</p>
-                <p className="mt-0.5 font-medium text-white">{caseOwner}</p>
+                <p className="text-[var(--db-text-muted)]">Owner</p>
+                <p className="mt-0.5 font-medium text-[var(--db-text)]">{caseOwner}</p>
               </div>
             </div>
 
             <Tabs.Root defaultValue="summary" className="mt-4">
-              <Tabs.List className="mb-3 flex gap-3 overflow-x-auto border-b border-glass-border pb-2">
+              <Tabs.List className="db-tabs mb-3" aria-label="Case detail tabs">
                 {['Summary', 'Alerts', 'Timeline', 'Notes'].map((tab) => (
-                  <Tabs.Trigger
-                    key={tab}
-                    value={tab.toLowerCase()}
-                    className="whitespace-nowrap text-[10px] font-medium text-glass-muted outline-none transition-colors data-[state=active]:text-gold"
-                  >
+                  <Tabs.Trigger key={tab} value={tab.toLowerCase()} className="db-tab">
                     {tab}
                   </Tabs.Trigger>
                 ))}
               </Tabs.List>
               <Tabs.Content value="summary" className="outline-none">
-                <div className="flex items-center justify-between gap-1">
+                <ol className="flex items-center justify-between gap-1">
                   {CASE_STEPS.map((step, i) => (
-                    <div key={step} className="flex flex-1 flex-col items-center">
-                      <div
+                    <li key={step} className="flex flex-1 flex-col items-center">
+                      <span
                         className={cn(
                           'flex h-6 w-6 items-center justify-center rounded-full text-[9px] font-bold',
                           i <= activeStep
-                            ? 'hokeka-nav-active text-white'
-                            : 'bg-burgundy-950/80 text-white/35',
+                            ? 'bg-[var(--db-accent)] text-white'
+                            : 'bg-[#eceef2] text-[var(--db-text-muted)]',
                         )}
+                        aria-current={i === activeStep ? 'step' : undefined}
                       >
                         {i + 1}
-                      </div>
-                      <span className="mt-1 text-center text-[8px] leading-tight text-glass-muted">
+                      </span>
+                      <span className="mt-1 text-center text-[8px] leading-tight text-[var(--db-text-muted)]">
                         {step}
                       </span>
-                    </div>
+                    </li>
                   ))}
-                </div>
+                </ol>
+              </Tabs.Content>
+              <Tabs.Content value="alerts" className="outline-none">
+                <p className="text-xs text-[var(--db-text-muted)]">
+                  {caseAlertCount != null
+                    ? `${caseAlertCount} alert(s) linked to this case.`
+                    : 'Open the case to review linked alerts.'}
+                </p>
+              </Tabs.Content>
+              <Tabs.Content value="timeline" className="outline-none">
+                <p className="text-xs text-[var(--db-text-muted)]">
+                  Full timeline is available on the case record.
+                </p>
+              </Tabs.Content>
+              <Tabs.Content value="notes" className="outline-none">
+                <p className="text-xs text-[var(--db-text-muted)]">
+                  Add investigator notes from the case workspace.
+                </p>
               </Tabs.Content>
             </Tabs.Root>
 
             <div className="mt-4 flex flex-wrap gap-2">
-              <GlassButton size="sm" variant="default">
-                Add Note
-              </GlassButton>
-              <GlassButton size="sm" variant="default">
-                Request Info
-              </GlassButton>
-              <GlassButton size="sm" variant="default">
-                Escalate Case
-              </GlassButton>
-              <GlassButton size="sm" variant="primary">
-                Close Case
-              </GlassButton>
+              <Link to={`/cases/all?caseId=${featuredCase.id}&action=note`} className="db-btn">
+                Add note
+              </Link>
+              <Link to={`/cases/all?caseId=${featuredCase.id}&action=request-info`} className="db-btn">
+                Request info
+              </Link>
+              <Link to={`/cases/all?caseId=${featuredCase.id}&action=escalate`} className="db-btn">
+                Escalate
+              </Link>
+              <Link
+                to={`/cases/all?caseId=${featuredCase.id}&action=close`}
+                className="db-btn db-btn--primary"
+              >
+                Close case
+              </Link>
             </div>
           </>
         )}
-      </GlassCard>
+      </DashboardPanel>
     </aside>
   )
 }

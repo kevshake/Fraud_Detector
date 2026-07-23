@@ -29,6 +29,8 @@ export interface ReportCategory {
 
 export interface ReportDefinition {
   id: string;
+  /** Numeric reports.id used by scheduling endpoints. */
+  databaseId?: number;
   /** DB report_code (e.g. "SAR_001"). Equal to `id` for DB-sourced reports. */
   code: string;
   name: string;
@@ -43,7 +45,7 @@ export interface ReportDefinition {
 }
 
 export interface ScheduleConfig {
-  frequency: "once" | "hourly" | "daily" | "weekly" | "monthly" | "quarterly" | "yearly";
+  frequency: "daily" | "weekly" | "monthly" | "quarterly" | "yearly";
   dayOfWeek?: number; // 0-6
   dayOfMonth?: number; // 1-31
   time?: string; // HH:mm
@@ -54,7 +56,9 @@ export interface ScheduleConfig {
 
 export interface ReportInstance {
   id: string;
+  executionId?: string;
   reportId: string;
+  reportCode?: string;
   reportName: string;
   status: ReportStatus;
   parameters: Record<string, unknown>;
@@ -174,7 +178,7 @@ export const REPORT_CATEGORIES: ReportCategory[] = [
 //
 // The live report catalog is sourced from the database `reports` table via the
 // backend ReportDefinitionDTO (see features/api/reportQueries.ts -> useReportDefinitions).
-// The hardcoded REPORT_DEFINITIONS array was removed (no-mock-data) — the helpers
+// The hardcoded REPORT_DEFINITIONS array was removed; the helpers
 // below map a DTO onto the ReportDefinition shape this UI renders.
 
 /** Shape of a single ReportDefinitionDTO as returned by GET /reports/definitions. */
@@ -298,6 +302,7 @@ export const mapDtoToReportDefinition = (dto: ReportDefinitionDTO): ReportDefini
 
   return {
     id: dto.reportCode,
+    databaseId: dto.id,
     code: dto.reportCode,
     name: dto.reportName,
     description: dto.description ?? "",

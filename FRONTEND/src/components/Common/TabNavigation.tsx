@@ -28,31 +28,9 @@ export default function TabNavigation({ tabs }: TabNavigationProps) {
     };
 
     return (
-        <Box sx={{ borderBottom: 1, borderColor: "rgba(255,255,255,0.12)", mb: 2 }}>
-            <Tabs
-                value={currentTab}
-                onChange={handleChange}
-                sx={{
-                    minHeight: 40,
-                    "& .MuiTab-root": {
-                        textTransform: "none",
-                        fontWeight: 500,
-                        fontSize: "0.8rem",
-                        color: "rgba(255,255,255,0.55)",
-                        minHeight: 40,
-                        px: 2,
-                        "&.Mui-selected": {
-                            color: "#C9A96E",
-                            fontWeight: 600,
-                        },
-                    },
-                    "& .MuiTabs-indicator": {
-                        backgroundColor: "#C9A96E",
-                        height: 2,
-                        borderRadius: "2px 2px 0 0",
-                    },
-                }}
-            >
+        <Box sx={{ mb: 2.5 }}>
+            {/* Tab styling comes from the shared theme (see ThemeContext). */}
+            <Tabs value={currentTab} onChange={handleChange} sx={{ "& .MuiTab-root": { px: 2.25 } }}>
                 {tabs.map((tab) => (
                     <Tooltip key={tab.value} title={`Navigate to ${tab.label}`} arrow>
                         <Tab label={tab.label} value={tab.value} />

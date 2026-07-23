@@ -21,15 +21,15 @@ public class PermissionService {
     public boolean hasPermission(Permission permission) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated()) {
-            // Assume security is disabled if no auth is present
-            return true;
+            return false;
         }
 
         Object principal = auth.getPrincipal();
         if (principal instanceof User) {
             return hasPermission(((User) principal).getRole(), permission);
         }
-        return true; // Default to allow if principal is string or other type
+        return auth.getAuthorities().stream()
+                .anyMatch(authority -> authority.getAuthority().equals(permission.name()));
     }
 
     /**

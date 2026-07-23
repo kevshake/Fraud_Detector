@@ -7,6 +7,7 @@ import com.posgateway.aml.entity.reporting.*;
 import com.posgateway.aml.repository.UserRepository;
 import com.posgateway.aml.repository.reporting.ReportRepository;
 import com.posgateway.aml.repository.reporting.ReportScheduleRepository;
+import com.posgateway.aml.repository.reporting.ReportScheduleHistoryRepository;
 import com.posgateway.aml.service.security.PspIsolationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -32,6 +33,9 @@ class ReportSchedulingServiceTest {
 
     @Mock
     private ReportScheduleRepository reportScheduleRepository;
+
+    @Mock
+    private ReportScheduleHistoryRepository reportScheduleHistoryRepository;
 
     @Mock
     private ReportRepository reportRepository;

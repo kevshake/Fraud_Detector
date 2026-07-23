@@ -1,21 +1,22 @@
 import { Box, Paper, Typography, Chip, CircularProgress } from "@mui/material";
 import { useCases } from "../../features/api/queries";
 import type { CaseStatus, Priority } from "../../types";
+import { withAlpha } from "../../theme/tokens"
 
 const statusConfig: Record<CaseStatus, { label: string; color: string; bg: string }> = {
-  NEW: { label: "New", color: "#3498db", bg: "#ebf5fb" },
-  ASSIGNED: { label: "Assigned", color: "#8e44ad", bg: "#f5eef8" },
-  INVESTIGATING: { label: "Investigating", color: "#f39c12", bg: "#fef9e7" },
-  PENDING_REVIEW: { label: "Pending Review", color: "#e67e22", bg: "#fef5e7" },
-  ESCALATED: { label: "Escalated", color: "#e74c3c", bg: "#fdedec" },
-  RESOLVED: { label: "Resolved", color: "#27ae60", bg: "#eafaf1" },
+  NEW: { label: "New", color: "var(--info)", bg: "var(--ink)" },
+  ASSIGNED: { label: "Assigned", color: "#b094c2", bg: "var(--ink)" },
+  INVESTIGATING: { label: "Investigating", color: "var(--warning)", bg: "var(--ink)" },
+  PENDING_REVIEW: { label: "Pending Review", color: "var(--risk-high)", bg: "var(--ink)" },
+  ESCALATED: { label: "Escalated", color: "var(--danger)", bg: "var(--ink)" },
+  RESOLVED: { label: "Resolved", color: "var(--success)", bg: "var(--ink)" },
 };
 
 const priorityColors: Record<Priority, string> = {
-  CRITICAL: "#e74c3c",
-  HIGH: "#e67e22",
-  MEDIUM: "#f39c12",
-  LOW: "#95a5a6",
+  CRITICAL: "var(--danger)",
+  HIGH: "var(--risk-high)",
+  MEDIUM: "var(--warning)",
+  LOW: "var(--muted)",
 };
 
 const QUEUE_STATUSES: CaseStatus[] = ["NEW", "ASSIGNED", "INVESTIGATING", "PENDING_REVIEW", "ESCALATED"];
@@ -31,7 +32,7 @@ function QueueColumn({ status }: { status: CaseStatus }) {
         sx={{
           px: 1.5, py: 1, mb: 1, borderRadius: 1,
           backgroundColor: cfg.bg,
-          border: `1px solid ${cfg.color}40`,
+          border: `1px solid ${withAlpha(cfg.color, 0.25)}`,
           display: "flex", alignItems: "center", justifyContent: "space-between",
         }}
       >
@@ -85,7 +86,7 @@ function QueueColumn({ status }: { status: CaseStatus }) {
                 }}
               />
               {c.slaDeadline && (
-                <Typography variant="caption" sx={{ color: new Date(c.slaDeadline) < new Date() ? "#e74c3c" : "text.disabled", fontSize: "0.65rem" }}>
+                <Typography variant="caption" sx={{ color: new Date(c.slaDeadline) < new Date() ? "var(--danger)" : "text.disabled", fontSize: "0.65rem" }}>
                   SLA: {new Date(c.slaDeadline).toLocaleDateString()}
                 </Typography>
               )}
@@ -110,7 +111,7 @@ export default function CasesQueues() {
           overflowX: "auto",
           pb: 2,
           "&::-webkit-scrollbar": { height: 6 },
-          "&::-webkit-scrollbar-track": { backgroundColor: "rgba(0,0,0,0.05)", borderRadius: 3 },
+          "&::-webkit-scrollbar-track": { backgroundColor: "var(--surface-3)", borderRadius: 3 },
           "&::-webkit-scrollbar-thumb": { backgroundColor: "rgba(0,0,0,0.2)", borderRadius: 3 },
         }}
       >

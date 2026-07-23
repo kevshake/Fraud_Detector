@@ -7,6 +7,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Repository for Suspicious Activity Reports
@@ -42,6 +43,9 @@ public interface SuspiciousActivityReportRepository extends JpaRepository<Suspic
     // HOK-39 fix: filter SAR list by PSP
     List<SuspiciousActivityReport> findByPspId(Long pspId);
     List<SuspiciousActivityReport> findByPspIdAndStatus(Long pspId, SarStatus status);
+    Optional<SuspiciousActivityReport> findByIdAndPspId(Long id, Long pspId);
+    List<SuspiciousActivityReport> findByStatusInAndFilingDeadlineBefore(
+            List<SarStatus> statuses, LocalDateTime deadline);
 
     // HOK-61: PSP-scoped count for count/not-exported endpoint
     long countByPspId(Long pspId);

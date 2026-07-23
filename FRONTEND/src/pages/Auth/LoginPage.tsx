@@ -1,19 +1,125 @@
 import { useState, type FormEvent } from 'react'
 import {
   ArrowRight,
+  Building2,
   Check,
   ChevronDown,
   Eye,
   EyeOff,
+  FileSearch,
   Globe2,
   Loader2,
   Lock,
   Shield,
+  ShieldCheck,
   User,
+  UserSearch,
   Users,
 } from 'lucide-react'
 import HokekaLogo, { HOKEKA_LOGO_SRC } from '../../components/branding/HokekaLogo'
 import { useAuth } from '../../contexts/AuthContext'
+
+const HERO_FEATURES = [
+  {
+    icon: ShieldCheck,
+    tone: 'gold' as const,
+    title: 'AI Risk Detection',
+    description: 'Identify suspicious behaviour in real time',
+  },
+  {
+    icon: FileSearch,
+    tone: 'rose' as const,
+    title: 'Case Management',
+    description: 'Investigate and resolve alerts efficiently',
+  },
+  {
+    icon: Building2,
+    tone: 'gold' as const,
+    title: 'Regulatory Compliance',
+    description: 'Stay aligned with AML and KYC requirements',
+  },
+  {
+    icon: UserSearch,
+    tone: 'rose' as const,
+    title: 'Screening Intelligence',
+    description: 'Sanctions, PEP and adverse media monitoring',
+  },
+] as const
+
+function LoginHeroPanel({ mobile = false }: { mobile?: boolean }) {
+  return (
+    <aside
+      className={
+        mobile
+          ? 'login-hero-panel login-hero-panel--mobile flex lg:hidden'
+          : 'login-hero-panel relative hidden shrink-0 lg:flex lg:h-screen lg:w-[42%]'
+      }
+      aria-hidden={mobile ? true : undefined}
+    >
+      <div className="login-hero-panel__glow" aria-hidden="true" />
+      <div className="login-hero-panel__map" aria-hidden="true" />
+      <div className="login-hero-panel__circuits" aria-hidden="true" />
+
+      <div className="login-hero-panel__inner">
+        <div className="login-hero-panel__brand">
+          <img
+            src={HOKEKA_LOGO_SRC}
+            alt=""
+            width={44}
+            height={44}
+            className="login-hero-panel__brand-logo"
+            draggable={false}
+          />
+          <div className="login-hero-panel__brand-text">
+            <span className="login-hero-panel__brand-name">HOKEKA</span>
+            <span className="login-hero-panel__brand-tag">AML INTELLIGENCE</span>
+          </div>
+        </div>
+
+        <div className="login-hero-panel__copy">
+          <h2 className="login-hero-panel__headline">
+            Protecting Financial Systems Through Intelligence
+          </h2>
+          {!mobile && (
+            <p className="login-hero-panel__subtext">
+              Monitor transactions, investigate alerts, manage risk and maintain compliance from a
+              single platform.
+            </p>
+          )}
+        </div>
+
+        {!mobile && (
+          <>
+            <div className="login-hero-panel__divider" aria-hidden="true" />
+
+            <ul className="login-hero-panel__features">
+              {HERO_FEATURES.map(({ icon: Icon, tone, title, description }) => (
+                <li key={title} className="login-hero-panel__feature">
+                  <span className={`login-hero-panel__feature-icon login-hero-panel__feature-icon--${tone}`}>
+                    <Icon size={18} strokeWidth={1.75} aria-hidden="true" />
+                  </span>
+                  <span className="login-hero-panel__feature-copy">
+                    <span className="login-hero-panel__feature-title">{title}</span>
+                    <span className="login-hero-panel__feature-desc">{description}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+
+            <div className="login-hero-panel__graphic">
+              <img
+                src="/images/login-hero-shield.png"
+                alt=""
+                className="login-hero-panel__shield"
+                draggable={false}
+              />
+            </div>
+          </>
+        )}
+      </div>
+    </aside>
+  )
+}
 
 export default function LoginPage() {
   const { login } = useAuth()
@@ -39,34 +145,14 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen flex-col lg:flex-row">
-      {/* LEFT — Hero image sized by aspect ratio at full viewport height */}
-      <div
-        className="login-hero-panel relative hidden shrink-0 lg:block lg:h-screen lg:w-auto"
-        aria-hidden="true"
-      >
-        <img
-          src="/images/login-hero-panel.png"
-          alt=""
-          className="login-hero-panel__img"
-          draggable={false}
-        />
-      </div>
-
-      {/* Mobile hero strip — cropped top of full panel */}
-      <div className="login-hero-panel login-hero-panel--mobile relative overflow-hidden lg:hidden">
-        <img
-          src="/images/login-hero-panel.png"
-          alt=""
-          className="login-hero-panel__img login-hero-panel__img--mobile"
-          draggable={false}
-        />
-      </div>
+      <LoginHeroPanel />
+      <LoginHeroPanel mobile />
 
       {/* RIGHT — Login Form (fills remaining width) */}
-      <div className="relative flex min-h-screen min-w-0 flex-1 flex-col bg-[#F8F9FA]">
+      <div className="relative flex min-h-screen min-w-0 flex-1 flex-col bg-[var(--ink)]">
         <button
           type="button"
-          className="absolute right-6 top-6 z-10 flex items-center gap-2 rounded-xl border border-[#E5E7EB] bg-white px-4 py-2.5 text-sm text-charcoal shadow-sm transition-colors hover:bg-gray-50"
+          className="absolute right-6 top-6 z-10 flex items-center gap-2 rounded-xl border border-[var(--line)] bg-white px-4 py-2.5 text-sm text-charcoal shadow-sm transition-colors hover:bg-gray-50"
         >
           <Globe2 className="h-4 w-4 text-gray-500" />
           <span>English (US)</span>
@@ -74,7 +160,7 @@ export default function LoginPage() {
         </button>
 
         <div className="flex flex-1 items-center justify-center px-6 py-24 sm:px-10">
-          <div className="login-card-shadow w-full max-w-[440px] rounded-3xl border border-[#ECEEF0] bg-white px-8 py-10 sm:px-10 sm:py-12">
+          <div className="login-card-shadow w-full max-w-[440px] rounded-3xl border border-[var(--line)] bg-white px-8 py-10 sm:px-10 sm:py-12">
             <HokekaLogo size="card" showWordmark={false} className="mb-6" />
 
             <h1 className="text-center text-[1.75rem] font-bold tracking-tight text-charcoal">
@@ -125,7 +211,7 @@ export default function LoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter your password"
-                    className="h-14 w-full rounded-2xl border border-[#E5E7EB] bg-white pl-12 pr-12 text-sm text-charcoal placeholder:text-gray-400 transition focus:border-burgundy-700 focus:outline-none focus:ring-4 focus:ring-burgundy-700/10"
+                    className="h-14 w-full rounded-2xl border border-[var(--line)] bg-white pl-12 pr-12 text-sm text-charcoal placeholder:text-gray-400 transition focus:border-burgundy-700 focus:outline-none focus:ring-4 focus:ring-burgundy-700/10"
                   />
                   <button
                     type="button"
@@ -157,7 +243,7 @@ export default function LoginPage() {
                 </label>
                 <a
                   href="#"
-                  className="text-sm font-semibold text-burgundy-700 transition-colors hover:text-burgundy-800"
+                  className="text-sm font-semibold text-gold transition-colors hover:text-gold-bright"
                 >
                   Forgot password?
                 </a>
@@ -185,7 +271,7 @@ export default function LoginPage() {
             </form>
 
             <div className="relative mt-8 flex items-center">
-              <div className="h-px flex-1 bg-[#E5E7EB]" />
+              <div className="h-px flex-1 bg-[var(--ink)]" />
               <div className="mx-4 flex h-9 w-9 items-center justify-center">
                 <img
                   src={HOKEKA_LOGO_SRC}
@@ -197,10 +283,10 @@ export default function LoginPage() {
                   aria-hidden="true"
                 />
               </div>
-              <div className="h-px flex-1 bg-[#E5E7EB]" />
+              <div className="h-px flex-1 bg-[var(--ink)]" />
             </div>
 
-            <div className="mt-6 flex items-start gap-3 rounded-2xl border border-gold/15 bg-[#FDF6EE] px-4 py-4">
+            <div className="mt-6 flex items-start gap-3 rounded-2xl border border-gold/15 bg-[var(--line)] px-4 py-4">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white ring-1 ring-gold/25">
                 <Users className="h-4 w-4 text-gold" />
               </div>
@@ -211,7 +297,7 @@ export default function LoginPage() {
                 Need access?{' '}
                 <a
                   href="#"
-                  className="font-semibold text-burgundy-700 hover:underline"
+                  className="font-semibold text-gold hover:underline"
                 >
                   Contact your system administrator.
                 </a>

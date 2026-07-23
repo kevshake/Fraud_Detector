@@ -2,10 +2,16 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Role, Psp, Permission, PERMISSION_LABELS, PERMISSION_CATEGORIES } from "../../types/userManagement";
 import TwBadge from "../../components/Common/TwBadge";
-import { Loader2, Plus, Edit, Trash2, X, ChevronDown, ChevronRight } from "lucide-react";
+import { Loader2, Plus, Edit, Trash2, X, ChevronDown, ChevronRight, ShieldAlert } from "lucide-react";
+import { Link } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext";
+
+const ADMIN_ROLES = new Set(["SUPER_ADMIN", "ADMIN"]);
 
 export default function RolesTab() {
     const queryClient = useQueryClient();
+    const { user: currentUser } = useAuth();
+    const isAdmin = !!currentUser?.role?.name && ADMIN_ROLES.has(currentUser.role.name);
     const [openDialog, setOpenDialog] = useState(false);
     const [editingRole, setEditingRole] = useState<Role | null>(null);
     const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
@@ -59,7 +65,7 @@ export default function RolesTab() {
             setFormData({
                 name: role.name, description: role.description,
                 pspId: scopedPspId != null ? String(scopedPspId) : "",
-                permissions: role.permissions,
+                permissions: role.permissions ?? [],
             });
         } else {
             setEditingRole(null);
@@ -103,6 +109,15 @@ export default function RolesTab() {
         setExpandedCategories(prev => { const next = new Set(prev); if (next.has(cat)) next.delete(cat); else next.add(cat); return next; });
     };
 
+    // Defense-in-depth: role/permission management is admin-only (backend-enforced too).
+    if (!isAdmin) {
+        return (
+            <div className="flex items-center gap-2 rounded-lg border border-amber-700/30 bg-amber-900/20 px-4 py-3 text-sm text-amber-200">
+                <ShieldAlert size={16} /> Role and permission management requires an administrator role.
+            </div>
+        );
+    }
+
     return (
         <div>
             <div className="mb-3 flex justify-end">
@@ -111,14 +126,14 @@ export default function RolesTab() {
                 </button>
             </div>
 
-            <div className="overflow-hidden rounded-lg border border-white/10 bg-[#0f1a2e]">
+            <div className="overflow-hidden rounded-lg border border-white/10 bg-[var(--surface-2)]">
                 <div className="overflow-auto" style={{ maxHeight: "calc(100vh - 320px)" }}>
                     {isLoading ? (
                         <div className="flex items-center justify-center py-8"><Loader2 size={24} className="animate-spin text-glass-muted" /></div>
                     ) : (
                         <table className="w-full border-collapse">
                             <thead className="sticky top-0 z-10">
-                                <tr className="border-b border-white/10 bg-[#0f1a2e]">
+                                <tr className="border-b border-white/10 bg-[var(--surface-2)]">
                                     <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">Role Name</th>
                                     <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">Description</th>
                                     <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">Scope</th>
@@ -132,10 +147,10 @@ export default function RolesTab() {
                                     const scopeLabel = role.psp ? (role.psp.legalName || (role.psp as any).name || role.psp.pspCode || (role.psp as any).code || "PSP") : "System";
                                     return (
                                         <tr key={role.id} className="transition-colors hover:bg-white/[0.02]">
-                                            <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-white">{role.name}</td>
+                                            <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-white"><Link to={`/records/ROLE/${role.id}`} className="hover:text-gold">{role.name}</Link></td>
                                             <td className="whitespace-nowrap px-4 py-3 text-sm text-white/80">{role.description}</td>
                                             <td className="whitespace-nowrap px-4 py-3"><TwBadge variant={scoped ? "warning" : "info"}>{scopeLabel}</TwBadge></td>
-                                            <td className="whitespace-nowrap px-4 py-3 text-sm text-glass-muted">{role.permissions.length} permission{role.permissions.length !== 1 ? "s" : ""}</td>
+                                            <td className="whitespace-nowrap px-4 py-3 text-sm text-glass-muted">{(role.permissions?.length ?? 0)} permission{(role.permissions?.length ?? 0) !== 1 ? "s" : ""}</td>
                                             <td className="whitespace-nowrap px-4 py-3">
                                                 <div className="flex items-center gap-1">
                                                     <button onClick={() => handleOpenDialog(role)} className="rounded p-1 text-burgundy-400 transition-colors hover:bg-white/10"><Edit size={16} /></button>
@@ -158,7 +173,7 @@ export default function RolesTab() {
                 <>
                     <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={handleCloseDialog} />
                     <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2">
-                        <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0f1a2e] shadow-2xl">
+                        <div className="overflow-hidden rounded-xl border border-white/10 bg-[var(--surface-2)] shadow-2xl">
                             <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
                                 <h3 className="text-lg font-semibold text-white">{editingRole ? "Edit Role" : "Create New Role"}</h3>
                                 <button onClick={handleCloseDialog} className="rounded p-1 text-glass-muted hover:bg-white/10"><X size={18} /></button>
@@ -173,18 +188,18 @@ export default function RolesTab() {
                                     <label className="text-[11px] font-semibold uppercase tracking-wider text-glass-muted">Role Name</label>
                                     <input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                                         placeholder="e.g., Compliance Officer, Analyst"
-                                        className="mt-1 w-full rounded-lg border border-white/10 bg-[#1a2744] px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-burgundy-700" />
+                                        className="mt-1 w-full rounded-lg border border-white/10 bg-[var(--surface-3)] px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-burgundy-700" />
                                 </div>
                                 <div>
                                     <label className="text-[11px] font-semibold uppercase tracking-wider text-glass-muted">Description</label>
                                     <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                                         rows={2} placeholder="Brief description of this role's responsibilities"
-                                        className="mt-1 w-full rounded-lg border border-white/10 bg-[#1a2744] px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-burgundy-700" />
+                                        className="mt-1 w-full rounded-lg border border-white/10 bg-[var(--surface-3)] px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-burgundy-700" />
                                 </div>
                                 <div>
                                     <label className="text-[11px] font-semibold uppercase tracking-wider text-glass-muted">PSP Scope (Optional)</label>
                                     <select value={formData.pspId} onChange={(e) => setFormData({ ...formData, pspId: e.target.value })}
-                                        className="mt-1 w-full rounded-lg border border-white/10 bg-[#1a2744] px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-burgundy-700">
+                                        className="mt-1 w-full rounded-lg border border-white/10 bg-[var(--surface-3)] px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-burgundy-700">
                                         <option value="">System Role (Global)</option>
                                         {psps?.map((psp) => {
                                             const id = (psp as any).pspId ?? (psp as any).id;
@@ -202,13 +217,13 @@ export default function RolesTab() {
                                         const isExpanded = expandedCategories.has(category);
                                         return (
                                             <div key={category} className="mb-2 overflow-hidden rounded-lg border border-white/10">
-                                                <button onClick={() => toggleCategory(category)} className="flex w-full items-center gap-2 bg-[#1a2744] px-3 py-2 text-left text-xs font-semibold text-white transition-colors hover:bg-[#1f3050]">
+                                                <button onClick={() => toggleCategory(category)} className="flex w-full items-center gap-2 bg-[var(--ink)] px-3 py-2 text-left text-xs font-semibold text-white transition-colors hover:bg-[var(--ink)]">
                                                     {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                                                     <input type="checkbox" checked={allSelected}
                                                         ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected; }}
                                                         onChange={() => handleCategoryToggle(category, categoryPermissions)}
                                                         onClick={(e) => e.stopPropagation()}
-                                                        className="rounded border-white/20 bg-white/5 text-burgundy-700 focus:ring-burgundy-700" />
+                                                        className="rounded border-white/20 bg-white/5 accent-gold text-gold focus:ring-gold" />
                                                     <span>{category}</span>
                                                 </button>
                                                 {isExpanded && (
@@ -217,7 +232,7 @@ export default function RolesTab() {
                                                             <label key={permission} className="flex items-center gap-2 text-sm text-white/80">
                                                                 <input type="checkbox" checked={formData.permissions.includes(permission)}
                                                                     onChange={() => handlePermissionToggle(permission)}
-                                                                    className="rounded border-white/20 bg-white/5 text-burgundy-700 focus:ring-burgundy-700" />
+                                                                    className="rounded border-white/20 bg-white/5 accent-gold text-gold focus:ring-gold" />
                                                                 {PERMISSION_LABELS[permission]}
                                                             </label>
                                                         ))}
@@ -246,7 +261,7 @@ export default function RolesTab() {
                 <>
                     <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={() => setDeleteConfirmId(null)} />
                     <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
-                        <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0f1a2e] shadow-2xl">
+                        <div className="overflow-hidden rounded-xl border border-white/10 bg-[var(--surface-2)] shadow-2xl">
                             <div className="border-b border-white/10 px-6 py-4"><h3 className="text-lg font-semibold text-white">Delete Role</h3></div>
                             <div className="px-6 py-4 text-sm text-white/80">Are you sure you want to delete this role? Users with this role will need to be reassigned.</div>
                             <div className="flex justify-end gap-2 border-t border-white/10 px-6 py-3">

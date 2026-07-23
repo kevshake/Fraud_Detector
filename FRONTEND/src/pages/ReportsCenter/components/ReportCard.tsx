@@ -53,26 +53,31 @@ const TYPE_ICONS: Record<ReportType, typeof RegulatoryIcon> = {
   Analytical: AnalyticalIcon,
 };
 
+/*
+ * Opaque grounds (see SOFT_TINT in src/theme/tokens.ts) so the label contrast is
+ * deterministic instead of compositing against whatever card state is beneath.
+ * Regulatory/Operational are deliberately separated onto gold vs amber.
+ */
 const TYPE_COLORS: Record<ReportType, { bg: string; text: string; border: string }> = {
   Regulatory: {
-    bg: "rgba(128, 0, 32, 0.1)",
-    text: "#800020",
-    border: "rgba(128, 0, 32, 0.3)",
+    bg: "var(--brand-soft)",
+    text: "var(--gold)",
+    border: "color-mix(in srgb, var(--gold) 35%, transparent)",
   },
   Operational: {
-    bg: "rgba(201, 169, 97, 0.15)",
-    text: "#8B6914",
-    border: "rgba(201, 169, 97, 0.4)",
+    bg: "var(--warning-soft)",
+    text: "var(--warning)",
+    border: "color-mix(in srgb, var(--warning) 35%, transparent)",
   },
   Compliance: {
-    bg: "rgba(46, 125, 50, 0.1)",
-    text: "#2E7D32",
-    border: "rgba(46, 125, 50, 0.3)",
+    bg: "var(--success-soft)",
+    text: "var(--success)",
+    border: "color-mix(in srgb, var(--success) 35%, transparent)",
   },
   Analytical: {
-    bg: "rgba(25, 118, 210, 0.1)",
-    text: "#1976D2",
-    border: "rgba(25, 118, 210, 0.3)",
+    bg: "var(--info-soft)",
+    text: "var(--info)",
+    border: "color-mix(in srgb, var(--info) 35%, transparent)",
   },
 };
 
@@ -104,34 +109,48 @@ export default function ReportCard({
   return (
     <Card
       sx={{
-        borderRadius: "16px",
-        boxShadow: "0 4px 20px rgba(0, 0, 0, 0.05)",
-        transition: "all 0.3s ease",
-        border: `1px solid ${expanded ? "#800020" : "transparent"}`,
+        position: "relative",
+        borderRadius: "var(--radius)",
+        backgroundColor: "var(--surface-2)",
+        border: "1px solid var(--line)",
+        boxShadow: "var(--shadow-sm)",
+        transition: "border-color .25s var(--ease), box-shadow .25s var(--ease), transform .25s var(--ease)",
         opacity: isGenerating && !isLoading ? 0.7 : 1,
         pointerEvents: isGenerating && !isLoading ? "none" : "auto",
-        "&: hover": {
-          boxShadow: "0 8px 30px rgba(0, 0, 0, 0.1)",
+        /* Gold rule on the leading edge marks the expanded card. */
+        "&::before": {
+          content: '""',
+          position: "absolute",
+          insetBlock: 0,
+          left: 0,
+          width: "2px",
+          backgroundColor: expanded ? "var(--gold)" : "transparent",
+          transition: "background-color .25s var(--ease)",
+        },
+        "&:hover": {
+          borderColor: "var(--line-strong)",
+          boxShadow: "var(--shadow-md)",
           transform: "translateY(-2px)",
         },
       }}
     >
-      <CardContent sx={{ p: 3 }}>
+      <CardContent sx={{ p: 2.5 }}>
         {/* Header */}
         <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
           <Box
             sx={{
-              width: 48,
-              height: 48,
-              borderRadius: "12px",
+              width: 38,
+              height: 38,
+              borderRadius: "var(--radius)",
               backgroundColor: typeColors.bg,
+              border: `1px solid ${typeColors.border}`,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               flexShrink: 0,
             }}
           >
-            <TypeIcon sx={{ color: typeColors.text, fontSize: 24 }} />
+            <TypeIcon sx={{ color: typeColors.text, fontSize: 19 }} />
           </Box>
 
           <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -139,9 +158,10 @@ export default function ReportCard({
               variant="h6"
               sx={{
                 fontWeight: 600,
-                color: "#2c3e50",
+                color: "var(--ink)",
                 mb: 0.5,
-                fontSize: "1rem",
+                fontSize: "0.9375rem",
+                letterSpacing: "-0.01em",
               }}
             >
               {report.name}
@@ -165,7 +185,7 @@ export default function ReportCard({
             <Tooltip title={isFavorite ? "Remove favorite" : "Add to favorites"}>
               <IconButton size="small" onClick={onToggleFavorite} aria-label="toggle favorite">
                 {isFavorite ? (
-                  <StarIcon sx={{ color: "#C9A961" }} />
+                  <StarIcon sx={{ color: "var(--gold)" }} />
                 ) : (
                   <StarBorderIcon sx={{ color: "text.secondary" }} />
                 )}
@@ -196,7 +216,7 @@ export default function ReportCard({
               variant="outlined"
               sx={{
                 fontSize: "0.75rem",
-                borderColor: "rgba(0, 0, 0, 0.1)",
+                borderColor: "var(--line)",
               }}
             />
           ))}
@@ -221,9 +241,9 @@ export default function ReportCard({
                   onClick={() => setSelectedFormat("PDF")}
                   disabled={isLoading}
                   sx={{
-                    color: selectedFormat === "PDF" ? "#800020" : "text.secondary",
+                    color: selectedFormat === "PDF" ? "var(--gold)" : "text.secondary",
                     backgroundColor:
-                      selectedFormat === "PDF" ? "rgba(128, 0, 32, 0.1)" : "transparent",
+                      selectedFormat === "PDF" ? "var(--brand-soft)" : "transparent",
                   }}
                 >
                   <PdfIcon fontSize="small" />
@@ -237,9 +257,9 @@ export default function ReportCard({
                   onClick={() => setSelectedFormat("CSV")}
                   disabled={isLoading}
                   sx={{
-                    color: selectedFormat === "CSV" ? "#800020" : "text.secondary",
+                    color: selectedFormat === "CSV" ? "var(--gold)" : "text.secondary",
                     backgroundColor:
-                      selectedFormat === "CSV" ? "rgba(128, 0, 32, 0.1)" : "transparent",
+                      selectedFormat === "CSV" ? "var(--brand-soft)" : "transparent",
                   }}
                 >
                   <CsvIcon fontSize="small" />
@@ -253,9 +273,9 @@ export default function ReportCard({
                   onClick={() => setSelectedFormat("Excel")}
                   disabled={isLoading}
                   sx={{
-                    color: selectedFormat === "Excel" ? "#800020" : "text.secondary",
+                    color: selectedFormat === "Excel" ? "var(--gold)" : "text.secondary",
                     backgroundColor:
-                      selectedFormat === "Excel" ? "rgba(128, 0, 32, 0.1)" : "transparent",
+                      selectedFormat === "Excel" ? "var(--brand-soft)" : "transparent",
                   }}
                 >
                   <ExcelIcon fontSize="small" />
@@ -269,20 +289,10 @@ export default function ReportCard({
           <Button
             variant="outlined"
             size="small"
-            startIcon={<ScheduleIcon sx={{ color: "#C9A961" }} />}
+            startIcon={<ScheduleIcon />}
             onClick={() => onSchedule(report)}
             disabled={isLoading || isGenerating}
-            sx={{
-              borderColor: "rgba(201, 169, 97, 0.5)",
-              color: "#8B6914",
-              borderRadius: "10px",
-              textTransform: "none",
-              fontWeight: 500,
-              "&:hover": {
-                borderColor: "#C9A961",
-                backgroundColor: "rgba(201, 169, 97, 0.05)",
-              },
-            }}
+            color="primary"
           >
             Schedule
           </Button>
@@ -299,15 +309,7 @@ export default function ReportCard({
             }
             onClick={handleGenerate}
             disabled={isLoading || isGenerating}
-            sx={{
-              backgroundColor: "#800020",
-              borderRadius: "10px",
-              textTransform: "none",
-              fontWeight: 500,
-              "&:hover": {
-                backgroundColor: "#600018",
-              },
-            }}
+            color="primary"
           >
             {isLoading ? "Generating..." : "Generate"}
           </Button>
@@ -321,7 +323,7 @@ export default function ReportCard({
                 sx={{
                   transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
                   transition: "transform 0.3s ease",
-                  color: expanded ? "#800020" : "text.secondary",
+                  color: expanded ? "var(--gold)" : "text.secondary",
                 }}
               >
                 <ExpandIcon />

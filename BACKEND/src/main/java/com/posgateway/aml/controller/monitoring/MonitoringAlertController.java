@@ -21,9 +21,15 @@ import java.util.Map;
 public class MonitoringAlertController {
 
     private final MonitoringAlertService monitoringAlertService;
+    private final com.posgateway.aml.repository.MerchantRepository merchantRepository;
+    private final com.posgateway.aml.service.security.PspIsolationService pspIsolationService;
 
-    public MonitoringAlertController(MonitoringAlertService monitoringAlertService) {
+    public MonitoringAlertController(MonitoringAlertService monitoringAlertService,
+            com.posgateway.aml.repository.MerchantRepository merchantRepository,
+            com.posgateway.aml.service.security.PspIsolationService pspIsolationService) {
         this.monitoringAlertService = monitoringAlertService;
+        this.merchantRepository = merchantRepository;
+        this.pspIsolationService = pspIsolationService;
     }
 
     @GetMapping
@@ -42,6 +48,11 @@ public class MonitoringAlertController {
 
     @GetMapping("/merchant/{merchantId}")
     public ResponseEntity<List<MonitoringAlert>> listForMerchant(@PathVariable Long merchantId) {
+        // Tenant isolation: only the merchant's own PSP (or a platform admin) may read its alerts.
+        com.posgateway.aml.entity.merchant.Merchant merchant = merchantRepository.findById(merchantId)
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.NOT_FOUND, "Merchant not found"));
+        pspIsolationService.validateMerchantAccess(merchant);
         return ResponseEntity.ok(monitoringAlertService.listForMerchant(merchantId));
     }
 

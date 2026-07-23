@@ -51,10 +51,8 @@ public class ScreeningCoverageService {
         long totalMerchants = merchantRepository.count();
         report.setTotalMerchants(totalMerchants);
 
-        // Screened merchants (have been screened at least once)
-        long screenedMerchants = merchantRepository.findAll().stream()
-                .filter(m -> m.getLastScreenedAt() != null)
-                .count();
+        // Screened merchants (have been screened at least once) — DB-side count.
+        long screenedMerchants = merchantRepository.countByLastScreenedAtIsNotNull();
         report.setScreenedMerchants(screenedMerchants);
 
         // Coverage percentage
@@ -66,19 +64,13 @@ public class ScreeningCoverageService {
         Map<String, Long> coverageByList = getSanctionsListBreakdown();
         report.setCoverageByListType(coverageByList);
 
-        // Last screening dates
-        LocalDate oldestScreening = merchantRepository.findAll().stream()
-                .filter(m -> m.getLastScreenedAt() != null)
-                .map(m -> m.getLastScreenedAt().toLocalDate())
-                .min(LocalDate::compareTo)
-                .orElse(null);
+        // Last screening dates — DB-side MIN/MAX over last_screened_at (null when none screened).
+        LocalDateTime earliestScreenedAt = merchantRepository.findEarliestScreenedAt();
+        LocalDate oldestScreening = earliestScreenedAt != null ? earliestScreenedAt.toLocalDate() : null;
         report.setOldestScreeningDate(oldestScreening);
 
-        LocalDate newestScreening = merchantRepository.findAll().stream()
-                .filter(m -> m.getLastScreenedAt() != null)
-                .map(m -> m.getLastScreenedAt().toLocalDate())
-                .max(LocalDate::compareTo)
-                .orElse(null);
+        LocalDateTime latestScreenedAt = merchantRepository.findLatestScreenedAt();
+        LocalDate newestScreening = latestScreenedAt != null ? latestScreenedAt.toLocalDate() : null;
         report.setNewestScreeningDate(newestScreening);
 
         return report;

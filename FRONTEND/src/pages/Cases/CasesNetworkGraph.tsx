@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import {
   Box,
   Paper,
@@ -56,29 +56,29 @@ interface NetworkGraphDTO {
 const NODE_RADIUS = 28;
 
 const NODE_COLORS: Record<string, { fill: string; stroke: string; text: string }> = {
-  CASE:        { fill: "#f0e6ff", stroke: "#8B4049", text: "#8B4049" },
-  TRANSACTION: { fill: "#e8f4fd", stroke: "#2980b9", text: "#2980b9" },
-  SAR:         { fill: "#fef9e7", stroke: "#d68910", text: "#d68910" },
-  USER:        { fill: "#e9f7ef", stroke: "#27ae60", text: "#27ae60" },
-  MERCHANT:    { fill: "#fdedec", stroke: "#c0392b", text: "#c0392b" },
+  CASE:        { fill: "var(--ink)", stroke: "var(--gold)", text: "var(--gold)" },
+  TRANSACTION: { fill: "var(--ink)", stroke: "var(--info)", text: "var(--info)" },
+  SAR:         { fill: "var(--ink)", stroke: "var(--warning)", text: "var(--warning)" },
+  USER:        { fill: "var(--ink)", stroke: "var(--success)", text: "var(--success)" },
+  MERCHANT:    { fill: "var(--ink)", stroke: "var(--danger)", text: "var(--danger)" },
 };
 
 const EDGE_COLORS: Record<string, string> = {
-  RELATED_CASE:    "#8B4049",
-  HAS_TRANSACTION: "#2980b9",
-  HAS_SAR:         "#d68910",
-  ASSIGNED_TO:     "#27ae60",
-  HAS_MERCHANT:    "#c0392b",
-  RELATED_ENTITY:  "#7f8c8d",
+  RELATED_CASE:    "var(--gold)",
+  HAS_TRANSACTION: "var(--info)",
+  HAS_SAR:         "var(--warning)",
+  ASSIGNED_TO:     "var(--success)",
+  HAS_MERCHANT:    "var(--danger)",
+  RELATED_ENTITY:  "var(--muted)",
 };
 
 const STATUS_CONFIG: Record<string, { color: string; bgColor: string; label: string }> = {
-  NEW:            { color: "#3498db", bgColor: "#ebf5fb",  label: "New" },
-  ASSIGNED:       { color: "#8e6b3e", bgColor: "#fef9e7",  label: "Assigned" },
-  INVESTIGATING:  { color: "#8e44ad", bgColor: "#f5eef8",  label: "Investigating" },
-  PENDING_REVIEW: { color: "#c0392b", bgColor: "#fdedec",  label: "Pending Review" },
-  RESOLVED:       { color: "#27ae60", bgColor: "#e9f7ef",  label: "Resolved" },
-  ESCALATED:      { color: "#922b21", bgColor: "#fdedec",  label: "Escalated" },
+  NEW:            { color: "var(--info)", bgColor: "var(--surface-3)",  label: "New" },
+  ASSIGNED:       { color: "var(--gold)", bgColor: "var(--surface-3)",  label: "Assigned" },
+  INVESTIGATING:  { color: "#b094c2", bgColor: "var(--surface-3)",  label: "Investigating" },
+  PENDING_REVIEW: { color: "var(--danger)", bgColor: "var(--surface-3)",  label: "Pending Review" },
+  RESOLVED:       { color: "var(--success)", bgColor: "var(--surface-3)",  label: "Resolved" },
+  ESCALATED:      { color: "var(--gold)", bgColor: "var(--surface-3)",  label: "Escalated" },
 };
 
 // ─── Force-layout simulation (no library needed) ─────────────────────────────
@@ -337,7 +337,7 @@ function GraphCanvas({ nodes, edges, selectedId, onSelectNode }: GraphCanvasProp
 
           {/* Nodes */}
           {nodes.map((node) => {
-            const colors = NODE_COLORS[node.type] ?? { fill: "#f5f5f5", stroke: "#aaa", text: "#555" };
+            const colors = NODE_COLORS[node.type] ?? { fill: "var(--ink)", stroke: "#aaa", text: "#555" };
             const isSelected = node.id === selectedId;
             // Truncate label to ~12 chars for display inside circle
             const displayLabel = node.label.length > 12 ? node.label.slice(0, 10) + "…" : node.label;
@@ -352,9 +352,9 @@ function GraphCanvas({ nodes, edges, selectedId, onSelectNode }: GraphCanvasProp
                 <circle
                   r={NODE_RADIUS}
                   fill={colors.fill}
-                  stroke={isSelected ? "#8B4049" : colors.stroke}
+                  stroke={isSelected ? "var(--gold)" : colors.stroke}
                   strokeWidth={isSelected ? 3 : 1.5}
-                  filter={isSelected ? "drop-shadow(0 2px 6px rgba(139,64,73,0.4))" : undefined}
+                  filter={isSelected ? "drop-shadow(0 2px 6px color-mix(in srgb, var(--gold) 40%, transparent))" : undefined}
                 />
                 <text
                   textAnchor="middle"
@@ -407,7 +407,7 @@ interface DetailPanelProps {
 
 function DetailPanel({ node, edges, allNodes, onClose }: DetailPanelProps) {
   if (!node) return null;
-  const colors = NODE_COLORS[node.type] ?? { fill: "#f5f5f5", stroke: "#aaa", text: "#555" };
+  const colors = NODE_COLORS[node.type] ?? { fill: "var(--ink)", stroke: "#aaa", text: "#555" };
   const nodeById = new Map(allNodes.map((n) => [n.id, n]));
   const connectedEdges = edges.filter((e) => e.from === node.id || e.to === node.id);
 
@@ -538,7 +538,7 @@ function CaseGraphInner({ caseId }: CaseGraphInnerProps) {
   if (isLoading) {
     return (
       <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", height: CANVAS_H }}>
-        <CircularProgress size={32} sx={{ color: "#8B4049" }} />
+        <CircularProgress size={32} sx={{ color: "var(--gold)" }} />
       </Box>
     );
   }
@@ -598,7 +598,7 @@ export default function CasesNetworkGraph() {
     status: (statusFilter as CaseStatus) || undefined,
   });
 
-  const cases = casesPage?.content ?? [];
+  const cases = useMemo(() => casesPage?.content ?? [], [casesPage?.content]);
 
   // Auto-select first case when data arrives
   useEffect(() => {
@@ -676,7 +676,7 @@ export default function CasesNetworkGraph() {
             overflow: "hidden",
           }}
         >
-          <Box sx={{ px: 2, py: 1.5, backgroundColor: "rgba(0,0,0,0.02)", borderBottom: "1px solid", borderColor: "divider" }}>
+          <Box sx={{ px: 2, py: 1.5, backgroundColor: "var(--surface-3)", borderBottom: "1px solid", borderColor: "divider" }}>
             <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 700, letterSpacing: "0.5px", textTransform: "uppercase", fontSize: "0.65rem" }}>
               Select Case
             </Typography>
@@ -684,7 +684,7 @@ export default function CasesNetworkGraph() {
 
           {isLoading ? (
             <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-              <CircularProgress size={24} sx={{ color: "#8B4049" }} />
+              <CircularProgress size={24} sx={{ color: "var(--gold)" }} />
             </Box>
           ) : isError ? (
             <Box sx={{ px: 2, py: 3 }}>
@@ -708,16 +708,16 @@ export default function CasesNetworkGraph() {
                         px: 2,
                         py: 1.25,
                         cursor: "pointer",
-                        borderLeft: isActive ? "3px solid #8B4049" : "3px solid transparent",
-                        backgroundColor: isActive ? "rgba(139,64,73,0.05)" : "transparent",
-                        "&:hover": { backgroundColor: isActive ? "rgba(139,64,73,0.07)" : "rgba(0,0,0,0.02)" },
+                        borderLeft: isActive ? "3px solid var(--gold)" : "3px solid transparent",
+                        backgroundColor: isActive ? "color-mix(in srgb, var(--gold) 5%, transparent)" : "transparent",
+                        "&:hover": { backgroundColor: isActive ? "color-mix(in srgb, var(--gold) 7%, transparent)" : "var(--surface-3)" },
                         borderBottom: "1px solid",
                         borderColor: "divider",
                       }}
                     >
                       <Typography
                         variant="caption"
-                        sx={{ fontFamily: "monospace", fontWeight: 700, color: isActive ? "#8B4049" : "text.primary", display: "block", mb: 0.5 }}
+                        sx={{ fontFamily: "monospace", fontWeight: 700, color: isActive ? "var(--gold)" : "text.primary", display: "block", mb: 0.5 }}
                       >
                         {c.caseReference}
                       </Typography>
@@ -725,7 +725,7 @@ export default function CasesNetworkGraph() {
                         label={sc?.label ?? c.status}
                         size="small"
                         sx={{
-                          backgroundColor: sc?.bgColor ?? "#f5f5f5",
+                          backgroundColor: sc?.bgColor ?? "var(--surface-3)",
                           color: sc?.color ?? "#666",
                           fontWeight: 500,
                           fontSize: "0.65rem",
@@ -786,12 +786,12 @@ export default function CasesNetworkGraph() {
                 display: "flex",
                 alignItems: "center",
                 gap: 1.5,
-                backgroundColor: "rgba(0,0,0,0.02)",
+                backgroundColor: "var(--surface-3)",
                 borderBottom: "1px solid",
                 borderColor: "divider",
               }}
             >
-              <CaseIcon sx={{ color: "#8B4049", fontSize: 18 }} />
+              <CaseIcon sx={{ color: "var(--gold)", fontSize: 18 }} />
               <Typography variant="body2" sx={{ fontFamily: "monospace", fontWeight: 700, color: "text.primary" }}>
                 {selectedCase.caseReference}
               </Typography>
@@ -799,7 +799,7 @@ export default function CasesNetworkGraph() {
                 label={STATUS_CONFIG[selectedCase.status]?.label ?? selectedCase.status}
                 size="small"
                 sx={{
-                  backgroundColor: STATUS_CONFIG[selectedCase.status]?.bgColor ?? "#f5f5f5",
+                  backgroundColor: STATUS_CONFIG[selectedCase.status]?.bgColor ?? "var(--surface-3)",
                   color: STATUS_CONFIG[selectedCase.status]?.color ?? "#666",
                   fontWeight: 500,
                   fontSize: "0.7rem",
@@ -816,7 +816,7 @@ export default function CasesNetworkGraph() {
               </Typography>
             </Box>
           ) : (
-            <Box sx={{ px: 2, py: 1.5, backgroundColor: "rgba(0,0,0,0.02)", borderBottom: "1px solid", borderColor: "divider" }}>
+            <Box sx={{ px: 2, py: 1.5, backgroundColor: "var(--surface-3)", borderBottom: "1px solid", borderColor: "divider" }}>
               <Typography variant="caption" color="text.disabled">Select a case to view its network graph</Typography>
             </Box>
           )}

@@ -9,7 +9,10 @@ import java.util.Optional;
 
 @Repository
 public interface RiskThresholdRepository extends JpaRepository<RiskThreshold, Long> {
-    Optional<RiskThreshold> findByRiskLevel(String riskLevel);
+    Optional<RiskThreshold> findByRiskLevelAndPspId(String riskLevel, Long pspId);
+    Optional<RiskThreshold> findByRiskLevelAndPspIdIsNull(String riskLevel);
+    List<RiskThreshold> findByPspId(Long pspId);
+    List<RiskThreshold> findByPspIdIsNull();
     List<RiskThreshold> findByStatus(String status);
 }
 

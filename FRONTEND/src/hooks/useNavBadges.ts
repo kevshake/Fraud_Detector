@@ -1,10 +1,11 @@
+import { useQueryClient } from '@tanstack/react-query'
 import { useEffect } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useLocation } from 'react-router-dom'
 import { apiClient } from '../lib/apiClient'
-import { useDashboardStats } from './useDashboard'
-
-const BADGE_STALE = 45_000
+import {
+  fetchDashboardSparklines,
+  useDashboardStats,
+  type DashboardStats,
+} from './useDashboard'
 
 export interface NavBadgeCounts {
   alertCount: number | undefined
@@ -12,37 +13,34 @@ export interface NavBadgeCounts {
   isLoading: boolean
 }
 
-/** Sidebar / header badge counts from live backend stats. */
+/**
+ * Sidebar / header badge counts from live dashboard stats.
+ * Prefetches the dashboard KPI bundle once so the Dashboard route
+ * paints from warm cache instead of a cold waterfall.
+ */
 export function useNavBadges(): NavBadgeCounts {
-  const location = useLocation()
   const queryClient = useQueryClient()
   const stats = useDashboardStats()
 
-  const alerts = useQuery({
-    queryKey: ['alerts', 'count', 'active'],
-    queryFn: () => apiClient.get<{ count?: number }>('alerts/count/active'),
-    staleTime: BADGE_STALE,
-    refetchInterval: BADGE_STALE,
-  })
-
-  const cases = useQuery({
-    queryKey: ['cases', 'count', 'active'],
-    queryFn: () => apiClient.get<{ count?: number }>('compliance/cases/count/active'),
-    staleTime: BADGE_STALE,
-    refetchInterval: BADGE_STALE,
-  })
-
   useEffect(() => {
-    void queryClient.invalidateQueries({ queryKey: ['alerts', 'count', 'active'] })
-    void queryClient.invalidateQueries({ queryKey: ['cases', 'count', 'active'] })
-    void queryClient.invalidateQueries({ queryKey: ['dashboard', 'stats'] })
-  }, [location.pathname, queryClient])
+    void queryClient.prefetchQuery({
+      queryKey: ['dashboard', 'sparklines', 7],
+      queryFn: () => fetchDashboardSparklines(queryClient, 7),
+      staleTime: 45_000,
+    })
+    void queryClient.prefetchQuery({
+      queryKey: ['dashboard', 'live-alerts', 12],
+      queryFn: () => apiClient.get('dashboard/live-alerts?limit=12'),
+      staleTime: 20_000,
+    })
+  }, [queryClient])
 
-  const isLoading = stats.isLoading || alerts.isLoading || cases.isLoading
+  const data = stats.data as DashboardStats | undefined
+  const isLoading = stats.isLoading && !data
 
   return {
-    alertCount: isLoading ? undefined : (alerts.data?.count ?? 0),
-    caseCount: isLoading ? undefined : (cases.data?.count ?? stats.data?.openCases ?? 0),
+    alertCount: isLoading ? undefined : (data?.openAlertsCount ?? 0),
+    caseCount: isLoading ? undefined : (data?.openCases ?? 0),
     isLoading,
   }
 }

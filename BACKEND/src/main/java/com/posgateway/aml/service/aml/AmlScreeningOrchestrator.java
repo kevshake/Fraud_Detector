@@ -3,15 +3,12 @@ package com.posgateway.aml.service.aml;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.posgateway.aml.entity.compliance.AuditTrail;
 import com.posgateway.aml.entity.merchant.BeneficialOwner;
-import com.posgateway.aml.entity.merchant.ExternalAmlResponse;
 import com.posgateway.aml.entity.merchant.Merchant;
 import com.posgateway.aml.entity.merchant.MerchantScreeningResult;
 import com.posgateway.aml.model.ScreeningResult;
 import com.posgateway.aml.repository.AuditTrailRepository;
-import com.posgateway.aml.repository.ExternalAmlResponseRepository;
 import com.posgateway.aml.repository.MerchantRepository;
 import com.posgateway.aml.repository.MerchantScreeningResultRepository;
-import com.posgateway.aml.repository.UserRepository; // Added UserRepository import
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,41 +21,43 @@ import java.util.Map;
 
 /**
  * AML Screening Orchestrator
- * Routes screening requests to appropriate tier based on merchant type
- * 
- * Strategy:
- * - New merchants → Tier 1 (Sumsub) for comprehensive screening
- * - Existing merchants → Tier 2 (Aerospike) for fast, free screening
- * - Fallback: If Sumsub fails → Aerospike
- * - All results stored in PostgreSQL for audit
+ *
+ * <p>Screening runs entirely on the platform's own independent sanctions engine
+ * ({@link AerospikeSanctionsScreeningService}, an HTTP proxy to the
+ * {@code aml-microservice}). There is no external KYC vendor in the live path.
+ *
+ * <p>Contract:
+ * <ul>
+ *   <li>Every merchant and beneficial owner is screened through the independent
+ *       engine — no vendor branch, no fabricated external-provider evidence.</li>
+ *   <li>When the engine is unavailable it returns
+ *       {@link ScreeningResult.ScreeningStatus#UNAVAILABLE}; the orchestrator does
+ *       NOT advance the next-screening-due clock and records the outage in the
+ *       audit trail rather than treating it as clearance (fail-closed).</li>
+ *   <li>All results are persisted to PostgreSQL for audit.</li>
+ * </ul>
  */
-// @RequiredArgsConstructor removed
 @Service
 public class AmlScreeningOrchestrator {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AmlScreeningOrchestrator.class);
 
-    private final SumsubAmlService sumsubService;
-    private final AerospikeSanctionsScreeningService aerospikeService;
+    /** Provider tag persisted with every screening result — the independent engine. */
+    private static final String PROVIDER = "AML_MICROSERVICE";
+
+    private final AerospikeSanctionsScreeningService screeningEngine;
     private final MerchantRepository merchantRepository;
     private final MerchantScreeningResultRepository screeningResultRepository;
-    private final ExternalAmlResponseRepository externalResponseRepository;
     private final AuditTrailRepository auditTrailRepository;
-    @SuppressWarnings("unused")
-    private final UserRepository userRepository; // Added UserRepository field
     private final ObjectMapper objectMapper;
 
-    public AmlScreeningOrchestrator(SumsubAmlService sumsubService, AerospikeSanctionsScreeningService aerospikeService,
+    public AmlScreeningOrchestrator(AerospikeSanctionsScreeningService screeningEngine,
             MerchantRepository merchantRepository, MerchantScreeningResultRepository screeningResultRepository,
-            ExternalAmlResponseRepository externalResponseRepository, AuditTrailRepository auditTrailRepository,
-            UserRepository userRepository, // Added UserRepository to constructor
+            AuditTrailRepository auditTrailRepository,
             ObjectMapper objectMapper) {
-        this.sumsubService = sumsubService;
-        this.aerospikeService = aerospikeService;
+        this.screeningEngine = screeningEngine;
         this.merchantRepository = merchantRepository;
         this.screeningResultRepository = screeningResultRepository;
-        this.externalResponseRepository = externalResponseRepository;
         this.auditTrailRepository = auditTrailRepository;
-        this.userRepository = userRepository; // Initialized UserRepository
         this.objectMapper = objectMapper;
     }
 
@@ -70,45 +69,23 @@ public class AmlScreeningOrchestrator {
         log.info("Orchestrating screening for merchant: {} (new: {})",
                 merchant.getLegalName(), merchant.isNew());
 
-        ScreeningResult result;
-        String screeningProvider;
-
-        // Determine which tier to use
-        if (merchant.isNew() && sumsubService.isEnabled()) {
-            log.info("Using Tier 1 (Sumsub) for new merchant '{}'", merchant.getLegalName());
-            try {
-                // Tier 1: Comprehensive Sumsub screening
-                result = sumsubService.screenMerchantWithSumsub(merchant);
-                screeningProvider = "SUMSUB";
-
-                // Save external response for audit
-                saveExternalResponse(merchant, result, sumsubService.getCostPerCheck());
-
-            } catch (Exception e) {
-                log.error("Sumsub screening failed, falling back to Aerospike: {}", e.getMessage());
-                // Fallback to Tier 2
-                result = aerospikeService.screenMerchant(merchant.getLegalName(), merchant.getTradingName());
-                screeningProvider = "AEROSPIKE_FALLBACK";
-            }
-        } else {
-            log.info("Using Tier 2 (Aerospike) for existing merchant '{}'", merchant.getLegalName());
-            // Tier 2: Fast local screening
-            result = aerospikeService.screenMerchant(merchant.getLegalName(), merchant.getTradingName());
-            screeningProvider = "AEROSPIKE";
-        }
+        // Screen through the platform's own independent sanctions engine.
+        ScreeningResult result = screeningEngine.screenMerchant(
+                merchant.getLegalName(), merchant.getTradingName());
 
         // Save screening result to PostgreSQL
-        saveScreeningResult(merchant, result, screeningProvider);
+        saveScreeningResult(merchant, result, PROVIDER);
 
-        // Update merchant's last screened timestamp
-        merchant.updateNextScreeningDue();
-        merchantRepository.save(merchant);
+        if (result.getStatus() != ScreeningResult.ScreeningStatus.UNAVAILABLE) {
+            merchant.updateNextScreeningDue();
+            merchantRepository.save(merchant);
+        }
 
         // Create audit trail
-        createAuditTrail(merchant, result, screeningProvider);
+        createAuditTrail(merchant, result, PROVIDER);
 
         log.info("Screening complete for '{}': status={}, matches={}, provider={}",
-                merchant.getLegalName(), result.getStatus(), result.getMatchCount(), screeningProvider);
+                merchant.getLegalName(), result.getStatus(), result.getMatchCount(), PROVIDER);
 
         return result;
     }
@@ -120,24 +97,9 @@ public class AmlScreeningOrchestrator {
     public ScreeningResult screenBeneficialOwner(BeneficialOwner owner, Merchant merchant) {
         log.info("Orchestrating screening for UBO: {}", owner.getFullName());
 
-        ScreeningResult result;
-
-        if (merchant.isNew() && sumsubService.isEnabled()) {
-            log.info("Using Tier 1 (Sumsub) for new merchant's UBO '{}'", owner.getFullName());
-            try {
-                result = sumsubService.screenBeneficialOwnerWithSumsub(owner);
-
-                // Save external response
-                saveExternalResponseForOwner(owner, result, sumsubService.getCostPerCheck());
-
-            } catch (Exception e) {
-                log.error("Sumsub UBO screening failed, falling back to Aerospike: {}", e.getMessage());
-                result = aerospikeService.screenBeneficialOwner(owner.getFullName(), owner.getDateOfBirth());
-            }
-        } else {
-            log.info("Using Tier 2 (Aerospike) for existing merchant's UBO '{}'", owner.getFullName());
-            result = aerospikeService.screenBeneficialOwner(owner.getFullName(), owner.getDateOfBirth());
-        }
+        // Screen the beneficial owner through the platform's own independent engine.
+        ScreeningResult result = screeningEngine.screenBeneficialOwner(
+                owner.getFullName(), owner.getDateOfBirth());
 
         // Update owner flags based on results
         if (result.hasMatches()) {
@@ -148,7 +110,9 @@ public class AmlScreeningOrchestrator {
             owner.setIsPep(hasPepMatch);
         }
 
-        owner.setLastScreenedAt(LocalDateTime.now());
+        if (result.getStatus() != ScreeningResult.ScreeningStatus.UNAVAILABLE) {
+            owner.setLastScreenedAt(LocalDateTime.now());
+        }
 
         log.info("UBO screening complete: status={}, sanctioned={}, PEP={}",
                 result.getStatus(), owner.getIsSanctioned(), owner.getIsPep());
@@ -224,71 +188,6 @@ public class AmlScreeningOrchestrator {
     }
 
     /**
-     * Save external AML provider response (Sumsub)
-     */
-    @SuppressWarnings("unchecked")
-    private void saveExternalResponse(Merchant merchant, ScreeningResult result, double cost) {
-        try {
-            ExternalAmlResponse response = ExternalAmlResponse.builder()
-                    .merchant(merchant)
-                    .providerName("SUMSUB")
-                    .screeningType("MERCHANT")
-                    .requestPayload(Map.of("name", merchant.getLegalName()))
-                    .responsePayload(objectMapper.convertValue(result, Map.class))
-                    .responseStatus("SUCCESS")
-                    .httpStatusCode(200)
-                    .sanctionsMatch(result.getMatches().stream()
-                            .anyMatch(m -> m.getSanctionType() != null))
-                    .pepMatch(result.getMatches().stream()
-                            .anyMatch(m -> m.getPepLevel() != null))
-                    .adverseMediaMatch(result.getMatches().stream()
-                            .anyMatch(m -> "ADVERSE_MEDIA".equals(m.getListName())))
-                    .overallRiskLevel(result.getStatus().name())
-                    .costAmount(BigDecimal.valueOf(cost))
-                    .costCurrency("USD")
-                    .screenedBy("SYSTEM")
-                    .build();
-
-            externalResponseRepository.save(response);
-
-            log.info("Saved external AML response for merchant '{}' (cost: ${})",
-                    merchant.getLegalName(), cost);
-
-        } catch (Exception e) {
-            log.error("Failed to save external response: {}", e.getMessage());
-        }
-    }
-
-    /**
-     * Save external response for beneficial owner
-     */
-    @SuppressWarnings("unchecked")
-    private void saveExternalResponseForOwner(BeneficialOwner owner, ScreeningResult result, double cost) {
-        try {
-            ExternalAmlResponse response = ExternalAmlResponse.builder()
-                    .owner(owner)
-                    .providerName("SUMSUB")
-                    .screeningType("BENEFICIAL_OWNER")
-                    .requestPayload(Map.of("name", owner.getFullName()))
-                    .responsePayload(objectMapper.convertValue(result, Map.class))
-                    .responseStatus("SUCCESS")
-                    .httpStatusCode(200)
-                    .sanctionsMatch(result.hasMatches())
-                    .pepMatch(result.getMatches().stream()
-                            .anyMatch(m -> m.getPepLevel() != null))
-                    .costAmount(BigDecimal.valueOf(cost))
-                    .costCurrency("USD")
-                    .screenedBy("SYSTEM")
-                    .build();
-
-            externalResponseRepository.save(response);
-
-        } catch (Exception e) {
-            log.error("Failed to save external response for UBO: {}", e.getMessage());
-        }
-    }
-
-    /**
      * Create audit trail entry
      */
     private void createAuditTrail(Merchant merchant, ScreeningResult result, String provider) {
@@ -305,7 +204,9 @@ public class AmlScreeningOrchestrator {
                     .performedBy("SYSTEM")
                     .evidence(evidence)
                     .decision(result.getStatus().name())
-                    .decisionReason(result.hasMatches() ? result.getMatchCount() + " potential matches found"
+                    .decisionReason(result.getStatus() == ScreeningResult.ScreeningStatus.UNAVAILABLE
+                            ? "Screening provider unavailable; no clearance decision made"
+                            : result.hasMatches() ? result.getMatchCount() + " potential matches found"
                             : "No matches found")
                     .build();
 

@@ -7,6 +7,8 @@ import com.posgateway.aml.repository.UserRepository;
 import com.posgateway.aml.service.SarWorkflowService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -34,13 +36,16 @@ public class SarWorkflowController {
     @PostMapping("/create")
     @PreAuthorize("hasAuthority('CREATE_SAR')")
     public ResponseEntity<SuspiciousActivityReport> createSar(@RequestBody CreateSarRequest request) {
-        User creator = fetchUser(request.getCreatorUserId());
+        User creator = currentUser();
         SuspiciousActivityReport sar = new SuspiciousActivityReport();
         sar.setSarReference(request.getSarReference());
         sar.setNarrative(request.getNarrative());
         sar.setSuspiciousActivityType(request.getSuspiciousActivityType());
         sar.setJurisdiction(request.getJurisdiction() != null ? request.getJurisdiction() : "UNKNOWN");
         sar.setSarType(request.getSarType());
+        sar.setSuspicionAroseAt(request.getSuspicionAroseAt());
+        sar.setSuspicionTimestampSource(request.getSuspicionAroseAt() == null
+                ? "REPORT_CREATED" : "OPERATOR_RECORDED");
         SuspiciousActivityReport created = sarWorkflowService.createSarDraft(sar, creator);
         return ResponseEntity.ok(created);
     }
@@ -48,7 +53,7 @@ public class SarWorkflowController {
     @PostMapping("/submit")
     @PreAuthorize("hasAuthority('CREATE_SAR')")
     public ResponseEntity<SuspiciousActivityReport> submitForReview(@RequestBody IdRequest request) {
-        User user = fetchUser(request.getUserId());
+        User user = currentUser();
         SuspiciousActivityReport updated = sarWorkflowService.submitForReview(request.getSarId(), user);
         return ResponseEntity.ok(updated);
     }
@@ -56,7 +61,7 @@ public class SarWorkflowController {
     @PostMapping("/approve")
     @PreAuthorize("hasAuthority('APPROVE_SAR')")
     public ResponseEntity<SuspiciousActivityReport> approve(@RequestBody IdRequest request) {
-        User approver = fetchUser(request.getUserId());
+        User approver = currentUser();
         SuspiciousActivityReport updated = sarWorkflowService.approveSar(request.getSarId(), approver);
         return ResponseEntity.ok(updated);
     }
@@ -64,7 +69,7 @@ public class SarWorkflowController {
     @PostMapping("/reject")
     @PreAuthorize("hasAuthority('APPROVE_SAR')")
     public ResponseEntity<SuspiciousActivityReport> reject(@RequestBody RejectRequest request) {
-        User rejector = fetchUser(request.getUserId());
+        User rejector = currentUser();
         SuspiciousActivityReport updated = sarWorkflowService.rejectSar(request.getSarId(), rejector,
                 request.getReason());
         return ResponseEntity.ok(updated);
@@ -73,15 +78,19 @@ public class SarWorkflowController {
     @PostMapping("/file")
     @PreAuthorize("hasAuthority('FILE_SAR')")
     public ResponseEntity<SuspiciousActivityReport> file(@RequestBody FileSarRequest request) {
-        User filer = fetchUser(request.getUserId());
+        User filer = currentUser();
         SuspiciousActivityReport updated = sarWorkflowService.markAsFiled(request.getSarId(),
                 request.getFilingReference(), filer);
         return ResponseEntity.ok(updated);
     }
 
-    private User fetchUser(Long userId) {
-        return userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
+    private User currentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new SecurityException("Authentication is required");
+        }
+        return userRepository.findByUsername(authentication.getName())
+                .orElseThrow(() -> new SecurityException("Authenticated user is not registered"));
     }
 
     public static class CreateSarRequest {
@@ -91,6 +100,7 @@ public class SarWorkflowController {
         private String jurisdiction;
         private com.posgateway.aml.model.SarType sarType = com.posgateway.aml.model.SarType.INITIAL;
         private Long creatorUserId;
+        private java.time.LocalDateTime suspicionAroseAt;
 
         public CreateSarRequest() {
         }
@@ -141,6 +151,11 @@ public class SarWorkflowController {
 
         public void setCreatorUserId(Long creatorUserId) {
             this.creatorUserId = creatorUserId;
+        }
+
+        public java.time.LocalDateTime getSuspicionAroseAt() { return suspicionAroseAt; }
+        public void setSuspicionAroseAt(java.time.LocalDateTime suspicionAroseAt) {
+            this.suspicionAroseAt = suspicionAroseAt;
         }
     }
 

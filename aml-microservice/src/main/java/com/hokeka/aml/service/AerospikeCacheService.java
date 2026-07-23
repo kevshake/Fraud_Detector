@@ -97,11 +97,18 @@ public class AerospikeCacheService {
             // Extract last timestamp safely (avoid ternary type resolution in Bin arg)
             Object rawTs = event != null ? event.getOrDefault("tsMs", System.currentTimeMillis()) : System.currentTimeMillis();
             long lastTs = rawTs instanceof Number n ? n.longValue() : System.currentTimeMillis();
+            // Actual transaction amount to accumulate (was hardcoded 0, so the running total
+            // never grew and amount-velocity rules always read 0).
+            Object rawAmt = event != null
+                    ? event.getOrDefault("amountCents", event.getOrDefault("amount", 0L)) : 0L;
+            long amount = rawAmt instanceof Number n2 ? n2.longValue() : 0L;
             // Accumulate a TX count, total amount, and last timestamp
             aerospikeClient.operate(wp, key,
                     new com.aerospike.client.Operation[]{
                             com.aerospike.client.Operation.add(new Bin("txn_count", 1L)),
-                            com.aerospike.client.Operation.add(new Bin("total_ms", 0L)),
+                            // Bin holds the accumulated transaction amount — named clearly so a
+                            // future reader can't mistake it for an elapsed-ms value (W49-12).
+                            com.aerospike.client.Operation.add(new Bin("total_amount", amount)),
                             com.aerospike.client.Operation.put(new Bin("last_ts_ms", lastTs))
                     });
             log.debug("Velocity event recorded for customerId={}", customerId);

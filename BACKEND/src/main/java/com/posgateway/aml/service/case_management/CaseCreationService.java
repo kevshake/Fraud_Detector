@@ -62,7 +62,7 @@ public class CaseCreationService {
         // Derive a version string from the rule's last-updated timestamp.
         // Pattern: "v<year>.<month>" (e.g. "v2026.5").
         // Falls back to "v0.0" when the rule is not found in the DB.
-        String ruleVersion = ruleDefinitionRepository.findByName(ruleName)
+        String ruleVersion = ruleDefinitionRepository.findFirstByNameOrderByIdAsc(ruleName)
                 .map(RuleDefinition::getUpdatedAt)
                 .map(ts -> "v" + ts.getYear() + "." + ts.getMonthValue())
                 .orElse("v0.0");
@@ -281,14 +281,10 @@ public class CaseCreationService {
 
         // 6. Publish Kafka Event (only if producer is configured/enabled)
         if (caseEventProducer != null) {
-            try {
-                String eventType = (cCase.getCreatedAt().isAfter(LocalDateTime.now().minusSeconds(5)))
-                        ? "CASE_CREATED"
-                        : "CASE_UPDATED";
-                caseEventProducer.publishCaseLifecycleEvent(cCase, eventType);
-            } catch (Exception e) {
-                logger.error("Failed to publish case event", e);
-            }
+            String eventType = (cCase.getCreatedAt().isAfter(LocalDateTime.now().minusSeconds(5)))
+                    ? "CASE_CREATED"
+                    : "CASE_UPDATED";
+            caseEventProducer.publishCaseLifecycleEvent(cCase, eventType);
         } else {
             logger.debug("Kafka disabled or CaseEventProducer not configured - skipping case lifecycle event for {}",
                     cCase.getCaseReference());

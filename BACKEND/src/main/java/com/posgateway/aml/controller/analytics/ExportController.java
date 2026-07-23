@@ -31,12 +31,23 @@ public class ExportController {
     private final ComplianceCaseRepository caseRepository;
     private final SuspiciousActivityReportRepository sarRepository;
     private final AuditLogRepository auditLogRepository;
+    private final com.posgateway.aml.service.security.PspIsolationService pspIsolationService;
 
     public ExportController(ComplianceCaseRepository caseRepository, SuspiciousActivityReportRepository sarRepository,
-            AuditLogRepository auditLogRepository) {
+            AuditLogRepository auditLogRepository,
+            com.posgateway.aml.service.security.PspIsolationService pspIsolationService) {
         this.caseRepository = caseRepository;
         this.sarRepository = sarRepository;
         this.auditLogRepository = auditLogRepository;
+        this.pspIsolationService = pspIsolationService;
+    }
+
+    /**
+     * PSP scope for exports: null for platform admins (see all), otherwise the caller's PSP id
+     * so a PSP user only exports their own tenant's data. Prevents the cross-tenant CSV leak.
+     */
+    private Long exportScopePspId() {
+        return pspIsolationService.isPlatformAdministrator() ? null : pspIsolationService.getCurrentUserPspId();
     }
 
     @GetMapping(value = "/cases.csv", produces = "text/csv")
@@ -44,6 +55,10 @@ public class ExportController {
             @RequestParam(required = false) String priority,
             @RequestParam(required = false) String merchantId) {
         List<ComplianceCase> cases = caseRepository.findAll();
+        Long scope = exportScopePspId();
+        if (scope != null) {
+            cases = cases.stream().filter(c -> scope.equals(c.getPspId())).toList();
+        }
         if (status != null && !status.isEmpty()) {
             try {
                 CaseStatus cs = CaseStatus.valueOf(status);
@@ -80,6 +95,10 @@ public class ExportController {
     @GetMapping(value = "/sars.csv", produces = "text/csv")
     public ResponseEntity<byte[]> exportSars(@RequestParam(required = false) String status) {
         List<SuspiciousActivityReport> sars = sarRepository.findAll();
+        Long scope = exportScopePspId();
+        if (scope != null) {
+            sars = sars.stream().filter(s -> scope.equals(s.getPspId())).toList();
+        }
         if (status != null && !status.isEmpty()) {
             try {
                 SarStatus ss = SarStatus.valueOf(status);
@@ -106,6 +125,10 @@ public class ExportController {
         LocalDateTime from = start != null ? LocalDateTime.parse(start) : LocalDate.now().minusDays(1).atStartOfDay();
         LocalDateTime to = end != null ? LocalDateTime.parse(end) : LocalDateTime.now();
         List<AuditLog> logs = auditLogRepository.findByTimestampBetween(from, to);
+        Long scope = exportScopePspId();
+        if (scope != null) {
+            logs = logs.stream().filter(l -> scope.equals(l.getPspId())).toList();
+        }
         StringBuilder sb = new StringBuilder();
         sb.append("timestamp,user,action,entityType,entityId,success\n");
         for (AuditLog l : logs) {

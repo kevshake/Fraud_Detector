@@ -15,6 +15,11 @@ public record SubmissionResult(
         String submissionId,
         String status,
         Instant submittedAt,
-        String regulator
+        String regulator,
+        Integer httpStatus,
+        String responseBody
 ) {
+    public SubmissionResult(String submissionId, String status, Instant submittedAt, String regulator) {
+        this(submissionId, status, submittedAt, regulator, 200, null);
+    }
 }

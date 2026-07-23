@@ -2,6 +2,7 @@ package com.posgateway.aml.controller.reporting;
 
 import com.posgateway.aml.dto.reporting.*;
 import com.posgateway.aml.entity.User;
+import com.posgateway.aml.entity.reporting.ReportScheduleHistory;
 import com.posgateway.aml.repository.AlertRepository;
 import com.posgateway.aml.repository.TransactionRepository;
 import com.posgateway.aml.service.reporting.ReportGenerationService;
@@ -72,7 +73,7 @@ public class ReportController {
         
         ReportPreviewDTO preview = reportGenerationService.previewReport(
             request.getReportType(), 
-            request.getParameters(), 
+            reportParameters(request),
             pspId
         );
         
@@ -92,25 +93,38 @@ public class ReportController {
         User user = (User) authentication.getPrincipal();
         Long userId = user.getId();
         Long pspId = pspIsolationService.sanitizePspId(request.getPspId());
+        Map<String, Object> parameters = reportParameters(request);
 
         // Mint the execution ID here so the client can poll /reports/status/{executionId}
         String executionId = reportGenerationService.generateExecutionId();
+        ReportExecutionDTO pending = reportGenerationService.queueReport(
+                executionId,
+                request.getReportType(),
+                parameters,
+                userId,
+                pspId
+        );
         reportGenerationService.generateReport(
             executionId,
             request.getReportType(),
-            request.getParameters(),
+            parameters,
             userId,
             pspId
         );
 
-        // Return immediately with pending status
-        ReportExecutionDTO pending = new ReportExecutionDTO();
-        pending.setExecutionId(executionId);
-        pending.setStatus(com.posgateway.aml.entity.reporting.ExecutionStatus.PENDING);
-        pending.setTriggeredBy(userId);
-        pending.setTriggeredByName(user.getFullName());
-
         return ResponseEntity.accepted().body(pending);
+    }
+
+    private Map<String, Object> reportParameters(ReportGenerateRequest request) {
+        Map<String, Object> parameters = new LinkedHashMap<>();
+        if (request.getParameters() != null) parameters.putAll(request.getParameters());
+        if (request.getFilters() != null) parameters.put("filters", request.getFilters());
+        if (request.getDateFrom() != null) parameters.put("dateFrom", request.getDateFrom());
+        if (request.getDateTo() != null) parameters.put("dateTo", request.getDateTo());
+        if (request.getOutputFormat() != null && !request.getOutputFormat().isBlank()) {
+            parameters.put("outputFormat", request.getOutputFormat());
+        }
+        return parameters;
     }
 
     /**
@@ -294,6 +308,12 @@ public class ReportController {
         
         ReportScheduleDTO schedule = reportSchedulingService.getScheduleById(scheduleId);
         return ResponseEntity.ok(schedule);
+    }
+
+    @GetMapping("/schedule/{scheduleId}/history")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN', 'ANALYST')")
+    public ResponseEntity<List<ReportScheduleHistory>> getScheduleHistory(@PathVariable Long scheduleId) {
+        return ResponseEntity.ok(reportSchedulingService.getScheduleHistory(scheduleId));
     }
 
     /**

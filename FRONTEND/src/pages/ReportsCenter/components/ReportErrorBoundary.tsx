@@ -56,10 +56,10 @@ export default class ReportErrorBoundary extends Component<Props, State> {
         <Paper
           elevation={0}
           sx={{
-            p: 4,
-            borderRadius: "16px",
-            backgroundColor: "rgba(211, 47, 47, 0.05)",
-            border: "1px solid rgba(211, 47, 47, 0.2)",
+            p: 3.5,
+            borderRadius: "var(--radius)",
+            backgroundColor: "var(--surface-2)",
+            border: "1px solid color-mix(in srgb, var(--danger) 30%, transparent)",
             textAlign: "center",
           }}
         >
@@ -68,7 +68,7 @@ export default class ReportErrorBoundary extends Component<Props, State> {
               width: 64,
               height: 64,
               borderRadius: "50%",
-              backgroundColor: "rgba(211, 47, 47, 0.1)",
+              backgroundColor: "var(--danger-soft)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -76,10 +76,10 @@ export default class ReportErrorBoundary extends Component<Props, State> {
               mb: 2,
             }}
           >
-            <ErrorIcon sx={{ fontSize: 32, color: "#d32f2f" }} />
+            <ErrorIcon sx={{ fontSize: 26, color: "var(--danger)" }} />
           </Box>
 
-          <Typography variant="h6" sx={{ fontWeight: 600, color: "#d32f2f", mb: 1 }}>
+          <Typography variant="h6" sx={{ fontWeight: 600, color: "var(--danger)", mb: 1 }}>
             {statusCode === 503
               ? "Report Service Unavailable"
               : statusCode === 504
@@ -122,10 +122,8 @@ export default class ReportErrorBoundary extends Component<Props, State> {
             variant="contained"
             startIcon={<RefreshIcon />}
             onClick={this.handleReset}
+            color="primary"
             sx={{
-              backgroundColor: "#800020",
-              "&:hover": { backgroundColor: "#600018" },
-              borderRadius: "10px",
             }}
           >
             Try Again

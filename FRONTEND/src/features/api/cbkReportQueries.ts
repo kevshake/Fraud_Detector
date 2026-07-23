@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../../lib/apiClient";
+import type { CbkEndpointType } from "../../types/cbk";
 
-export type CbkPeriod = "daily" | "weekly" | "monthly" | "quarterly" | "semi-annual" | "annual";
+export type CbkPeriod = "daily" | "monthly" | "annual";
 export type CbkSubmissionStatus = "submitted" | "pending" | "failed";
 
 export interface CbkReportParams {
@@ -19,6 +20,7 @@ export interface CbkReportRow {
   submissionStatus: CbkSubmissionStatus;
   submittedAt?: string;
   referenceNumber?: string;
+  recordCount?: number;
   errorMessage?: string;
 }
 
@@ -29,7 +31,7 @@ export interface CbkReportResponse {
 }
 
 export interface CbkSubmitRequest {
-  reportId: string;
+  endpointType: CbkEndpointType;
   period: CbkPeriod;
   from: string;
   to: string;
@@ -37,7 +39,7 @@ export interface CbkSubmitRequest {
 }
 
 export interface CbkSubmitResponse {
-  referenceNumber: string;
+  referenceNumber?: string;
   status: CbkSubmissionStatus;
   submittedAt: string;
   message: string;

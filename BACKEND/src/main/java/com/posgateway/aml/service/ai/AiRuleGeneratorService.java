@@ -24,7 +24,7 @@ import java.util.regex.Pattern;
 
 /**
  * Generates a {@link RuleDefinition} from a natural-language operator prompt by calling
- * Anthropic Claude. Replaces the previous keyword-matching stub.
+ * Anthropic Claude. Replaces the previous keyword-matching fallback.
  *
  * Robustness rules (set in stone — DO NOT add silent fallbacks):
  *   - When ai.rule-generator.enabled=false, return null and log a clear toggle-off message.
@@ -81,42 +81,46 @@ public class AiRuleGeneratorService {
             }
 
             SpEL VARIABLES AVAILABLE (when ruleType = "SPEL"):
-              #tx        : transaction (fields: amount, currency, mcc, merchantCountry, panLast4, ...)
-              #merchant  : merchant context (fields: country, mcc, riskScore, ageInDays, ...)
-              #history   : recent history (fields: panTxnCount1h, panTxnCount24h, avgVolume30d, ...)
+              #tx        : TransactionFact (amount, currency, countryCode, channel, mlScore, velocity fields)
+              #features  : enriched feature map (merchant and historical signals)
+              #params    : operator-approved rule parameter map
+
+            Regulatory cash-reporting obligations are evaluated by the dedicated compliance
+            service. Do not generate CTR thresholds, FX conversion, or country-wide sanctions
+            blocks. Generated rules may create risk review signals from explicit features.
 
             EXAMPLES:
 
-            Operator: "Block any transaction over 10,000 USD"
+            Operator: "Hold a transaction when it is more than three times the card's 30-day average"
             {
-              "name": "BLOCK_LARGE_USD_OVER_10K",
-              "description": "Block transactions over USD 10,000.",
+              "name": "HOLD_AMOUNT_SPIKE_VS_CARD_AVERAGE",
+              "description": "Hold transactions exceeding three times the card's 30-day average.",
               "ruleType": "SPEL",
-              "ruleExpression": "#tx.amount >= 10000 and #tx.currency == 'USD'",
+              "ruleExpression": "#features['avg_amount_by_pan_30d'] != null and #features['avg_amount_by_pan_30d'] > 0 and #tx.amount > #features['avg_amount_by_pan_30d'] * 3",
               "severity": "HIGH",
-              "action": "BLOCK",
+              "action": "HOLD",
               "score": 60,
               "priority": 100
             }
 
-            Operator: "Flag possible structuring — multiple transactions just under 10k from the same card within an hour"
+            Operator: "Flag a transaction when the approved structuring detector marks repeated activity"
             {
-              "name": "FLAG_STRUCTURING_SUB_10K_VELOCITY",
-              "description": "Flag possible structuring: amount in [9000, 10000) with >=3 txns from same PAN in 1h.",
+              "name": "FLAG_APPROVED_STRUCTURING_SIGNAL",
+              "description": "Flag transactions carrying an approved structuring-risk signal.",
               "ruleType": "SPEL",
-              "ruleExpression": "#tx.amount >= 9000 and #tx.amount < 10000 and #history.panTxnCount1h >= 3",
+              "ruleExpression": "#features['is_structuring_suspected'] == true",
               "severity": "HIGH",
               "action": "ALERT",
               "score": 75,
               "priority": 50
             }
 
-            Operator: "Hold transactions from new merchants (less than 30 days old) in high-risk countries over $5000"
+            Operator: "Hold configured high-risk-country transactions with elevated merchant risk"
             {
-              "name": "HOLD_NEW_MERCHANT_HIGH_RISK_COUNTRY",
-              "description": "Hold txns >$5k from merchants <30d old in high-risk jurisdictions.",
+              "name": "HOLD_CONFIGURED_COUNTRY_AND_MERCHANT_RISK",
+              "description": "Hold configured high-risk-country transactions with elevated merchant risk.",
               "ruleType": "SPEL",
-              "ruleExpression": "#tx.amount > 5000 and #merchant.ageInDays < 30 and (#tx.merchantCountry == 'IR' or #tx.merchantCountry == 'KP' or #tx.merchantCountry == 'SY')",
+              "ruleExpression": "#tx.isHighRiskCountry() and #features['krs_score'] != null and #features['krs_score'] >= 70",
               "severity": "MEDIUM",
               "action": "HOLD",
               "score": 50,

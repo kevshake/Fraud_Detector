@@ -35,8 +35,8 @@ Automated regulatory reporting for PSPs licensed by the Central Bank of Kenya vi
 | 9 | System Activity (24h TPS/TPH) | TransactionRepository hourly aggregation |
 | 11 | Trust Account | `PspTrustAccount` table |
 | 13 | Billing Template | TransactionRepository aggregation |
-| 16 | Merchant Transactions (successful) | TransactionRepository yesterday filter |
-| 17 | Failed/Rejected Transactions | TransactionRepository failed filter |
+| 16 | Merchant Transactions (successful) | Transactions plus merchant settlement evidence |
+| 17 | Failed/Rejected Transactions | Full failed transaction evidence |
 
 ## Submission Pipeline
 
@@ -73,6 +73,27 @@ CbkSubmission(entity)
     │ requestId, recordCount, attemptedAt
     │ errorMessage on failure
 ```
+
+### Submission Evidence
+
+The transport accepts any successful 2xx response and retains the exact HTTP
+status. A failed or locally rejected submission has no regulator request ID;
+the platform never fabricates one. Every audit row retains the exact reporting
+window, regulator response excerpt, error, and number of source records
+serialized for the call. The source count is displayed in both CBK history
+views.
+
+Endpoint 16 requires each grouped merchant transaction to resolve to a merchant
+in the same PSP with an encrypted settlement account number, contact email,
+economic-sector code, valid country, and the actual persisted transaction
+channel. Endpoint 17 groups complete failed transaction rows by tokenized
+customer account reference, encrypted customer email, channel, merchant, and
+the persisted acquirer response or decision reason. Missing required source
+fields rejects the run before the CBK API is called.
+
+Merchant onboarding captures the endpoint 16 fields. Transaction ingestion
+captures the endpoint 17 fields. Account values are write-only; APIs expose only
+whether the merchant settlement account is configured.
 
 ### Fraud Incident Auto-Population
 

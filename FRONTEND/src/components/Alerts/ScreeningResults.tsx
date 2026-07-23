@@ -1,78 +1,97 @@
 import {
-  ArrowRight,
   Eye,
   Newspaper,
   ShieldAlert,
   User,
   type LucideIcon,
 } from 'lucide-react'
-import { Link } from 'react-router-dom'
-import GlassCard from '../Common/GlassCard'
+import DashboardPanel from '../dashboard/DashboardPanel'
+import DashboardWidgetHeader from '../dashboard/DashboardWidgetHeader'
+import { DashboardEmpty, DashboardError, DashboardLoading } from '../dashboard/DashboardState'
 import { useScreeningResultsToday } from '../../hooks/useDashboard'
 
 interface Row {
   label: string
   icon: LucideIcon
-  iconColor: string
+  tone: string
   value: number | undefined
 }
 
+/** Answers: What watchlist hit types fired today? */
 export default function ScreeningResults() {
   const { data, isLoading, error } = useScreeningResultsToday()
 
   const rows: Row[] = [
-    { label: 'PEP Matches', icon: User, iconColor: '#F59E0B', value: data?.pepMatches },
-    { label: 'Sanctions Matches', icon: ShieldAlert, iconColor: '#DC2626', value: data?.sanctionsMatches },
-    { label: 'Adverse Media Hits', icon: Newspaper, iconColor: '#F97316', value: data?.adverseMediaHits },
-    { label: 'Watchlist Matches', icon: Eye, iconColor: '#C9A96E', value: data?.watchlistMatches },
+    {
+      label: 'PEP matches',
+      icon: User,
+      tone: 'bg-[var(--db-warning-soft)] text-[var(--db-warning)]',
+      value: data?.pepMatches,
+    },
+    {
+      label: 'Sanctions matches',
+      icon: ShieldAlert,
+      tone: 'bg-[var(--db-danger-soft)] text-[var(--db-danger)]',
+      value: data?.sanctionsMatches,
+    },
+    {
+      label: 'Adverse media',
+      icon: Newspaper,
+      tone: 'bg-[var(--db-info-soft)] text-[var(--db-info)]',
+      value: data?.adverseMediaHits,
+    },
+    {
+      label: 'Watchlist matches',
+      icon: Eye,
+      tone: 'bg-[var(--db-accent-soft)] text-[var(--db-accent)]',
+      value: data?.watchlistMatches,
+    },
   ]
 
-  return (
-    <GlassCard padding="sm" glowVariant="purple" className="flex h-full min-h-0 flex-col !p-3">
-      <div className="mb-1.5 flex items-center justify-between">
-        <h3 className="text-xs font-semibold text-white">Watchlist Matches</h3>
-        <Link
-          to="/screening"
-          className="flex items-center gap-1 text-[10px] font-medium text-gold hover:underline"
-        >
-          View screening <ArrowRight size={12} />
-        </Link>
-      </div>
+  const total = rows.reduce((s, r) => s + (r.value ?? 0), 0)
 
-      {isLoading ? (
-        <div className="space-y-1.5">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-7 animate-pulse rounded bg-glass-skeleton" />
-          ))}
-        </div>
+  return (
+    <DashboardPanel aria-labelledby="db-screening-results" className="min-h-[200px]">
+      <DashboardWidgetHeader
+        id="db-screening-results"
+        title="Screening hits today"
+        description="Match types from today’s screening runs"
+        actionLabel="Screening"
+        actionTo="/screening"
+      />
+
+      {isLoading && !data ? (
+        <DashboardLoading rows={4} />
       ) : error ? (
-        <p className="text-xs text-danger">Could not load</p>
+        <DashboardError message="Screening results unavailable." />
+      ) : total === 0 ? (
+        <DashboardEmpty message="No screening hits recorded today." />
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col justify-between gap-1">
+        <ul className="flex min-h-0 flex-1 flex-col justify-between gap-1">
           {rows.map((r) => {
             const Icon = r.icon
             return (
-              <div
+              <li
                 key={r.label}
-                className="flex items-center justify-between rounded-lg px-0.5 py-0.5 transition-colors hover:bg-burgundy-850/40"
+                className="flex items-center justify-between rounded-[var(--db-radius-sm)] px-0.5 py-1.5"
               >
                 <div className="flex items-center gap-2">
                   <span
-                    className="flex h-6 w-6 items-center justify-center rounded-md"
-                    style={{ backgroundColor: `${r.iconColor}22` }}
+                    className={`flex h-7 w-7 items-center justify-center rounded-md ${r.tone}`}
+                    aria-hidden
                   >
-                    <Icon size={12} color={r.iconColor} />
+                    <Icon size={13} />
                   </span>
-                  <span className="text-[10px] text-white/75">{r.label}</span>
+                  <span className="text-xs text-[var(--db-text-secondary)]">{r.label}</span>
                 </div>
-                <span className="text-sm font-semibold text-white">
+                <span className="text-sm font-semibold tabular-nums text-[var(--db-text)]">
                   {r.value === undefined ? '—' : r.value}
                 </span>
-              </div>
+              </li>
             )
           })}
-        </div>
+        </ul>
       )}
-    </GlassCard>
+    </DashboardPanel>
   )
 }

@@ -15,10 +15,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.*;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -27,6 +24,9 @@ import org.springframework.data.domain.Pageable;
  */
 @Service
 public class LimitsManagementService {
+
+    public static final String AML_TRANSACTION_LIMIT = "AML_TRANSACTION";
+    public static final String AML_DAILY_LIMIT = "AML_DAILY";
 
     private final MerchantTransactionLimitRepository merchantLimitRepository;
     private final GlobalLimitRepository globalLimitRepository;
@@ -64,6 +64,32 @@ public class LimitsManagementService {
         return pspId == null;
     }
 
+    private User requireCurrentUser() {
+        User user = pspIsolationService.getCurrentUser();
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not authenticated");
+        }
+        return user;
+    }
+
+    private Long currentScopePspId(User user) {
+        return pspIsolationService.isPlatformAdministrator(user)
+                ? null
+                : pspIsolationService.getCurrentUserPspId();
+    }
+
+    private void validateMerchantAccess(Merchant merchant) {
+        Long merchantPspId = merchant.getPsp() == null ? null : merchant.getPsp().getPspId();
+        pspIsolationService.validatePspAccess(merchantPspId);
+    }
+
+    private <T> List<T> inheritedAndOwned(List<T> inherited, List<T> owned) {
+        List<T> result = new ArrayList<>(owned.size() + inherited.size());
+        result.addAll(owned);
+        result.addAll(inherited);
+        return result;
+    }
+
     /**
      * Validate that current user can modify a rule
      */
@@ -91,6 +117,7 @@ public class LimitsManagementService {
     public MerchantTransactionLimit createOrUpdateMerchantLimit(Long merchantId, MerchantTransactionLimit limit, Long userId) {
         Merchant merchant = merchantRepository.findById(merchantId)
                 .orElseThrow(() -> new IllegalArgumentException("Merchant not found"));
+        validateMerchantAccess(merchant);
 
         MerchantTransactionLimit existing = merchantLimitRepository.findByMerchant_MerchantId(merchantId)
                 .orElse(new MerchantTransactionLimit());
@@ -107,21 +134,39 @@ public class LimitsManagementService {
     }
 
     public List<MerchantTransactionLimit> getAllMerchantLimits() {
-        return merchantLimitRepository.findAll();
+        User user = requireCurrentUser();
+        Long pspId = currentScopePspId(user);
+        return pspId == null ? merchantLimitRepository.findAll()
+                : merchantLimitRepository.findByMerchant_Psp_PspId(pspId);
     }
 
     public Page<MerchantTransactionLimit> getAllMerchantLimits(Pageable pageable) {
-        return merchantLimitRepository.findAll(pageable);
+        User user = requireCurrentUser();
+        Long pspId = currentScopePspId(user);
+        return pspId == null ? merchantLimitRepository.findAll(pageable)
+                : merchantLimitRepository.findByMerchant_Psp_PspId(pspId, pageable);
     }
 
     public MerchantTransactionLimit getMerchantLimit(Long merchantId) {
-        return merchantLimitRepository.findByMerchant_MerchantId(merchantId)
-                .orElse(null);
+        Merchant merchant = merchantRepository.findById(merchantId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Merchant not found"));
+        validateMerchantAccess(merchant);
+        return merchantLimitRepository.findByMerchant_MerchantId(merchantId).orElse(null);
     }
 
     // Global Limits
     @Transactional
     public GlobalLimit createGlobalLimit(GlobalLimit limit, Long userId) {
+        User user = requireCurrentUser();
+        Long pspId = currentScopePspId(user);
+        Optional<GlobalLimit> existing = pspId == null
+                ? globalLimitRepository.findByNameAndPspIdIsNull(limit.getName())
+                : globalLimitRepository.findByNameAndPspId(limit.getName(), pspId);
+        if (existing.isPresent()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "A limit with this name already exists in the current PSP scope");
+        }
+        limit.setPspId(pspId);
         limit.setCreatedBy(userId);
         return globalLimitRepository.save(limit);
     }
@@ -130,6 +175,7 @@ public class LimitsManagementService {
     public GlobalLimit updateGlobalLimit(Long id, GlobalLimit limit, Long userId) {
         GlobalLimit existing = globalLimitRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Global limit not found"));
+        validateRuleModification(existing.getPspId(), requireCurrentUser());
         existing.setName(limit.getName());
         existing.setDescription(limit.getDescription());
         existing.setLimitType(limit.getLimitType());
@@ -141,19 +187,77 @@ public class LimitsManagementService {
     }
 
     public List<GlobalLimit> getAllGlobalLimits() {
-        try {
-            return globalLimitRepository.findAll();
-        } catch (Exception e) {
-            org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(LimitsManagementService.class);
-            log.error("Error fetching global limits: {}", e.getMessage(), e);
-            // Return empty list instead of throwing to prevent complete failure
-            return new java.util.ArrayList<>();
-        }
+        User user = requireCurrentUser();
+        Long pspId = currentScopePspId(user);
+        return pspId == null ? globalLimitRepository.findAll()
+                : inheritedAndOwned(globalLimitRepository.findByPspIdIsNull(), globalLimitRepository.findByPspId(pspId));
     }
 
     @Transactional
     public void deleteGlobalLimit(Long id) {
+        GlobalLimit existing = globalLimitRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Global limit not found"));
+        validateRuleModification(existing.getPspId(), requireCurrentUser());
         globalLimitRepository.deleteById(id);
+    }
+
+    @Transactional
+    public List<GlobalLimit> upsertAmlLimits(BigDecimal transactionLimit, BigDecimal dailyLimit, Long userId) {
+        User user = requireCurrentUser();
+        Long pspId = currentScopePspId(user);
+        List<GlobalLimit> saved = new ArrayList<>();
+        if (transactionLimit != null) {
+            saved.add(upsertNamedLimit(AML_TRANSACTION_LIMIT, "Maximum amount per transaction",
+                    "VOLUME", "TRANSACTION", transactionLimit, userId, pspId));
+        }
+        if (dailyLimit != null) {
+            saved.add(upsertNamedLimit(AML_DAILY_LIMIT, "Maximum PSP transaction volume per day",
+                    "VOLUME", "DAY", dailyLimit, userId, pspId));
+        }
+        if (saved.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "At least one AML limit is required");
+        }
+        return saved;
+    }
+
+    public Map<String, BigDecimal> getAmlLimits() {
+        User user = requireCurrentUser();
+        Long pspId = currentScopePspId(user);
+        Map<String, BigDecimal> result = new LinkedHashMap<>();
+        effectiveGlobalLimit(AML_TRANSACTION_LIMIT, pspId)
+                .ifPresent(limit -> result.put("transactionLimit", limit.getLimitValue()));
+        effectiveGlobalLimit(AML_DAILY_LIMIT, pspId)
+                .ifPresent(limit -> result.put("dailyLimit", limit.getLimitValue()));
+        return result;
+    }
+
+    private GlobalLimit upsertNamedLimit(String name, String description, String type, String period,
+            BigDecimal value, Long userId, Long pspId) {
+        if (value.signum() <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, name + " must be greater than zero");
+        }
+        GlobalLimit limit = (pspId == null
+                ? globalLimitRepository.findByNameAndPspIdIsNull(name)
+                : globalLimitRepository.findByNameAndPspId(name, pspId)).orElseGet(GlobalLimit::new);
+        boolean created = limit.getId() == null;
+        limit.setName(name);
+        limit.setDescription(description);
+        limit.setLimitType(type);
+        limit.setPeriod(period);
+        limit.setLimitValue(value);
+        limit.setStatus("ACTIVE");
+        limit.setPspId(pspId);
+        if (created) limit.setCreatedBy(userId);
+        else limit.setUpdatedBy(userId);
+        return globalLimitRepository.save(limit);
+    }
+
+    private Optional<GlobalLimit> effectiveGlobalLimit(String name, Long pspId) {
+        if (pspId != null) {
+            Optional<GlobalLimit> owned = globalLimitRepository.findByNameAndPspId(name, pspId);
+            if (owned.isPresent()) return owned;
+        }
+        return globalLimitRepository.findByNameAndPspIdIsNull(name);
     }
 
     // Risk Thresholds
@@ -164,7 +268,10 @@ public class LimitsManagementService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not authenticated");
         }
 
-        RiskThreshold existing = riskThresholdRepository.findByRiskLevel(threshold.getRiskLevel())
+        Long pspId = currentScopePspId(currentUser);
+        RiskThreshold existing = (pspId == null
+                ? riskThresholdRepository.findByRiskLevelAndPspIdIsNull(threshold.getRiskLevel())
+                : riskThresholdRepository.findByRiskLevelAndPspId(threshold.getRiskLevel(), pspId))
                 .orElse(new RiskThreshold());
 
         // If updating existing threshold, validate user can modify it
@@ -183,18 +290,14 @@ public class LimitsManagementService {
         if (existing.getId() == null) {
             existing.setCreatedBy(userId);
             // Set PSP ID for new thresholds
-            if (pspIsolationService.isPlatformAdministrator(currentUser)) {
-                // Super admin creates thresholds with null pspId
-                existing.setPspId(null);
-            } else {
-                // PSP user creates thresholds with their PSP ID
-                Long pspId = pspIsolationService.getCurrentUserPspId();
-                existing.setPspId(pspId);
-            }
+            existing.setPspId(pspId);
         }
 
         // Update merchant count
-        long merchantCount = merchantRepository.findAll().stream()
+        List<Merchant> scopedMerchants = pspId == null
+                ? merchantRepository.findAll()
+                : merchantRepository.findByPspPspId(pspId);
+        long merchantCount = scopedMerchants.stream()
                 .filter(m -> {
                     String merchantRiskLevel = m.getRiskLevel();
                     String thresholdRiskLevel = threshold.getRiskLevel();
@@ -207,7 +310,10 @@ public class LimitsManagementService {
     }
 
     public List<RiskThreshold> getAllRiskThresholds() {
-        return riskThresholdRepository.findAll();
+        User user = requireCurrentUser();
+        Long pspId = currentScopePspId(user);
+        return pspId == null ? riskThresholdRepository.findAll()
+                : inheritedAndOwned(riskThresholdRepository.findByPspIdIsNull(), riskThresholdRepository.findByPspId(pspId));
     }
 
     // Velocity Rules
@@ -218,15 +324,16 @@ public class LimitsManagementService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not authenticated");
         }
 
-        rule.setCreatedBy(userId);
-        if (pspIsolationService.isPlatformAdministrator(currentUser)) {
-            // Super admin creates rules with null pspId
-            rule.setPspId(null);
-        } else {
-            // PSP user creates rules with their PSP ID
-            Long pspId = pspIsolationService.getCurrentUserPspId();
-            rule.setPspId(pspId);
+        Long pspId = currentScopePspId(currentUser);
+        Optional<VelocityRule> duplicate = pspId == null
+                ? velocityRuleRepository.findByRuleNameAndPspIdIsNull(rule.getRuleName())
+                : velocityRuleRepository.findByRuleNameAndPspId(rule.getRuleName(), pspId);
+        if (duplicate.isPresent()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "A velocity rule with this name already exists in the current PSP scope");
         }
+        rule.setCreatedBy(userId);
+        rule.setPspId(pspId);
         return velocityRuleRepository.save(rule);
     }
 
@@ -255,7 +362,10 @@ public class LimitsManagementService {
     }
 
     public List<VelocityRule> getAllVelocityRules() {
-        return velocityRuleRepository.findAll();
+        User user = requireCurrentUser();
+        Long pspId = currentScopePspId(user);
+        return pspId == null ? velocityRuleRepository.findAll()
+                : inheritedAndOwned(velocityRuleRepository.findByPspIdIsNull(), velocityRuleRepository.findByPspId(pspId));
     }
 
     @Transactional
@@ -277,7 +387,11 @@ public class LimitsManagementService {
     // Country Compliance
     @Transactional
     public CountryComplianceRule createOrUpdateCountryCompliance(CountryComplianceRule rule, Long userId) {
-        CountryComplianceRule existing = countryComplianceRepository.findByCountryCode(rule.getCountryCode())
+        User user = requireCurrentUser();
+        Long pspId = currentScopePspId(user);
+        CountryComplianceRule existing = (pspId == null
+                ? countryComplianceRepository.findByCountryCodeAndPspIdIsNull(rule.getCountryCode())
+                : countryComplianceRepository.findByCountryCodeAndPspId(rule.getCountryCode(), pspId))
                 .orElse(new CountryComplianceRule());
 
         existing.setCountryCode(rule.getCountryCode());
@@ -290,17 +404,28 @@ public class LimitsManagementService {
 
         if (existing.getId() == null) {
             existing.setCreatedBy(userId);
+            existing.setPspId(pspId);
+        } else {
+            validateRuleModification(existing.getPspId(), user);
         }
 
         return countryComplianceRepository.save(existing);
     }
 
     public List<CountryComplianceRule> getAllCountryComplianceRules() {
-        return countryComplianceRepository.findAll();
+        User user = requireCurrentUser();
+        Long pspId = currentScopePspId(user);
+        return pspId == null ? countryComplianceRepository.findAll()
+                : inheritedAndOwned(countryComplianceRepository.findByPspIdIsNull(), countryComplianceRepository.findByPspId(pspId));
     }
 
     // Dashboard Statistics
     public Map<String, Object> getDashboardStats(Long pspId) {
+        User user = requireCurrentUser();
+        Long scopedPspId = currentScopePspId(user);
+        if (!pspIsolationService.isPlatformAdministrator(user)) {
+            pspId = scopedPspId;
+        }
         Map<String, Object> stats = new HashMap<>();
         
         // Get merchants for this PSP
@@ -321,11 +446,7 @@ public class LimitsManagementService {
         BigDecimal dailyTransactionLimit = BigDecimal.ZERO;
         List<MerchantTransactionLimit> merchantLimits;
         if (pspId != null) {
-            merchantLimits = merchantLimitRepository.findAll().stream()
-                    .filter(limit -> limit.getMerchant() != null && 
-                            limit.getMerchant().getPsp() != null &&
-                            limit.getMerchant().getPsp().getPspId().equals(pspId))
-                    .collect(Collectors.toList());
+            merchantLimits = merchantLimitRepository.findByMerchant_Psp_PspId(pspId);
         } else {
             merchantLimits = merchantLimitRepository.findAll();
         }
@@ -347,7 +468,9 @@ public class LimitsManagementService {
         stats.put("monthlyVolumeCap", monthlyVolumeCap);
 
         // Calculate High-Risk Threshold (get highest risk threshold from active risk thresholds)
-        RiskThreshold highRiskThreshold = riskThresholdRepository.findAll().stream()
+        List<RiskThreshold> visibleThresholds = pspId == null ? riskThresholdRepository.findAll()
+                : inheritedAndOwned(riskThresholdRepository.findByPspIdIsNull(), riskThresholdRepository.findByPspId(pspId));
+        RiskThreshold highRiskThreshold = visibleThresholds.stream()
                 .filter(rt -> "ACTIVE".equals(rt.getStatus()))
                 .filter(rt -> "HIGH".equalsIgnoreCase(rt.getRiskLevel()) || "CRITICAL".equalsIgnoreCase(rt.getRiskLevel()))
                 .findFirst()
@@ -360,50 +483,22 @@ public class LimitsManagementService {
         stats.put("highRiskThreshold", highRiskThresholdValue);
 
         // Count Active Rules (velocity rules + risk thresholds)
-        long activeVelocityRules = velocityRuleRepository.findAll().stream()
+        List<VelocityRule> visibleVelocityRules = pspId == null ? velocityRuleRepository.findAll()
+                : inheritedAndOwned(velocityRuleRepository.findByPspIdIsNull(), velocityRuleRepository.findByPspId(pspId));
+        long activeVelocityRules = visibleVelocityRules.stream()
                 .filter(vr -> "ACTIVE".equals(vr.getStatus()))
                 .count();
-        long activeRiskThresholds = riskThresholdRepository.findAll().stream()
+        long activeRiskThresholds = visibleThresholds.stream()
                 .filter(rt -> "ACTIVE".equals(rt.getStatus()))
                 .count();
         stats.put("activeRulesCount", activeVelocityRules + activeRiskThresholds);
 
         // Calculate actual daily usage from transactions (for this PSP's merchants)
         LocalDateTime startOfDay = LocalDateTime.now().withHour(0).withMinute(0).withSecond(0);
-        LocalDateTime endOfDay = LocalDateTime.now().withHour(23).withMinute(59).withSecond(59);
+        LocalDateTime endOfDay = startOfDay.plusDays(1);
         
-        BigDecimal totalDailyUsage = BigDecimal.ZERO;
-        if (pspId != null && !merchants.isEmpty()) {
-            // Get merchant IDs as strings (since TransactionEntity uses String merchantId)
-            List<String> merchantIdStrings = merchants.stream()
-                    .map(m -> String.valueOf(m.getMerchantId()))
-                    .collect(Collectors.toList());
-            
-            // Query transactions for today
-            List<com.posgateway.aml.entity.TransactionEntity> todayTransactions = 
-                transactionRepository.findAll().stream()
-                    .filter(tx -> tx.getMerchantId() != null &&
-                            merchantIdStrings.contains(tx.getMerchantId()) &&
-                            tx.getTxnTs() != null &&
-                            tx.getTxnTs().isAfter(startOfDay) &&
-                            tx.getTxnTs().isBefore(endOfDay))
-                    .collect(Collectors.toList());
-            
-            // Sum transaction amounts
-            for (com.posgateway.aml.entity.TransactionEntity tx : todayTransactions) {
-                if (tx.getAmountCents() != null) {
-                    totalDailyUsage = totalDailyUsage.add(
-                        BigDecimal.valueOf(tx.getAmountCents()).divide(BigDecimal.valueOf(100))
-                    );
-                }
-            }
-        } else {
-            // For global admin, sum from global limits
-            totalDailyUsage = globalLimitRepository.findAll().stream()
-                    .filter(g -> "VOLUME".equals(g.getLimitType()) && "DAY".equals(g.getPeriod()))
-                    .map(GlobalLimit::getCurrentUsage)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-        }
+        BigDecimal totalDailyUsage = transactionRepository.sumAmountByPspAndPeriod(pspId, startOfDay, endOfDay)
+                .divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);
         stats.put("totalDailyUsage", totalDailyUsage);
 
         // Risk Alerts (merchants with HIGH or CRITICAL risk)

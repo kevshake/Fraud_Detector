@@ -25,6 +25,7 @@ export interface Role {
 
 export interface Case {
   id: number;
+  pspId?: number;
   caseReference: string;
   status: CaseStatus;
   priority: Priority;
@@ -36,6 +37,19 @@ export interface Case {
   slaDeadline?: string;
   daysOpen?: number;
   alerts?: { id: number }[];
+}
+
+export interface CaseTimelineEvent {
+  timestamp: string;
+  type: string;
+  description: string;
+  data: Record<string, unknown>;
+}
+
+export interface CaseTimeline {
+  caseId: number;
+  caseReference: string;
+  events: CaseTimelineEvent[];
 }
 
 export type CaseStatus =
@@ -58,6 +72,14 @@ export interface SarReport {
   sarType: string;
   createdBy: User;
   createdAt: string;
+  suspicionAroseAt?: string;
+  suspicionTimestampSource?: string;
+  filingDeadline?: string;
+  deadlineWarningAt?: string;
+  deadlinePolicyCode?: string;
+  deadlineBreached?: boolean;
+  reviewedAt?: string;
+  reviewNotes?: string;
   filedAt?: string;
   filingReference?: string;
 }
@@ -72,6 +94,7 @@ export interface Alert {
   transactionId?: number;
   caseId?: number;
   description: string;
+  investigator?: string;
   createdAt: string;
   resolvedAt?: string;
 }
@@ -100,15 +123,32 @@ export interface Transaction {
 }
 
 export interface Merchant {
-  id: number;
-  merchantId: string;
-  businessName: string;
+  merchantId: number;
+  legalName: string;
+  tradingName?: string;
+  contactEmail?: string;
+  country?: string;
   mcc?: string;
-  riskLevel?: "LOW" | "MEDIUM" | "HIGH";
+  mccDescription?: string;
+  businessType?: string;
+  status?: string;
+  decision?: string;
+  decisionReason?: string;
+  riskScore?: number;
+  riskLevel?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" | "UNKNOWN";
   kycStatus?: string;
   contractStatus?: string;
   krs?: number;
   cra?: number;
+  complianceCaseId?: number;
+  cbkEconomicSectorCode?: string;
+  cbkSettlementAccountConfigured?: boolean;
+  beneficialOwnerResults?: Array<{
+    ownerId: number;
+    fullName: string;
+    isSanctioned: boolean;
+    isPep: boolean;
+  }>;
 }
 
 export interface AuditLog {

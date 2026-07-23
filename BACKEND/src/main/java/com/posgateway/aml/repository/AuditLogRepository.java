@@ -30,9 +30,13 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long>, JpaSp
 
     List<AuditLog> findByTimestampBetween(LocalDateTime start, LocalDateTime end);
 
+    List<AuditLog> findByPspIdAndTimestampBetween(Long pspId, LocalDateTime start, LocalDateTime end);
+
     Page<AuditLog> findByTimestampBetween(LocalDateTime start, LocalDateTime end, Pageable pageable);
 
     long countByTimestampAfter(LocalDateTime timestamp);
+
+    long countByPspIdAndTimestampAfter(Long pspId, LocalDateTime timestamp);
 
     /**
      * Find recent log by user and action type

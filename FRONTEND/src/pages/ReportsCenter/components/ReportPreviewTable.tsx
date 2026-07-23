@@ -4,6 +4,8 @@
  */
 
 import { useState } from "react";
+import { Link } from "react-router-dom";
+import { recordPath, recordTypeForColumn } from "../../../lib/recordLinks";
 import {
   Box,
   Table,
@@ -94,9 +96,9 @@ export default function ReportPreviewTable({
       return <SortIcon sx={{ fontSize: 16, opacity: 0.3 }} />;
     }
     return sort.direction === "asc" ? (
-      <ArrowUpIcon sx={{ fontSize: 16, color: "#800020" }} />
+      <ArrowUpIcon sx={{ fontSize: 16, color: "var(--gold)" }} />
     ) : (
-      <ArrowDownIcon sx={{ fontSize: 16, color: "#800020" }} />
+      <ArrowDownIcon sx={{ fontSize: 16, color: "var(--gold)" }} />
     );
   };
 
@@ -153,8 +155,8 @@ export default function ReportPreviewTable({
           label={`${totalRows.toLocaleString()} total rows`}
           size="small"
           sx={{
-            backgroundColor: "rgba(128, 0, 32, 0.1)",
-            color: "#800020",
+            backgroundColor: "var(--brand-soft)",
+            color: "var(--gold)",
             fontWeight: 500,
           }}
         />
@@ -168,8 +170,10 @@ export default function ReportPreviewTable({
       <TableContainer
         component={Paper}
         sx={{
-          borderRadius: "16px",
-          boxShadow: "0 4px 20px rgba(0, 0, 0, 0.05)",
+          borderRadius: "var(--radius)",
+          backgroundColor: "var(--surface-2)",
+          border: "1px solid var(--line)",
+          boxShadow: "none",
           maxHeight: 400,
         }}
       >
@@ -180,14 +184,9 @@ export default function ReportPreviewTable({
                 <TableCell
                   key={column}
                   sx={{
-                    backgroundColor: "#fafafa",
-                    fontWeight: 600,
-                    color: "#2c3e50",
                     whiteSpace: "nowrap",
                     cursor: "pointer",
-                    "&:hover": {
-                      backgroundColor: "#f0f0f0",
-                    },
+                    "&:hover": { color: "var(--gold)" },
                   }}
                   onClick={() => handleSort(column)}
                 >
@@ -209,10 +208,10 @@ export default function ReportPreviewTable({
                 key={String(row.id ?? row.transactionId ?? row.caseId ?? index)}
                 sx={{
                   "&:nth-of-type(odd)": {
-                    backgroundColor: "rgba(128, 0, 32, 0.02)",
+                    backgroundColor: "var(--surface-2)",
                   },
                   "&:hover": {
-                    backgroundColor: "rgba(128, 0, 32, 0.05)",
+                    backgroundColor: "var(--surface-2)",
                   },
                 }}
               >
@@ -227,7 +226,11 @@ export default function ReportPreviewTable({
                     }}
                   >
                     <Tooltip title={formatCellValue(row[column])} arrow>
-                      <span>{formatCellValue(row[column])}</span>
+                      {recordTypeForColumn(column) && recordPath(recordTypeForColumn(column)!, row[column]) ? (
+                        <Link to={recordPath(recordTypeForColumn(column)!, row[column])!} className="text-burgundy-400 hover:underline">
+                          {formatCellValue(row[column])}
+                        </Link>
+                      ) : <span>{formatCellValue(row[column])}</span>}
                     </Tooltip>
                   </TableCell>
                 ))}
@@ -248,7 +251,7 @@ export default function ReportPreviewTable({
         sx={{
           mt: 2,
           "& .MuiTablePagination-select": {
-            borderRadius: "8px",
+            borderRadius: "var(--radius)",
           },
         }}
       />

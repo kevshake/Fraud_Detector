@@ -15,6 +15,7 @@ public class PspResponse {
     private String taxId;
     private String status;
     private Boolean isTestMode;
+    private Boolean kycEnabled;
     private String billingPlan;
     private String billingCycle;
     private String currency;
@@ -68,6 +69,9 @@ public class PspResponse {
 
     public Boolean getIsTestMode() { return isTestMode; }
     public void setIsTestMode(Boolean isTestMode) { this.isTestMode = isTestMode; }
+
+    public Boolean getKycEnabled() { return kycEnabled; }
+    public void setKycEnabled(Boolean kycEnabled) { this.kycEnabled = kycEnabled; }
 
     public String getBillingPlan() { return billingPlan; }
     public void setBillingPlan(String billingPlan) { this.billingPlan = billingPlan; }

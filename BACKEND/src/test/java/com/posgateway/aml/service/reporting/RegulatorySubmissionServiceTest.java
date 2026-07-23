@@ -7,8 +7,11 @@ import com.posgateway.aml.entity.User;
 import com.posgateway.aml.entity.reporting.*;
 import com.posgateway.aml.repository.UserRepository;
 import com.posgateway.aml.repository.reporting.RegulatorySubmissionRepository;
+import com.posgateway.aml.repository.reporting.RegulatorySubmissionAttemptRepository;
 import com.posgateway.aml.repository.reporting.ReportExecutionRepository;
+import com.posgateway.aml.repository.reporting.ReportResultRepository;
 import com.posgateway.aml.repository.reporting.ReportRepository;
+import com.posgateway.aml.service.compliance.FrcReportingService;
 import com.posgateway.aml.service.security.PspIsolationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,6 +40,9 @@ class RegulatorySubmissionServiceTest {
     private RegulatorySubmissionRepository submissionRepository;
 
     @Mock
+    private RegulatorySubmissionAttemptRepository submissionAttemptRepository;
+
+    @Mock
     private ReportRepository reportRepository;
 
     @Mock
@@ -49,6 +55,12 @@ class RegulatorySubmissionServiceTest {
     private PspIsolationService pspIsolationService;
 
     @Mock
+    private ReportResultRepository reportResultRepository;
+
+    @Mock
+    private FrcReportingService frcReportingService;
+
+    @Mock
     private FincenSubmissionClient fincenClient;
 
     @InjectMocks
@@ -56,15 +68,40 @@ class RegulatorySubmissionServiceTest {
 
     private Report testReport;
     private RegulatorySubmission testSubmission;
+    private ReportExecution testExecution;
     private User testUser;
 
     @BeforeEach
     void setUp() {
+        lenient().when(submissionAttemptRepository.findTopBySubmissionIdAndRegulatorOrderByAttemptNoDesc(anyLong(), anyString()))
+                .thenReturn(Optional.empty());
+        lenient().when(submissionAttemptRepository.save(any(RegulatorySubmissionAttempt.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
         testReport = new Report();
         testReport.setId(1L);
         testReport.setReportCode("CTR_MONTHLY");
         testReport.setReportName("Monthly CTR Report");
         testReport.setReportCategory(ReportCategory.REGULATORY_SUBMISSION);
+        testReport.setEnabled(true);
+
+        testExecution = new ReportExecution();
+        testExecution.setId(10L);
+        testExecution.setReport(testReport);
+        testExecution.setExecutionId("EXEC-CTR-001");
+        testExecution.setStatus(ExecutionStatus.COMPLETED);
+        testExecution.setPspId(1L);
+        testExecution.setDateFrom(LocalDateTime.of(2024, 2, 1, 0, 0));
+        testExecution.setDateTo(LocalDateTime.of(2024, 2, 29, 23, 59));
+        testExecution.setCompletedAt(LocalDateTime.of(2024, 3, 1, 1, 0));
+        testExecution.setCreatedAt(LocalDateTime.of(2024, 3, 1, 0, 0));
+        testExecution.setTotalRecords(4L);
+        lenient().when(reportExecutionRepository.findLatestForSubmission(
+                        eq(1L), eq(1L), eq(ExecutionStatus.COMPLETED), any(Pageable.class)))
+                .thenReturn(List.of(testExecution));
+        lenient().when(submissionRepository
+                .findFirstByExecutionIdAndPspIdAndRegulatorCodeAndAmendedSubmissionIsNullOrderByCreatedAtDesc(
+                        anyLong(), anyLong(), anyString())).thenReturn(Optional.empty());
 
         testUser = new User();
         testUser.setId(1L);
@@ -122,14 +159,11 @@ class RegulatorySubmissionServiceTest {
     void submitToFinCEN_shouldFileApprovedSubmission() throws Exception {
         // Given
         testSubmission.setStatus(SubmissionStatus.APPROVED);
-        when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
         when(pspIsolationService.sanitizePspId(1L)).thenReturn(1L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
         when(submissionRepository.save(any(RegulatorySubmission.class))).thenReturn(testSubmission);
-        when(submissionRepository.findByFilters(any(), eq(SubmissionStatus.DRAFT), eq("FINCEN"), any(), any(), any()))
-            .thenReturn(new PageImpl<>(List.of()));
-        // findOrCreateSubmission falls through to prepareSubmission then re-loads via findById
-        when(submissionRepository.findById(1L)).thenReturn(Optional.of(testSubmission));
+        when(submissionRepository.findFirstByReportIdAndPspIdAndRegulatorCodeOrderByCreatedAtDesc(
+                1L, 1L, "FINCEN")).thenReturn(Optional.of(testSubmission));
         // dispatchSubmission delegates to the wired FincenSubmissionClient on the success path
         when(fincenClient.submit(any(RegulatorySubmission.class)))
             .thenReturn(new SubmissionResult("BSA-12345", "ACCEPTED", Instant.now(), "FINCEN"));
@@ -145,15 +179,52 @@ class RegulatorySubmissionServiceTest {
     }
 
     @Test
+    void submitToFinCEN_shouldNotFileRejectedRegulatorResponse() throws Exception {
+        testSubmission.setStatus(SubmissionStatus.APPROVED);
+        when(pspIsolationService.sanitizePspId(1L)).thenReturn(1L);
+        when(submissionRepository.save(any(RegulatorySubmission.class))).thenReturn(testSubmission);
+        when(submissionRepository.findFirstByReportIdAndPspIdAndRegulatorCodeOrderByCreatedAtDesc(
+                1L, 1L, "FINCEN")).thenReturn(Optional.of(testSubmission));
+        when(fincenClient.submit(any(RegulatorySubmission.class)))
+                .thenReturn(new SubmissionResult(
+                        "BSA-REJECTED-1", "VALIDATION_FAILED", Instant.now(),
+                        "FINCEN", 200, "<Status>VALIDATION_FAILED</Status>"));
+
+        RegulatorySubmissionDTO result = submissionService.submitToFinCEN(1L, 1L, 1L);
+
+        assertEquals(SubmissionStatus.REJECTED, result.getStatus());
+        assertNull(result.getFiledAt());
+        assertTrue(result.getRejectionReason().contains("VALIDATION_FAILED"));
+        verify(submissionAttemptRepository).save(argThat(attempt ->
+                "VALIDATION_FAILED".equals(attempt.getRegulatorStatus())
+                        && Integer.valueOf(200).equals(attempt.getHttpStatus())));
+    }
+
+    @Test
+    void submitToFinCEN_shouldParkUnknownStatusInsteadOfFiling() throws Exception {
+        testSubmission.setStatus(SubmissionStatus.APPROVED);
+        when(pspIsolationService.sanitizePspId(1L)).thenReturn(1L);
+        when(submissionRepository.save(any(RegulatorySubmission.class))).thenReturn(testSubmission);
+        when(submissionRepository.findFirstByReportIdAndPspIdAndRegulatorCodeOrderByCreatedAtDesc(
+                1L, 1L, "FINCEN")).thenReturn(Optional.of(testSubmission));
+        when(fincenClient.submit(any(RegulatorySubmission.class)))
+                .thenReturn(new SubmissionResult(
+                        "BSA-1", "WAITING_FOR_OPERATOR", Instant.now(),
+                        "FINCEN", 202, "<Status>WAITING_FOR_OPERATOR</Status>"));
+
+        RegulatorySubmissionDTO result = submissionService.submitToFinCEN(1L, 1L, 1L);
+
+        assertEquals(SubmissionStatus.SUBMISSION_PENDING, result.getStatus());
+        assertNull(result.getFiledAt());
+        assertTrue(result.getRejectionReason().contains("unrecognized filing status"));
+    }
+
+    @Test
     void submitToFinCEN_shouldThrowExceptionForDraftStatus() {
         // Given - submission stays DRAFT (canFile() must return false to trigger IllegalStateException)
-        when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
         when(pspIsolationService.sanitizePspId(1L)).thenReturn(1L);
-        when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-        when(submissionRepository.save(any(RegulatorySubmission.class))).thenReturn(testSubmission);
-        when(submissionRepository.findByFilters(any(), eq(SubmissionStatus.DRAFT), eq("FINCEN"), any(), any(), any()))
-            .thenReturn(new PageImpl<>(List.of()));
-        when(submissionRepository.findById(1L)).thenReturn(Optional.of(testSubmission));
+        when(submissionRepository.findFirstByReportIdAndPspIdAndRegulatorCodeOrderByCreatedAtDesc(
+                1L, 1L, "FINCEN")).thenReturn(Optional.of(testSubmission));
 
         // When/Then
         assertThrows(IllegalStateException.class, () -> {
@@ -214,14 +285,18 @@ class RegulatorySubmissionServiceTest {
     void updateSubmissionStatus_shouldApproveFromPendingReview() {
         // Given
         testSubmission.setStatus(SubmissionStatus.PENDING_REVIEW);
+        User approver = new User();
+        approver.setId(2L);
+        approver.setFirstName("Senior");
+        approver.setLastName("Reviewer");
         when(submissionRepository.findById(1L)).thenReturn(Optional.of(testSubmission));
         doNothing().when(pspIsolationService).validatePspAccess(1L);
-        when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(approver));
         when(submissionRepository.save(any(RegulatorySubmission.class))).thenReturn(testSubmission);
 
         // When
         RegulatorySubmissionDTO result = submissionService.updateSubmissionStatus(
-            1L, SubmissionStatus.APPROVED, 1L
+            1L, SubmissionStatus.APPROVED, 2L
         );
 
         // Then
@@ -229,6 +304,31 @@ class RegulatorySubmissionServiceTest {
         verify(submissionRepository).save(argThat(s -> 
             s.getApprovedBy() != null && s.getApprovedAt() != null
         ));
+    }
+
+    @Test
+    void updateSubmissionStatus_shouldEnforceMakerChecker() {
+        testSubmission.setStatus(SubmissionStatus.PENDING_REVIEW);
+        when(submissionRepository.findById(1L)).thenReturn(Optional.of(testSubmission));
+        doNothing().when(pspIsolationService).validatePspAccess(1L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+
+        assertThrows(IllegalStateException.class, () ->
+                submissionService.updateSubmissionStatus(
+                        1L, SubmissionStatus.APPROVED, 1L));
+        verify(submissionRepository, never()).save(any(RegulatorySubmission.class));
+    }
+
+    @Test
+    void updateSubmissionStatus_shouldRejectManualFiledTransition() {
+        testSubmission.setStatus(SubmissionStatus.APPROVED);
+        when(submissionRepository.findById(1L)).thenReturn(Optional.of(testSubmission));
+        doNothing().when(pspIsolationService).validatePspAccess(1L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+
+        assertThrows(IllegalStateException.class, () ->
+                submissionService.updateSubmissionStatus(1L, SubmissionStatus.FILED, 1L));
+        verify(submissionRepository, never()).save(any(RegulatorySubmission.class));
     }
 
     @Test

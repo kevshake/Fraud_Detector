@@ -11,9 +11,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.netty.http.client.HttpClient;
 
 import javax.net.ssl.KeyManagerFactory;
@@ -125,24 +127,41 @@ public class FincenSubmissionClient implements RegulatorSubmissionClient {
         String idempotencyKey = idempotencyKey(submission);
 
         try {
-            String body = webClient.post()
+            ResponseEntity<String> response = webClient.post()
                     .uri(endpoint)
                     .header("X-Idempotency-Key", idempotencyKey)
                     .bodyValue(xml)
                     .retrieve()
-                    .bodyToMono(String.class)
+                    .toEntity(String.class)
                     .block(timeout.plusSeconds(2));
+            if (response == null) {
+                throw new RegulatorTransportException(
+                        "FinCEN returned no HTTP response", null, "EMPTY_RESPONSE", null);
+            }
+            String body = response.getBody();
 
             String bsaId = extractBsaId(body);
-            if (bsaId == null) {
-                log.warn("FinCEN response did not contain BSAID/SubmissionID for submissionRef={} idempotencyKey={}",
-                        submission.getSubmissionReference(), idempotencyKey);
-                throw new IllegalStateException("FinCEN response missing submission identifier");
-            }
-            return new SubmissionResult(bsaId, "ACCEPTED", Instant.now(), REGULATOR);
+            return new SubmissionResult(
+                    bsaId,
+                    extractResponseStatus(body),
+                    Instant.now(),
+                    REGULATOR,
+                    response.getStatusCode().value(),
+                    body);
+        } catch (WebClientResponseException failure) {
+            String responseBody = failure.getResponseBodyAsString();
+            throw new RegulatorTransportException(
+                    "FinCEN returned HTTP " + failure.getStatusCode().value(),
+                    failure.getStatusCode().value(),
+                    extractResponseStatus(responseBody),
+                    responseBody,
+                    failure);
         } catch (Exception e) {
             log.warn("FinCEN submission failed submissionRef={} idempotencyKey={} endpoint={} cause={}",
                     submission.getSubmissionReference(), idempotencyKey, endpoint, e.getMessage());
+            if (e instanceof RegulatorTransportException transportFailure) {
+                throw transportFailure;
+            }
             throw new RuntimeException("FinCEN submission failed: " + e.getMessage(), e);
         }
     }
@@ -195,6 +214,14 @@ public class FincenSubmissionClient implements RegulatorSubmissionClient {
         if (responseBody == null) return null;
         Matcher m = BSA_ID_PATTERN.matcher(responseBody);
         return m.find() ? m.group(1) : null;
+    }
+
+    static String extractResponseStatus(String responseBody) {
+        if (responseBody == null || responseBody.isBlank()) return "RECEIVED";
+        Matcher matcher = Pattern.compile(
+                "<\\s*(?:Status|SubmissionStatus|ProcessingStatus)\\s*>\\s*([^<]+)\\s*<",
+                Pattern.CASE_INSENSITIVE).matcher(responseBody);
+        return matcher.find() ? matcher.group(1).trim() : "RECEIVED";
     }
 
     /** Deterministic idempotency key from SAR identity + version. */

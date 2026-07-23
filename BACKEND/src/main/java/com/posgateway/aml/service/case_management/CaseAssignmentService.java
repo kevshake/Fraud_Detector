@@ -84,7 +84,7 @@ public class CaseAssignmentService {
         if (role == null)
             return;
 
-        List<User> eligibleUsers = userRepository.findByRole_NameAndEnabled(role, true);
+        List<User> eligibleUsers = eligibleUsers(cCase, role);
         if (eligibleUsers.isEmpty()) {
             logger.warn("No eligible active users found for queue {} target role {}",
                     queue.getQueueName(), role);
@@ -120,6 +120,9 @@ public class CaseAssignmentService {
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        if (!samePspScope(cCase, user)) {
+            throw new SecurityException("Case cannot be assigned to a user from another PSP");
+        }
 
         cCase.setAssignedTo(user);
         cCase.setAssignedBy(assignerId != null ? assignerId : 0L); // 0 = System
@@ -137,11 +140,11 @@ public class CaseAssignmentService {
     @Transactional
     public User assignCaseByWorkload(ComplianceCase cCase, com.posgateway.aml.model.UserRole role) {
         // 1. Find active eligible users
-        List<User> eligibleUsers = userRepository.findByRole_NameAndEnabled(role.name(), true);
+        List<User> eligibleUsers = eligibleUsers(cCase, role.name());
 
         if (eligibleUsers.isEmpty()) {
-            logger.warn("No eligible users found for role {}", role);
-            return null; // Or throw exception based on requirements
+            logger.warn("No eligible users found for role {} in case PSP scope {}", role, cCase.getPspId());
+            return null;
         }
 
         User bestCandidate = null;
@@ -166,5 +169,20 @@ public class CaseAssignmentService {
         }
 
         return null;
+    }
+
+    private List<User> eligibleUsers(ComplianceCase cCase, String roleName) {
+        return userRepository.findByRole_NameAndEnabled(roleName, true).stream()
+                .filter(user -> samePspScope(cCase, user))
+                .toList();
+    }
+
+    private boolean samePspScope(ComplianceCase cCase, User user) {
+        Long casePspId = cCase.getPspId();
+        Long userPspId = user.getPsp() == null ? null : user.getPsp().getPspId();
+        if (casePspId == null || casePspId == 0L) {
+            return userPspId == null || userPspId == 0L;
+        }
+        return casePspId.equals(userPspId);
     }
 }

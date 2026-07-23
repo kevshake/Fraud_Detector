@@ -1,6 +1,7 @@
 import VisualRuleBuilder from "../../components/VisualRuleBuilder";
 import HokekaPageShell from "../../components/Layout/HokekaPageShell";
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Box,
   Paper,
@@ -41,6 +42,7 @@ import {
   Stop as DisableIcon,
   Assessment as EffectivenessIcon,
   AutoAwesome as AutoAwesomeIcon,
+  AccountTree as TraceIcon,
 } from "@mui/icons-material";
 import CircularProgress from "@mui/material/CircularProgress";
 import {
@@ -50,6 +52,7 @@ import {
   useRuleEffectiveness,
   useAllPsps,
   useCurrentUser,
+  usePendingRuleVersions,
 } from "../../features/api/queries";
 import {
   useCreateAmlRule,
@@ -62,18 +65,27 @@ import {
   useDeleteVelocityRule,
   useCreateRiskThreshold,
   useGenerateRule,
+  useApproveRuleVersion,
+  useRejectRuleVersion,
   type GeneratedRulePreview,
   type GenerateRuleError,
 } from "../../features/api/mutations";
-import type { AmlRule, VelocityRule, RiskThreshold } from "../../types/rules";
+import type { AmlRule, VelocityRule, RiskThreshold, RuleVersion } from "../../types/rules";
+import { withAlpha } from "../../theme/tokens"
 
 export default function RulesGenerationPage() {
+  const navigate = useNavigate();
   const [tab, setTab] = useState(0);
   const [openDialog, setOpenDialog] = useState(false);
   const [editingRule, setEditingRule] = useState<any>(null);
   const [effectivenessDialog, setEffectivenessDialog] = useState<number | null>(null);
   const [filterBy, setFilterBy] = useState<"all" | "super-admin" | "my-psp">("all");
   const [errorSnackbar, setErrorSnackbar] = useState("");
+  const [successSnackbar, setSuccessSnackbar] = useState("");
+  const [reviewVersion, setReviewVersion] = useState<RuleVersion | null>(null);
+  const [reviewAction, setReviewAction] = useState<"approve" | "reject">("approve");
+  const [reviewReason, setReviewReason] = useState("");
+  const [effectiveFrom, setEffectiveFrom] = useState("");
 
   // AI rule generation state — preview only, never auto-saves.
   const [aiPrompt, setAiPrompt] = useState("");
@@ -117,6 +129,7 @@ export default function RulesGenerationPage() {
   const { data: velocityRules, isLoading: velocityRulesLoading } = useVelocityRules();
   const { data: riskThresholds, isLoading: riskThresholdsLoading } = useRiskThresholds();
   const { data: effectiveness } = useRuleEffectiveness(effectivenessDialog || 0);
+  const { data: pendingVersions, isLoading: pendingVersionsLoading } = usePendingRuleVersions();
 
   // Create PSP color map
   const pspColorMap = new Map<number, string>();
@@ -172,12 +185,12 @@ export default function RulesGenerationPage() {
   // Helper function to get rule color
   const getRuleColor = (rule: any) => {
     if (rule.isSuperAdmin || !rule.pspId) {
-      return "#3498db"; // Blue for super admin
+      return "var(--info)"; // Blue for super admin
     }
     if (rule.pspId && pspColorMap.has(rule.pspId)) {
-      return pspColorMap.get(rule.pspId) || "#a93226"; // PSP theme color
+      return pspColorMap.get(rule.pspId) || "var(--gold)"; // PSP theme color
     }
-    return "#a93226"; // Default theme color
+    return "var(--gold)"; // Default theme color
   };
 
   // Helper function to get rule creator info
@@ -213,6 +226,8 @@ export default function RulesGenerationPage() {
   const deleteAmlRule = useDeleteAmlRule();
   const enableAmlRule = useEnableAmlRule();
   const disableAmlRule = useDisableAmlRule();
+  const approveRuleVersion = useApproveRuleVersion();
+  const rejectRuleVersion = useRejectRuleVersion();
   const createVelocityRule = useCreateVelocityRule();
   const updateVelocityRule = useUpdateVelocityRule();
   const deleteVelocityRule = useDeleteVelocityRule();
@@ -223,17 +238,44 @@ export default function RulesGenerationPage() {
     setOpenDialog(true);
   };
 
+  const openReview = (version: RuleVersion, action: "approve" | "reject") => {
+    setReviewVersion(version);
+    setReviewAction(action);
+    setReviewReason("");
+    setEffectiveFrom("");
+  };
+
+  const handleReview = async () => {
+    if (!reviewVersion || !reviewReason.trim()) return;
+    try {
+      if (reviewAction === "approve") {
+        await approveRuleVersion.mutateAsync({ versionId: reviewVersion.id, reason: reviewReason.trim(), effectiveFrom: effectiveFrom || undefined });
+      } else {
+        await rejectRuleVersion.mutateAsync({ versionId: reviewVersion.id, reason: reviewReason.trim() });
+      }
+      setSuccessSnackbar(reviewAction === "approve" ? "Rule version approved." : "Rule version rejected.");
+      setReviewVersion(null);
+    } catch (error: any) {
+      setErrorSnackbar(error?.message || "The review could not be completed.");
+    }
+  };
+
   const handleEditRule = (rule: any) => {
     setEditingRule(rule);
     setOpenDialog(true);
   };
 
   const handleDeleteRule = async (id: number, type: "aml" | "velocity" | "threshold") => {
-    if (window.confirm("Are you sure you want to delete this rule?")) {
-      if (type === "aml") {
-        await deleteAmlRule.mutateAsync(id);
-      } else if (type === "velocity") {
-        await deleteVelocityRule.mutateAsync(id);
+    if (window.confirm(type === "aml" ? "Submit this rule for retirement approval?" : "Are you sure you want to delete this rule?")) {
+      try {
+        if (type === "aml") {
+          await deleteAmlRule.mutateAsync(id);
+          setSuccessSnackbar("Rule retirement submitted for independent approval.");
+        } else if (type === "velocity") {
+          await deleteVelocityRule.mutateAsync(id);
+        }
+      } catch (error: any) {
+        setErrorSnackbar(error?.message || "The rule could not be deleted. Please try again.");
       }
     }
   };
@@ -247,6 +289,7 @@ export default function RulesGenerationPage() {
         } else {
           await createAmlRule.mutateAsync(ruleData);
         }
+        setSuccessSnackbar("Rule change submitted for independent approval.");
       } else if (tab === 1) {
         // Velocity Rule
         if (editingRule?.id) {
@@ -262,6 +305,17 @@ export default function RulesGenerationPage() {
       setEditingRule(null);
     } catch (error: any) {
       setErrorSnackbar(error?.message || "Failed to save rule. Please check if the API endpoint is available.");
+    }
+  };
+
+  const proposeRuleState = async (rule: AmlRule, enabled: boolean) => {
+    if (!rule.id) return;
+    try {
+      if (enabled) await enableAmlRule.mutateAsync(rule.id);
+      else await disableAmlRule.mutateAsync(rule.id);
+      setSuccessSnackbar(`${enabled ? "Enable" : "Disable"} change submitted for independent approval.`);
+    } catch (error: any) {
+      setErrorSnackbar(error?.message || "The rule state change could not be submitted.");
     }
   };
 
@@ -283,14 +337,14 @@ export default function RulesGenerationPage() {
               <MenuItem value="my-psp">My PSP</MenuItem>
             </Select>
           </FormControl>
-          <Button
+          {tab !== 3 && <Button
             variant="contained"
             startIcon={<AddIcon />}
             onClick={handleCreateRule}
-            sx={{ backgroundColor: "#a93226", "&:hover": { backgroundColor: "#922b21" } }}
+            sx={{ backgroundColor: "var(--surface-3)", "&:hover": { backgroundColor: "var(--surface-3)" } }}
           >
             Create Rule
-          </Button>
+          </Button>}
         </Box>
       </Box>
 
@@ -301,17 +355,18 @@ export default function RulesGenerationPage() {
           mb: 3,
           "& .MuiTab-root": {
             color: "text.secondary",
-            "&.Mui-selected": { color: "#a93226" },
+            "&.Mui-selected": { color: "var(--gold)" },
           },
-          "& .MuiTabs-indicator": { backgroundColor: "#a93226" },
+          "& .MuiTabs-indicator": { backgroundColor: "var(--surface-3)" },
         }}
       >
         <Tab label="AML Rules" />
         <Tab label="Velocity Rules" />
         <Tab label="Risk Thresholds" />
+        <Tab label={`Pending Approvals (${pendingVersions?.length ?? 0})`} />
       </Tabs>
 
-      <Box sx={{ mt: 4, mb: 3 }}>
+      {tab === 0 && <Box sx={{ mt: 4, mb: 3 }}>
         <Typography variant="h6" sx={{ mb: 2, color: "text.primary" }}>Visual Rule Builder</Typography>
         <VisualRuleBuilder
           onChange={(expr, json) =>
@@ -327,7 +382,7 @@ export default function RulesGenerationPage() {
             setOpenDialog(true);
           }}
         />
-      </Box>
+      </Box>}
 
       {/* AML Rules Tab */}
       {tab === 0 && (
@@ -337,7 +392,7 @@ export default function RulesGenerationPage() {
               clicks "Use This Rule" to pre-fill the existing form for review/save. */}
           <Paper sx={{ p: 2, mb: 2, backgroundColor: "background.paper", border: "1px solid rgba(0,0,0,0.1)" }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-              <AutoAwesomeIcon sx={{ color: "#a93226" }} fontSize="small" />
+              <AutoAwesomeIcon sx={{ color: "var(--gold)" }} fontSize="small" />
               <Typography variant="subtitle1" sx={{ color: "text.primary", fontWeight: 600 }}>
                 Generate from Description (AI)
               </Typography>
@@ -370,7 +425,7 @@ export default function RulesGenerationPage() {
                     <AutoAwesomeIcon />
                   )
                 }
-                sx={{ backgroundColor: "#a93226", "&:hover": { backgroundColor: "#922b21" } }}
+                sx={{ backgroundColor: "var(--surface-3)", "&:hover": { backgroundColor: "var(--surface-3)" } }}
               >
                 {generateRule.isPending ? "Generating..." : "Generate"}
               </Button>
@@ -419,9 +474,9 @@ export default function RulesGenerationPage() {
             )}
 
             {aiPreview && (
-              <Card sx={{ mt: 2, border: "1px solid #a93226" }}>
+              <Card sx={{ mt: 2, border: "1px solid var(--gold)" }}>
                 <CardContent>
-                  <Typography variant="overline" sx={{ color: "#a93226", fontWeight: 600 }}>
+                  <Typography variant="overline" sx={{ color: "var(--gold)", fontWeight: 600 }}>
                     Preview (not saved)
                   </Typography>
                   <Typography variant="h6" sx={{ color: "text.primary", mt: 0.5 }}>
@@ -460,7 +515,7 @@ export default function RulesGenerationPage() {
                     <Button
                       variant="contained"
                       onClick={handleUseGeneratedRule}
-                      sx={{ backgroundColor: "#a93226", "&:hover": { backgroundColor: "#922b21" } }}
+                      sx={{ backgroundColor: "var(--surface-3)", "&:hover": { backgroundColor: "var(--surface-3)" } }}
                     >
                       Use This Rule
                     </Button>
@@ -481,9 +536,9 @@ export default function RulesGenerationPage() {
                 label="Super Admin Rules"
                 size="small"
                 sx={{
-                  backgroundColor: "#3498db20",
-                  color: "#3498db",
-                  border: "1px solid #3498db",
+                  backgroundColor: "var(--info-soft)",
+                  color: "var(--info)",
+                  border: "1px solid var(--info)",
                 }}
               />
               <Typography variant="caption" sx={{ color: "text.secondary", alignSelf: "center" }}>
@@ -524,7 +579,7 @@ export default function RulesGenerationPage() {
                             label={creator}
                             size="small"
                             sx={{
-                              backgroundColor: rule.isSuperAdmin ? "#3498db20" : `${ruleColor}20`,
+                              backgroundColor: withAlpha(rule.isSuperAdmin ? "var(--info)" : ruleColor, 0.13),
                               color: ruleColor,
                               border: `1px solid ${ruleColor}`,
                             }}
@@ -535,9 +590,9 @@ export default function RulesGenerationPage() {
                           label={rule.ruleType}
                           size="small"
                           sx={{
-                            backgroundColor: "#3498db20",
-                            color: "#3498db",
-                            border: "1px solid #3498db",
+                            backgroundColor: "var(--info-soft)",
+                            color: "var(--info)",
+                            border: "1px solid var(--info)",
                           }}
                         />
                       </TableCell>
@@ -548,22 +603,22 @@ export default function RulesGenerationPage() {
                           sx={{
                             backgroundColor:
                               rule.action === "BLOCK"
-                                ? "#e74c3c20"
+                                ? "color-mix(in srgb, var(--danger) 13%, transparent)"
                                 : rule.action === "HOLD"
-                                ? "#f39c1220"
-                                : "#2ecc7120",
+                                ? "color-mix(in srgb, var(--warning) 13%, transparent)"
+                                : "color-mix(in srgb, var(--success) 13%, transparent)",
                             color:
                               rule.action === "BLOCK"
-                                ? "#e74c3c"
+                                ? "var(--danger)"
                                 : rule.action === "HOLD"
-                                ? "#f39c12"
-                                : "#2ecc71",
+                                ? "var(--warning)"
+                                : "var(--success)",
                             border: `1px solid ${
                               rule.action === "BLOCK"
-                                ? "#e74c3c"
+                                ? "var(--danger)"
                                 : rule.action === "HOLD"
-                                ? "#f39c12"
-                                : "#2ecc71"
+                                ? "var(--warning)"
+                                : "var(--success)"
                             }`,
                           }}
                         />
@@ -574,18 +629,22 @@ export default function RulesGenerationPage() {
                           label={rule.enabled ? "Enabled" : "Disabled"}
                           size="small"
                           sx={{
-                            backgroundColor: rule.enabled ? "#2ecc7120" : "#95a5a620",
-                            color: rule.enabled ? "#2ecc71" : "#95a5a6",
-                            border: `1px solid ${rule.enabled ? "#2ecc71" : "#95a5a6"}`,
+                            backgroundColor: rule.enabled ? "color-mix(in srgb, var(--success) 13%, transparent)" : "color-mix(in srgb, var(--muted) 13%, transparent)",
+                            color: rule.enabled ? "var(--success)" : "var(--muted)",
+                            border: `1px solid ${rule.enabled ? "var(--success)" : "var(--muted)"}`,
                           }}
                         />
+                        {rule.lifecycleStatus && <Chip label={rule.pendingVersionId ? "Pending approval" : rule.lifecycleStatus.replaceAll("_", " ")} size="small" sx={{ ml: 1 }} color={rule.pendingVersionId ? "warning" : "default"} variant="outlined" />}
                       </TableCell>
                       <TableCell>
+                        <IconButton size="small" onClick={() => rule.id && navigate(`/records/RULE_DEFINITION/${rule.id}`)} sx={{ color: "var(--info)", mr: 1 }} title="Trace rule record">
+                          <TraceIcon fontSize="small" />
+                        </IconButton>
                         <IconButton
                           size="small"
                           onClick={() => handleEditRule(rule)}
                           disabled={!canModifyRule(rule)}
-                          sx={{ color: canModifyRule(rule) ? "#a93226" : "rgba(255,255,255,0.3)", mr: 1 }}
+                          sx={{ color: canModifyRule(rule) ? "var(--gold)" : "rgba(255,255,255,0.3)", mr: 1 }}
                           title={!canModifyRule(rule) ? "Cannot modify super admin rules" : "Edit rule"}
                         >
                           <EditIcon fontSize="small" />
@@ -593,9 +652,9 @@ export default function RulesGenerationPage() {
                         {rule.enabled ? (
                           <IconButton
                             size="small"
-                            onClick={() => rule.id && disableAmlRule.mutate(rule.id)}
+                            onClick={() => proposeRuleState(rule, false)}
                             disabled={!canModifyRule(rule)}
-                            sx={{ color: canModifyRule(rule) ? "#f39c12" : "rgba(255,255,255,0.3)", mr: 1 }}
+                            sx={{ color: canModifyRule(rule) ? "var(--warning)" : "rgba(255,255,255,0.3)", mr: 1 }}
                             title={!canModifyRule(rule) ? "Cannot modify super admin rules" : "Disable rule"}
                           >
                             <DisableIcon fontSize="small" />
@@ -603,9 +662,9 @@ export default function RulesGenerationPage() {
                         ) : (
                           <IconButton
                             size="small"
-                            onClick={() => rule.id && enableAmlRule.mutate(rule.id)}
+                            onClick={() => proposeRuleState(rule, true)}
                             disabled={!canModifyRule(rule)}
-                            sx={{ color: canModifyRule(rule) ? "#2ecc71" : "rgba(255,255,255,0.3)", mr: 1 }}
+                            sx={{ color: canModifyRule(rule) ? "var(--success)" : "rgba(255,255,255,0.3)", mr: 1 }}
                             title={!canModifyRule(rule) ? "Cannot modify super admin rules" : "Enable rule"}
                           >
                             <EnableIcon fontSize="small" />
@@ -614,7 +673,7 @@ export default function RulesGenerationPage() {
                         <IconButton
                           size="small"
                           onClick={() => rule.id && setEffectivenessDialog(rule.id)}
-                          sx={{ color: "#3498db", mr: 1 }}
+                          sx={{ color: "var(--info)", mr: 1 }}
                           title="View effectiveness"
                         >
                           <EffectivenessIcon fontSize="small" />
@@ -623,7 +682,7 @@ export default function RulesGenerationPage() {
                           size="small"
                           onClick={() => rule.id && handleDeleteRule(rule.id, "aml")}
                           disabled={!canDeleteRule(rule)}
-                          sx={{ color: canDeleteRule(rule) ? "#e74c3c" : "rgba(255,255,255,0.3)" }}
+                          sx={{ color: canDeleteRule(rule) ? "var(--danger)" : "rgba(255,255,255,0.3)" }}
                           title={ruleDeleteTitle(rule)}
                         >
                           <DeleteIcon fontSize="small" />
@@ -692,7 +751,7 @@ export default function RulesGenerationPage() {
                             label={creator}
                             size="small"
                             sx={{
-                              backgroundColor: rule.isSuperAdmin ? "#3498db20" : `${ruleColor}20`,
+                              backgroundColor: withAlpha(rule.isSuperAdmin ? "var(--info)" : ruleColor, 0.13),
                               color: ruleColor,
                               border: `1px solid ${ruleColor}`,
                             }}
@@ -700,7 +759,7 @@ export default function RulesGenerationPage() {
                         </TableCell>
                       <TableCell sx={{ color: "text.primary" }}>{rule.maxTransactions}</TableCell>
                       <TableCell sx={{ color: "text.primary" }}>
-                        ${rule.maxAmount.toFixed(2)}
+                        ${rule.maxAmount != null ? rule.maxAmount.toFixed(2) : "0.00"}
                       </TableCell>
                       <TableCell sx={{ color: "text.primary" }}>
                         {rule.timeWindowMinutes} min
@@ -712,28 +771,28 @@ export default function RulesGenerationPage() {
                           sx={{
                             backgroundColor:
                               rule.riskLevel === "CRITICAL"
-                                ? "#e74c3c20"
+                                ? "color-mix(in srgb, var(--danger) 13%, transparent)"
                                 : rule.riskLevel === "HIGH"
-                                ? "#e67e2220"
+                                ? "color-mix(in srgb, var(--risk-high) 13%, transparent)"
                                 : rule.riskLevel === "MEDIUM"
-                                ? "#f39c1220"
-                                : "#2ecc7120",
+                                ? "color-mix(in srgb, var(--warning) 13%, transparent)"
+                                : "color-mix(in srgb, var(--success) 13%, transparent)",
                             color:
                               rule.riskLevel === "CRITICAL"
-                                ? "#e74c3c"
+                                ? "var(--danger)"
                                 : rule.riskLevel === "HIGH"
-                                ? "#e67e22"
+                                ? "var(--risk-high)"
                                 : rule.riskLevel === "MEDIUM"
-                                ? "#f39c12"
-                                : "#2ecc71",
+                                ? "var(--warning)"
+                                : "var(--success)",
                             border: `1px solid ${
                               rule.riskLevel === "CRITICAL"
-                                ? "#e74c3c"
+                                ? "var(--danger)"
                                 : rule.riskLevel === "HIGH"
-                                ? "#e67e22"
+                                ? "var(--risk-high)"
                                 : rule.riskLevel === "MEDIUM"
-                                ? "#f39c12"
-                                : "#2ecc71"
+                                ? "var(--warning)"
+                                : "var(--success)"
                             }`,
                           }}
                         />
@@ -743,18 +802,21 @@ export default function RulesGenerationPage() {
                           label={rule.status}
                           size="small"
                           sx={{
-                            backgroundColor: rule.status === "ACTIVE" ? "#2ecc7120" : "#95a5a620",
-                            color: rule.status === "ACTIVE" ? "#2ecc71" : "#95a5a6",
-                            border: `1px solid ${rule.status === "ACTIVE" ? "#2ecc71" : "#95a5a6"}`,
+                            backgroundColor: rule.status === "ACTIVE" ? "color-mix(in srgb, var(--success) 13%, transparent)" : "color-mix(in srgb, var(--muted) 13%, transparent)",
+                            color: rule.status === "ACTIVE" ? "var(--success)" : "var(--muted)",
+                            border: `1px solid ${rule.status === "ACTIVE" ? "var(--success)" : "var(--muted)"}`,
                           }}
                         />
                       </TableCell>
                       <TableCell>
+                        <IconButton size="small" onClick={() => rule.id && navigate(`/records/VELOCITY_RULE/${rule.id}`)} sx={{ color: "var(--info)", mr: 1 }} title="Trace velocity rule">
+                          <TraceIcon fontSize="small" />
+                        </IconButton>
                         <IconButton
                           size="small"
                           onClick={() => handleEditRule(rule)}
                           disabled={!canModifyRule(rule)}
-                          sx={{ color: canModifyRule(rule) ? "#a93226" : "rgba(255,255,255,0.3)", mr: 1 }}
+                          sx={{ color: canModifyRule(rule) ? "var(--gold)" : "rgba(255,255,255,0.3)", mr: 1 }}
                           title={!canModifyRule(rule) ? "Cannot modify super admin rules" : "Edit rule"}
                         >
                           <EditIcon fontSize="small" />
@@ -763,7 +825,7 @@ export default function RulesGenerationPage() {
                           size="small"
                           onClick={() => rule.id && handleDeleteRule(rule.id, "velocity")}
                           disabled={!canDeleteRule(rule)}
-                          sx={{ color: canDeleteRule(rule) ? "#e74c3c" : "rgba(255,255,255,0.3)" }}
+                          sx={{ color: canDeleteRule(rule) ? "var(--danger)" : "rgba(255,255,255,0.3)" }}
                           title={ruleDeleteTitle(rule)}
                         >
                           <DeleteIcon fontSize="small" />
@@ -831,7 +893,7 @@ export default function RulesGenerationPage() {
                             label={creator}
                             size="small"
                             sx={{
-                              backgroundColor: (threshold as any).isSuperAdmin ? "#3498db20" : `${ruleColor}20`,
+                              backgroundColor: withAlpha((threshold as any).isSuperAdmin ? "var(--info)" : ruleColor, 0.13),
                               color: ruleColor,
                               border: `1px solid ${ruleColor}`,
                             }}
@@ -844,20 +906,20 @@ export default function RulesGenerationPage() {
                           sx={{
                             backgroundColor:
                               threshold.riskLevel === "CRITICAL"
-                                ? "#e74c3c20"
+                                ? "color-mix(in srgb, var(--danger) 13%, transparent)"
                                 : threshold.riskLevel === "HIGH"
-                                ? "#e67e2220"
+                                ? "color-mix(in srgb, var(--risk-high) 13%, transparent)"
                                 : threshold.riskLevel === "MEDIUM"
-                                ? "#f39c1220"
-                                : "#2ecc7120",
+                                ? "color-mix(in srgb, var(--warning) 13%, transparent)"
+                                : "color-mix(in srgb, var(--success) 13%, transparent)",
                             color:
                               threshold.riskLevel === "CRITICAL"
-                                ? "#e74c3c"
+                                ? "var(--danger)"
                                 : threshold.riskLevel === "HIGH"
-                                ? "#e67e22"
+                                ? "var(--risk-high)"
                                 : threshold.riskLevel === "MEDIUM"
-                                ? "#f39c12"
-                                : "#2ecc71",
+                                ? "var(--warning)"
+                                : "var(--success)",
                           }}
                         />
                       </TableCell>
@@ -876,17 +938,20 @@ export default function RulesGenerationPage() {
                           label={threshold.enabled ? "Enabled" : "Disabled"}
                           size="small"
                           sx={{
-                            backgroundColor: threshold.enabled ? "#2ecc7120" : "#95a5a620",
-                            color: threshold.enabled ? "#2ecc71" : "#95a5a6",
+                            backgroundColor: threshold.enabled ? "color-mix(in srgb, var(--success) 13%, transparent)" : "color-mix(in srgb, var(--muted) 13%, transparent)",
+                            color: threshold.enabled ? "var(--success)" : "var(--muted)",
                           }}
                         />
                       </TableCell>
                       <TableCell>
+                        <IconButton size="small" onClick={() => threshold.id && navigate(`/records/RISK_THRESHOLD/${threshold.id}`)} sx={{ color: "var(--info)", mr: 1 }} title="Trace risk threshold">
+                          <TraceIcon fontSize="small" />
+                        </IconButton>
                         <IconButton
                           size="small"
                           onClick={() => handleEditRule(threshold)}
                           disabled={!canModifyRule(threshold as any)}
-                          sx={{ color: canModifyRule(threshold as any) ? "#a93226" : "rgba(255,255,255,0.3)" }}
+                          sx={{ color: canModifyRule(threshold as any) ? "var(--gold)" : "rgba(255,255,255,0.3)" }}
                           title={!canModifyRule(threshold as any) ? "Cannot modify super admin thresholds" : "Edit threshold"}
                         >
                           <EditIcon fontSize="small" />
@@ -909,6 +974,46 @@ export default function RulesGenerationPage() {
         </>
       )}
 
+      {tab === 3 && (
+        <Paper sx={{ backgroundColor: "background.paper", border: "1px solid rgba(0,0,0,0.1)" }}>
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Rule</TableCell>
+                  <TableCell>Change</TableCell>
+                  <TableCell>Maker</TableCell>
+                  <TableCell>Submitted</TableCell>
+                  <TableCell>Summary</TableCell>
+                  <TableCell>Evidence hash</TableCell>
+                  <TableCell align="right">Review</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {pendingVersionsLoading && <TableRow><TableCell colSpan={7} align="center">Loading pending versions...</TableCell></TableRow>}
+                {!pendingVersionsLoading && !pendingVersions?.length && <TableRow><TableCell colSpan={7} align="center" sx={{ py: 5, color: "text.secondary" }}>No rule changes are awaiting approval.</TableCell></TableRow>}
+                {pendingVersions?.map((version) => {
+                  const ownProposal = currentUser?.id === version.createdById;
+                  return <TableRow key={version.id} hover>
+                    <TableCell><Typography variant="body2" fontWeight={600}>{version.ruleName}</Typography><Typography variant="caption" color="text.secondary">Version {version.versionNumber}</Typography></TableCell>
+                    <TableCell><Chip label={version.changeType} size="small" color="warning" variant="outlined" /></TableCell>
+                    <TableCell>{version.createdByUsername}</TableCell>
+                    <TableCell>{new Date(version.createdAt).toLocaleString()}</TableCell>
+                    <TableCell sx={{ maxWidth: 280 }}><Typography variant="body2" noWrap title={version.changeSummary}>{version.changeSummary || "No summary supplied"}</Typography></TableCell>
+                    <TableCell><Typography variant="caption" fontFamily="monospace" title={version.contentHash}>{version.contentHash.slice(0, 12)}</Typography></TableCell>
+                    <TableCell align="right">
+                      <Button size="small" color="success" disabled={ownProposal} onClick={() => openReview(version, "approve")}>Approve</Button>
+                      <Button size="small" color="error" disabled={ownProposal} onClick={() => openReview(version, "reject")}>Reject</Button>
+                      {ownProposal && <Typography variant="caption" display="block" color="text.secondary">Independent reviewer required</Typography>}
+                    </TableCell>
+                  </TableRow>;
+                })}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+      )}
+
       {/* Create/Edit Rule Dialog */}
       <RuleDialog
         open={openDialog}
@@ -928,6 +1033,22 @@ export default function RulesGenerationPage() {
         effectiveness={effectiveness}
       />
 
+      <Dialog open={reviewVersion !== null} onClose={() => setReviewVersion(null)} fullWidth maxWidth="sm">
+        <DialogTitle>{reviewAction === "approve" ? "Approve" : "Reject"} rule version</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mt: 1, mb: 2 }}>
+            {reviewVersion?.ruleName} / version {reviewVersion?.versionNumber} / {reviewVersion?.changeType}
+          </Typography>
+          <TextField label="Review reason" required multiline minRows={3} fullWidth value={reviewReason} onChange={(event) => setReviewReason(event.target.value)} />
+          {reviewAction === "approve" && <TextField label="Effective from" type="datetime-local" fullWidth value={effectiveFrom} onChange={(event) => setEffectiveFrom(event.target.value)} InputLabelProps={{ shrink: true }} sx={{ mt: 2 }} />}
+          {reviewVersion && <Box sx={{ mt: 2, p: 2, bgcolor: "action.hover", maxHeight: 220, overflow: "auto" }}><Typography component="pre" variant="caption" sx={{ m: 0, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{JSON.stringify(reviewVersion.snapshot, null, 2)}</Typography></Box>}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setReviewVersion(null)}>Cancel</Button>
+          <Button variant="contained" color={reviewAction === "approve" ? "success" : "error"} disabled={!reviewReason.trim() || approveRuleVersion.isPending || rejectRuleVersion.isPending} onClick={handleReview}>{reviewAction === "approve" ? "Approve version" : "Reject version"}</Button>
+        </DialogActions>
+      </Dialog>
+
       <Snackbar
         open={!!errorSnackbar}
         autoHideDuration={8000}
@@ -937,6 +1058,9 @@ export default function RulesGenerationPage() {
         <Alert severity="error" onClose={() => setErrorSnackbar("")} sx={{ width: "100%" }}>
           {errorSnackbar}
         </Alert>
+      </Snackbar>
+      <Snackbar open={!!successSnackbar} autoHideDuration={5000} onClose={() => setSuccessSnackbar("")} anchorOrigin={{ vertical: "bottom", horizontal: "center" }}>
+        <Alert severity="success" onClose={() => setSuccessSnackbar("")} sx={{ width: "100%" }}>{successSnackbar}</Alert>
       </Snackbar>
     </Box>
     </HokekaPageShell>
@@ -1057,7 +1181,7 @@ function RuleDialog({
           <Chip
             size="small"
             label={`System default${rule?.externalCode ? ` · ${rule.externalCode}` : ""}`}
-            sx={{ ml: 1, backgroundColor: "#3498db", color: "#fff" }}
+            sx={{ ml: 1, backgroundColor: "var(--info)", color: "var(--surface-0)" }}
           />
         )}
       </DialogTitle>
@@ -1503,7 +1627,7 @@ function RuleDialog({
         <Button
           onClick={handleSubmit}
           variant="contained"
-          sx={{ backgroundColor: "#a93226", "&:hover": { backgroundColor: "#922b21" } }}
+          sx={{ backgroundColor: "var(--surface-3)", "&:hover": { backgroundColor: "var(--surface-3)" } }}
         >
           {rule ? "Update" : "Create"}
         </Button>

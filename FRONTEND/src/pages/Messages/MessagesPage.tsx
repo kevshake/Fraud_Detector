@@ -36,7 +36,7 @@ export default function MessagesPage() {
 
   return (
     <HokekaPageShell title="Messages" subtitle="System notifications and team communications" noCard>
-      <div className="overflow-hidden rounded-lg border border-white/10 bg-[#0f1a2e]">
+      <div className="overflow-hidden rounded-lg border border-white/10 bg-[var(--surface-2)]">
         {isLoading ? (
           <div className="flex items-center gap-2 p-4 text-sm text-glass-muted">
             <Loader2 size={20} className="animate-spin" /> Loading messages...

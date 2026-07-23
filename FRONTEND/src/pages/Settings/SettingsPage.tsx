@@ -21,6 +21,7 @@ import { apiClient } from "../../lib/apiClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { BRAND_THEMES } from "../../config/themes";
+import { readableTextOn, withAlpha } from "../../theme/tokens";
 import { useAuth } from "../../contexts/AuthContext";
 import BillingTab from "../Psps/tabs/BillingTab";
 import HokekaPageShell from "../../components/Layout/HokekaPageShell";
@@ -150,6 +151,10 @@ export default function SettingsPage() {
         buttonStyle: themeData.buttonStyle,
         navStyle: themeData.navStyle,
       });
+    } catch (e) {
+      // The mutation's onError surfaces the failure to the user; catch here so the
+      // awaited rejection is handled rather than becoming an unhandled promise rejection.
+      console.error('Theme save failed', e);
     } finally {
       setSaving(false);
     }
@@ -222,7 +227,12 @@ export default function SettingsPage() {
   });
 
   const handleSaveSystemSettings = async () => {
-    await updateSystemSettingsMutation.mutateAsync(systemSettings);
+    try {
+      await updateSystemSettingsMutation.mutateAsync(systemSettings);
+    } catch (e) {
+      // onError surfaces the failure; catch so the awaited rejection is handled.
+      console.error('System settings save failed', e);
+    }
   };
 
   return (
@@ -294,10 +304,13 @@ export default function SettingsPage() {
                           cursor: "pointer",
                           backgroundColor:
                             themeData.brandingTheme === preset.id ? preset.primaryColor : "transparent",
-                          color: themeData.brandingTheme === preset.id ? "#fff" : "text.primary",
+                          color:
+                            themeData.brandingTheme === preset.id
+                              ? readableTextOn(preset.primaryColor)
+                              : "text.primary",
                           border: `2px solid ${preset.primaryColor}`,
                           "&:hover": {
-                            backgroundColor: preset.primaryColor + "20",
+                            backgroundColor: withAlpha(preset.primaryColor, 0.13),
                           },
                         }}
                       />
@@ -314,7 +327,7 @@ export default function SettingsPage() {
                       fullWidth
                       label="Primary Color"
                       type="color"
-                      value={themeData.primaryColor || "#8B4049"}
+                      value={themeData.primaryColor || "var(--gold)"}
                       onChange={(e) => setThemeData({ ...themeData, primaryColor: e.target.value })}
                       InputLabelProps={{ shrink: true }}
                     />
@@ -326,7 +339,7 @@ export default function SettingsPage() {
                       fullWidth
                       label="Secondary Color"
                       type="color"
-                      value={themeData.secondaryColor || "#C9A961"}
+                      value={themeData.secondaryColor || "var(--gold)"}
                       onChange={(e) => setThemeData({ ...themeData, secondaryColor: e.target.value })}
                       InputLabelProps={{ shrink: true }}
                     />
@@ -338,7 +351,7 @@ export default function SettingsPage() {
                       fullWidth
                       label="Accent Color"
                       type="color"
-                      value={themeData.accentColor || "#A0525C"}
+                      value={themeData.accentColor || "var(--gold)"}
                       onChange={(e) => setThemeData({ ...themeData, accentColor: e.target.value })}
                       InputLabelProps={{ shrink: true }}
                     />
@@ -432,7 +445,7 @@ export default function SettingsPage() {
                     variant="contained"
                     onClick={handleSaveTheme}
                     disabled={saving}
-                    sx={{ backgroundColor: "#a93226", "&:hover": { backgroundColor: "#922b21" } }}
+                    sx={{ backgroundColor: "var(--surface-3)", "&:hover": { backgroundColor: "var(--surface-3)" } }}
                   >
                     {saving ? "Saving..." : "Save Theme"}
                   </Button>
@@ -503,7 +516,7 @@ export default function SettingsPage() {
                       label="High Risk Score Threshold"
                       type="number"
                       value={systemSettings.riskThresholdHigh}
-                      onChange={(e) => handleSystemSettingChange('riskThresholdHigh', parseInt(e.target.value))}
+                      onChange={(e) => handleSystemSettingChange('riskThresholdHigh', (parseInt(e.target.value, 10) || 0))}
                       fullWidth
                       disabled={updateSystemSettingsMutation.isPending}
                     />
@@ -513,7 +526,7 @@ export default function SettingsPage() {
                       label="Medium Risk Score Threshold"
                       type="number"
                       value={systemSettings.riskThresholdMedium}
-                      onChange={(e) => handleSystemSettingChange('riskThresholdMedium', parseInt(e.target.value))}
+                      onChange={(e) => handleSystemSettingChange('riskThresholdMedium', (parseInt(e.target.value, 10) || 0))}
                       fullWidth
                       disabled={updateSystemSettingsMutation.isPending}
                     />
@@ -529,7 +542,7 @@ export default function SettingsPage() {
                       label="Audit Log Retention (Days)"
                       type="number"
                       value={systemSettings.auditRetentionDays}
-                      onChange={(e) => handleSystemSettingChange('auditRetentionDays', parseInt(e.target.value))}
+                      onChange={(e) => handleSystemSettingChange('auditRetentionDays', (parseInt(e.target.value, 10) || 0))}
                       fullWidth
                       disabled={updateSystemSettingsMutation.isPending}
                     />

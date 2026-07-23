@@ -16,10 +16,12 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Batch Scoring Service
- * Performs nightly/weekly batch scoring to compute aggregates and backfill
- * training sets
- * Updates velocity features and computes batch metrics
+ * Batch Scoring Service — post-transaction (settled) monitoring.
+ *
+ * <p>Runs daily to score transactions that never got a real-time score and routes
+ * each through the {@link DecisionEngine} so alerts and cases are raised from settled
+ * activity (this is the post-transaction leg of AML monitoring). Also persists the
+ * feature rows that the offline training store consumes. It does NOT itself train a model.
  */
 @Service
 public class BatchScoringService {
@@ -30,17 +32,20 @@ public class BatchScoringService {
     private final TransactionFeaturesRepository featuresRepository;
     private final FeatureExtractionService featureExtractionService;
     private final ScoringService scoringService;
+    private final DecisionEngine decisionEngine;
     private final ObjectMapper objectMapper;
 
     public BatchScoringService(TransactionRepository transactionRepository,
             TransactionFeaturesRepository featuresRepository,
             FeatureExtractionService featureExtractionService,
             ScoringService scoringService,
+            DecisionEngine decisionEngine,
             ObjectMapper objectMapper) {
         this.transactionRepository = transactionRepository;
         this.featuresRepository = featuresRepository;
         this.featureExtractionService = featureExtractionService;
         this.scoringService = scoringService;
+        this.decisionEngine = decisionEngine;
         this.objectMapper = objectMapper;
     }
 
@@ -57,11 +62,8 @@ public class BatchScoringService {
         LocalDateTime startOfDay = yesterday.toLocalDate().atStartOfDay();
         LocalDateTime endOfDay = yesterday.toLocalDate().atTime(23, 59, 59);
 
-        List<TransactionEntity> transactions = transactionRepository.findAll().stream()
-                .filter(t -> t.getTxnTs() != null &&
-                        !t.getTxnTs().isBefore(startOfDay) &&
-                        !t.getTxnTs().isAfter(endOfDay))
-                .toList();
+        List<TransactionEntity> transactions =
+                transactionRepository.findByTxnTsBetween(startOfDay, endOfDay);
 
         logger.info("Found {} transactions to batch score", transactions.size());
 
@@ -85,8 +87,16 @@ public class BatchScoringService {
                 ScoringService.ScoringResult result = scoringService.scoreTransaction(
                         transaction.getTxnId(), features);
 
-                // Save features
-                saveTransactionFeatures(transaction, features, result.getScore(), "BATCH");
+                if (result.getScore() != null) {
+                    // Route through the decision engine so settled-transaction monitoring
+                    // raises alerts/cases (and persists features + decision), instead of
+                    // silently saving a score with no downstream action.
+                    decisionEngine.evaluate(transaction, result.getScore(), features);
+                } else {
+                    // No score available (scoring path unavailable) — persist the features
+                    // we did compute so they are not lost.
+                    saveTransactionFeatures(transaction, features, null, "BATCH");
+                }
 
                 scored++;
 
@@ -112,13 +122,11 @@ public class BatchScoringService {
     public int backfillFeatures(int limit) {
         logger.info("Backfilling features for transactions without features (limit={})", limit);
 
-        List<TransactionEntity> transactions = transactionRepository.findAll().stream()
-                .filter(t -> {
-                    TransactionFeatures features = featuresRepository.findByTxnId(t.getTxnId());
-                    return features == null || features.getFeatureJson() == null;
-                })
-                .limit(limit)
-                .toList();
+        // Single DB-side query returning transactions lacking a features row (or with
+        // null feature JSON), limited in the database — avoids the old full-table load
+        // + per-row featuresRepository lookup (N+1).
+        List<TransactionEntity> transactions = transactionRepository.findTransactionsMissingFeatures(
+                org.springframework.data.domain.PageRequest.of(0, limit));
 
         int processed = 0;
         for (TransactionEntity transaction : transactions) {

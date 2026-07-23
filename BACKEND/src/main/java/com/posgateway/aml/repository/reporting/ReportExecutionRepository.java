@@ -44,4 +44,27 @@ public interface ReportExecutionRepository extends JpaRepository<ReportExecution
                                                 @Param("cutoffTime") LocalDateTime cutoffTime);
 
     long countByReportIdAndStatus(Long reportId, ExecutionStatus status);
+
+    @Query("SELECT re FROM ReportExecution re WHERE re.report.id = :reportId " +
+           "AND re.status = :status AND (:pspId IS NULL OR re.pspId = :pspId) " +
+           "ORDER BY re.completedAt DESC, re.id DESC")
+    List<ReportExecution> findLatestForSubmission(
+            @Param("reportId") Long reportId,
+            @Param("pspId") Long pspId,
+            @Param("status") ExecutionStatus status,
+            Pageable pageable);
+
+    @Query("SELECT COUNT(re), " +
+           "SUM(CASE WHEN re.status = com.posgateway.aml.entity.reporting.ExecutionStatus.COMPLETED THEN 1 ELSE 0 END), " +
+           "SUM(CASE WHEN re.status = com.posgateway.aml.entity.reporting.ExecutionStatus.FAILED THEN 1 ELSE 0 END), " +
+           "SUM(CASE WHEN re.status = com.posgateway.aml.entity.reporting.ExecutionStatus.PENDING THEN 1 ELSE 0 END), " +
+           "SUM(CASE WHEN re.status = com.posgateway.aml.entity.reporting.ExecutionStatus.RUNNING THEN 1 ELSE 0 END), " +
+           "COALESCE(AVG(re.executionTimeMs), 0), COALESCE(SUM(re.totalRecords), 0) " +
+           "FROM ReportExecution re WHERE (:pspId IS NULL OR re.pspId = :pspId) " +
+           "AND (:from IS NULL OR re.createdAt >= :from) " +
+           "AND (:to IS NULL OR re.createdAt <= :to)")
+    Object[] summarizeExecutions(
+            @Param("pspId") Long pspId,
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to);
 }

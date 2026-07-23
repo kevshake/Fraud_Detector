@@ -18,6 +18,7 @@ public class SubscriptionResponse {
     private String tierCode;
     private String tierName;
     private BigDecimal monthlyFeeUsd;
+    private Integer includedChecks;
     private String billingCycle;
     private String billingCurrency;
     private BigDecimal discountPercentage;
@@ -47,6 +48,7 @@ public class SubscriptionResponse {
             r.tierCode = s.getPricingTier().getTierCode();
             r.tierName = s.getPricingTier().getTierName();
             r.monthlyFeeUsd = s.getPricingTier().getMonthlyFeeUsd();
+            r.includedChecks = s.getPricingTier().getIncludedChecks();
         }
         r.billingCycle = s.getBillingCycle();
         r.billingCurrency = s.getBillingCurrency();
@@ -80,6 +82,9 @@ public class SubscriptionResponse {
 
     public BigDecimal getMonthlyFeeUsd() { return monthlyFeeUsd; }
     public void setMonthlyFeeUsd(BigDecimal monthlyFeeUsd) { this.monthlyFeeUsd = monthlyFeeUsd; }
+
+    public Integer getIncludedChecks() { return includedChecks; }
+    public void setIncludedChecks(Integer includedChecks) { this.includedChecks = includedChecks; }
 
     public String getBillingCycle() { return billingCycle; }
     public void setBillingCycle(String billingCycle) { this.billingCycle = billingCycle; }

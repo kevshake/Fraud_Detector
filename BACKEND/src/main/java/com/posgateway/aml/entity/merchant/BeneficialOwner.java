@@ -36,11 +36,19 @@ public class BeneficialOwner {
     private String countryOfResidence;
 
     // Identification (encrypted)
-    @Column(name = "passport_number", length = 100)
+    @Column(name = "passport_number", columnDefinition = "TEXT")
+    @Convert(converter = com.posgateway.aml.entity.converter.VersionedAesGcmStringConverter.class)
     private String passportNumber;
 
-    @Column(name = "national_id", length = 100)
+    @Column(name = "passport_hash", length = 64)
+    private String passportHash;
+
+    @Column(name = "national_id", columnDefinition = "TEXT")
+    @Convert(converter = com.posgateway.aml.entity.converter.VersionedAesGcmStringConverter.class)
     private String nationalId;
+
+    @Column(name = "national_id_hash", length = 64)
+    private String nationalIdHash;
 
     // Ownership
     @Column(name = "ownership_percentage", nullable = false)
@@ -242,6 +250,9 @@ public class BeneficialOwner {
         this.passportNumber = passportNumber;
     }
 
+    public String getPassportHash() { return passportHash; }
+    public void setPassportHash(String passportHash) { this.passportHash = passportHash; }
+
     public String getNationalId() {
         return nationalId;
     }
@@ -249,6 +260,9 @@ public class BeneficialOwner {
     public void setNationalId(String nationalId) {
         this.nationalId = nationalId;
     }
+
+    public String getNationalIdHash() { return nationalIdHash; }
+    public void setNationalIdHash(String nationalIdHash) { this.nationalIdHash = nationalIdHash; }
 
     public Integer getOwnershipPercentage() {
         return ownershipPercentage;

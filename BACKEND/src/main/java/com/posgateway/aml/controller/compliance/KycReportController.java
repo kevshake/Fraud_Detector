@@ -11,6 +11,11 @@ import com.posgateway.aml.service.analytics.CorporateStructureService.CorporateG
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.access.AccessDeniedException;
+import com.posgateway.aml.entity.User;
+import com.posgateway.aml.entity.merchant.Merchant;
+import com.posgateway.aml.repository.MerchantRepository;
+import com.posgateway.aml.service.security.PspIsolationService;
 
 // @Slf4j removed
 // @RequiredArgsConstructor removed
@@ -22,9 +27,15 @@ public class KycReportController {
     private static final Logger log = LoggerFactory.getLogger(KycReportController.class);
 
     private final CorporateStructureService corporateStructureService;
+    private final MerchantRepository merchantRepository;
+    private final PspIsolationService isolationService;
 
-    public KycReportController(CorporateStructureService corporateStructureService) {
+    public KycReportController(CorporateStructureService corporateStructureService,
+                               MerchantRepository merchantRepository,
+                               PspIsolationService isolationService) {
         this.corporateStructureService = corporateStructureService;
+        this.merchantRepository = merchantRepository;
+        this.isolationService = isolationService;
     }
 
 
@@ -36,8 +47,22 @@ public class KycReportController {
     public ResponseEntity<CorporateGraph> getCorporateGraph(@PathVariable Long merchantId) {
         log.info("Requesting Corporate Graph for Merchant ID: {}", merchantId);
         try {
-            CorporateGraph graph = corporateStructureService.buildCorporateGraph(merchantId);
+            Merchant merchant = merchantRepository.findById(merchantId)
+                    .orElseThrow(() -> new IllegalArgumentException("Merchant not found: " + merchantId));
+            User user = isolationService.getCurrentUser();
+            if (user == null) throw new AccessDeniedException("Authenticated user is required");
+            Long allowedPspId = null;
+            if (!isolationService.isPlatformAdministrator(user)) {
+                if (user.getPsp() == null || merchant.getPsp() == null
+                        || !user.getPsp().getPspId().equals(merchant.getPsp().getPspId())) {
+                    throw new AccessDeniedException("Cannot access another PSP's corporate graph");
+                }
+                allowedPspId = user.getPsp().getPspId();
+            }
+            CorporateGraph graph = corporateStructureService.buildCorporateGraph(merchantId, allowedPspId);
             return ResponseEntity.ok(graph);
+        } catch (AccessDeniedException e) {
+            throw e;
         } catch (IllegalArgumentException e) {
             log.warn("Merchant not found: {}", merchantId);
             return ResponseEntity.notFound().build();

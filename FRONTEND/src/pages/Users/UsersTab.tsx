@@ -1,13 +1,19 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { User } from "../../types/userManagement";
 import { useUsers, useRoles, useAllPsps } from "../../features/api/queries";
-import { Plus, Edit, Trash2, ToggleLeft, ToggleRight, Loader2 } from "lucide-react";
+import { Plus, Edit, Trash2, ToggleLeft, ToggleRight, Loader2, Eye, ShieldAlert } from "lucide-react";
 import TwBadge from "../../components/Common/TwBadge";
 import TwPagination from "../../components/Common/TwPagination";
+import { useAuth } from "../../contexts/AuthContext";
+
+const ADMIN_ROLES = new Set(["SUPER_ADMIN", "ADMIN"]);
 
 export default function UsersTab() {
     const queryClient = useQueryClient();
+    const { user: currentUser } = useAuth();
+    const isAdmin = !!currentUser?.role?.name && ADMIN_ROLES.has(currentUser.role.name);
     const [openDialog, setOpenDialog] = useState(false);
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
@@ -96,6 +102,16 @@ export default function UsersTab() {
     const handleConfirmDelete = () => { if (deleteConfirmId !== null) { deleteUserMutation.mutate(deleteConfirmId); setDeleteConfirmId(null); } };
     const handleToggleEnabled = (userId: number, currentStatus: boolean) => toggleUserMutation.mutate({ userId, enabled: !currentStatus });
 
+    // Defense-in-depth: user administration is admin-only. The backend enforces this on every
+    // endpoint; this guard stops non-admins from seeing/triggering create/delete/role-change.
+    if (!isAdmin) {
+        return (
+            <div className="flex items-center gap-2 rounded-lg border border-amber-700/30 bg-amber-900/20 px-4 py-3 text-sm text-amber-200">
+                <ShieldAlert size={16} /> User administration requires an administrator role.
+            </div>
+        );
+    }
+
     return (
         <div>
             <div className="mb-3 flex justify-end">
@@ -104,14 +120,14 @@ export default function UsersTab() {
                 </button>
             </div>
 
-            <div className="overflow-hidden rounded-lg border border-white/10 bg-[#0f1a2e]">
+            <div className="overflow-hidden rounded-lg border border-white/10 bg-[var(--surface-2)]">
                 <div className="overflow-auto" style={{ maxHeight: "calc(100vh - 320px)" }}>
                     {isLoading ? (
                         <div className="flex items-center justify-center py-8"><Loader2 size={24} className="animate-spin text-glass-muted" /></div>
                     ) : (
                         <table className="w-full border-collapse">
                             <thead className="sticky top-0 z-10">
-                                <tr className="border-b border-white/10 bg-[#0f1a2e]">
+                                <tr className="border-b border-white/10 bg-[var(--surface-2)]">
                                     <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">Username</th>
                                     <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">Name</th>
                                     <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">Email</th>
@@ -134,6 +150,7 @@ export default function UsersTab() {
                                         <td className="whitespace-nowrap px-4 py-3 text-sm text-glass-muted">{new Date(user.createdAt).toLocaleDateString()}</td>
                                         <td className="whitespace-nowrap px-4 py-3">
                                             <div className="flex items-center gap-1">
+                                                <Link to={`/records/USER/${user.id}`} title="Trace record" className="rounded p-1 text-sky-400 transition-colors hover:bg-white/10"><Eye size={16} /></Link>
                                                 <button onClick={() => handleOpenDialog(user)} className="rounded p-1 text-burgundy-400 transition-colors hover:bg-white/10"><Edit size={16} /></button>
                                                 <button onClick={() => handleToggleEnabled(user.id, user.enabled)} className={`rounded p-1 transition-colors hover:bg-white/10 ${user.enabled ? "text-amber-400" : "text-emerald-400"}`}>
                                                     {user.enabled ? <ToggleLeft size={16} /> : <ToggleRight size={16} />}
@@ -162,7 +179,7 @@ export default function UsersTab() {
                 <>
                     <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={handleCloseDialog} />
                     <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2">
-                        <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0f1a2e] shadow-2xl">
+                        <div className="overflow-hidden rounded-xl border border-white/10 bg-[var(--surface-2)] shadow-2xl">
                             <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
                                 <h3 className="text-lg font-semibold text-white">{editingUser ? "Edit User" : "Create New User"}</h3>
                                 <button onClick={handleCloseDialog} className="rounded p-1 text-glass-muted hover:bg-white/10">✕</button>
@@ -174,29 +191,29 @@ export default function UsersTab() {
                                 <div>
                                     <label className="text-[11px] font-semibold uppercase tracking-wider text-glass-muted">Username</label>
                                     <input value={formData.username} onChange={(e) => setFormData({ ...formData, username: e.target.value })} disabled={!!editingUser}
-                                        className="mt-1 w-full rounded-lg border border-white/10 bg-[#1a2744] px-3 py-2 text-sm text-white disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-burgundy-700" />
+                                        className="mt-1 w-full rounded-lg border border-white/10 bg-[var(--surface-3)] px-3 py-2 text-sm text-white disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-burgundy-700" />
                                 </div>
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
                                         <label className="text-[11px] font-semibold uppercase tracking-wider text-glass-muted">First Name</label>
                                         <input value={formData.firstName} onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                                            className="mt-1 w-full rounded-lg border border-white/10 bg-[#1a2744] px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-burgundy-700" />
+                                            className="mt-1 w-full rounded-lg border border-white/10 bg-[var(--surface-3)] px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-burgundy-700" />
                                     </div>
                                     <div>
                                         <label className="text-[11px] font-semibold uppercase tracking-wider text-glass-muted">Last Name</label>
                                         <input value={formData.lastName} onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                                            className="mt-1 w-full rounded-lg border border-white/10 bg-[#1a2744] px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-burgundy-700" />
+                                            className="mt-1 w-full rounded-lg border border-white/10 bg-[var(--surface-3)] px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-burgundy-700" />
                                     </div>
                                 </div>
                                 <div>
                                     <label className="text-[11px] font-semibold uppercase tracking-wider text-glass-muted">Email</label>
                                     <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                        className="mt-1 w-full rounded-lg border border-white/10 bg-[#1a2744] px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-burgundy-700" />
+                                        className="mt-1 w-full rounded-lg border border-white/10 bg-[var(--surface-3)] px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-burgundy-700" />
                                 </div>
                                 <div>
                                     <label className="text-[11px] font-semibold uppercase tracking-wider text-glass-muted">{editingUser ? "New Password (leave blank to keep current)" : "Password"}</label>
                                     <input type="password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                        className="mt-1 w-full rounded-lg border border-white/10 bg-[#1a2744] px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-burgundy-700" />
+                                        className="mt-1 w-full rounded-lg border border-white/10 bg-[var(--surface-3)] px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-burgundy-700" />
                                 </div>
                                 {[ 
                                     { label: "Role", value: formData.roleId, onChange: (v: string) => setFormData({ ...formData, roleId: v }), options: [{ value: "", label: "Select..." }, ...(roles || []).map((r: any) => ({ value: r.id.toString(), label: `${r.name}${r.psp ? ` (${r.psp.name})` : " (System)"}` }))] },
@@ -205,14 +222,14 @@ export default function UsersTab() {
                                     <div key={field.label}>
                                         <label className="text-[11px] font-semibold uppercase tracking-wider text-glass-muted">{field.label}</label>
                                         <select value={field.value} onChange={(e) => field.onChange(e.target.value)}
-                                            className="mt-1 w-full rounded-lg border border-white/10 bg-[#1a2744] px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-burgundy-700">
+                                            className="mt-1 w-full rounded-lg border border-white/10 bg-[var(--surface-3)] px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-burgundy-700">
                                             {field.options.map((o: any) => <option key={o.value} value={o.value}>{o.label}</option>)}
                                         </select>
                                     </div>
                                 ))}
                                 <label className="flex items-center gap-2 text-sm text-white">
                                     <input type="checkbox" checked={formData.enabled} onChange={(e) => setFormData({ ...formData, enabled: e.target.checked })}
-                                        className="rounded border-white/20 bg-white/5 text-burgundy-700 focus:ring-burgundy-700" />
+                                        className="rounded border-white/20 bg-white/5 accent-gold text-gold focus:ring-gold" />
                                     Enabled
                                 </label>
                             </div>
@@ -234,7 +251,7 @@ export default function UsersTab() {
                 <>
                     <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={() => setDeleteConfirmId(null)} />
                     <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2">
-                        <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0f1a2e] shadow-2xl">
+                        <div className="overflow-hidden rounded-xl border border-white/10 bg-[var(--surface-2)] shadow-2xl">
                             <div className="border-b border-white/10 px-6 py-4">
                                 <h3 className="text-lg font-semibold text-white">Delete User</h3>
                             </div>

@@ -6,42 +6,42 @@
 // Endpoint type union (matches CbkEndpointType enum on backend)
 // ─────────────────────────────────────────────
 export type CbkEndpointType =
-  | "txn_psp_senior_mngt_schedule"
-  | "txn_psp_sched_of_dir"
-  | "txn_psp_sched_of_trustees"
-  | "txn_psp_sched_of_share_hldrs"
-  | "txn_psp_cutomer_complaints"
-  | "txn_psp_cybersecurity_incident_record"
-  | "txn_psp_incidents_data"
-  | "txn_psp_sy_stabil_srvce_int"
-  | "txn_psp_system_activity"
-  | "txn_psp_products_info"
-  | "txn_psp_trust_account"
-  | "txn_gw_card_brands"
-  | "txn_gw_billing_template"
-  | "txn_gw_transactions_details"
-  | "txn_gw_transactions_tariffs"
-  | "txn_gw_merchant_trx_info"
-  | "txn_gw_failed_rejected_trx_info";
+  | "SENIOR_MANAGEMENT"
+  | "DIRECTORS"
+  | "TRUSTEES"
+  | "SHAREHOLDERS"
+  | "CUSTOMER_COMPLAINTS"
+  | "CYBER_INCIDENT"
+  | "FRAUD_INCIDENTS"
+  | "SYSTEM_STABILITY"
+  | "SYSTEM_ACTIVITY"
+  | "PRODUCTS_INFO"
+  | "TRUST_ACCOUNT"
+  | "CARD_BRANDS"
+  | "BILLING_TEMPLATE"
+  | "TRANSACTION_DETAILS"
+  | "TRANSACTION_TARIFFS"
+  | "MERCHANT_TRANSACTIONS"
+  | "FAILED_TRANSACTIONS";
 
 export const CBK_ENDPOINT_LABELS: Record<CbkEndpointType, string> = {
-  txn_psp_senior_mngt_schedule: "Senior Management Schedule",
-  txn_psp_sched_of_dir: "Schedule of Directors",
-  txn_psp_sched_of_trustees: "Schedule of Trustees",
-  txn_psp_sched_of_share_hldrs: "Schedule of Shareholders",
-  txn_psp_cutomer_complaints: "Customer Complaints",
-  txn_psp_cybersecurity_incident_record: "Cybersecurity Incidents",
-  txn_psp_incidents_data: "Fraud / Theft / Robbery Incidents",
-  txn_psp_sy_stabil_srvce_int: "System Stability & Service Interruptions",
-  txn_psp_system_activity: "System Activity (TPS/TPH)",
-  txn_psp_products_info: "Products Info",
-  txn_psp_trust_account: "Trust Accounts",
-  txn_gw_card_brands: "Card Brands",
-  txn_gw_billing_template: "Billing Template",
-  txn_gw_transactions_details: "Transaction Details",
-  txn_gw_transactions_tariffs: "Transaction Tariffs",
-  txn_gw_merchant_trx_info: "Merchant Transactions",
-  txn_gw_failed_rejected_trx_info: "Failed / Rejected Transactions",
+  SENIOR_MANAGEMENT: "Senior Management Schedule",
+  DIRECTORS: "Schedule of Directors",
+  TRUSTEES: "Schedule of Trustees",
+  SHAREHOLDERS: "Schedule of Shareholders",
+  CUSTOMER_COMPLAINTS: "Customer Complaints",
+  CYBER_INCIDENT: "Cybersecurity Incidents",
+  FRAUD_INCIDENTS: "Fraud / Theft / Robbery Incidents",
+  SYSTEM_STABILITY: "System Stability & Service Interruptions",
+  SYSTEM_ACTIVITY: "System Activity (TPS/TPH)",
+  PRODUCTS_INFO: "Products Info",
+  TRUST_ACCOUNT: "Trust Accounts",
+  CARD_BRANDS: "Card Brands",
+  BILLING_TEMPLATE: "Billing Template",
+  TRANSACTION_DETAILS: "Transaction Details",
+  TRANSACTION_TARIFFS: "Transaction Tariffs",
+  MERCHANT_TRANSACTIONS: "Merchant Transactions",
+  FAILED_TRANSACTIONS: "Failed / Rejected Transactions",
 };
 
 // ─────────────────────────────────────────────

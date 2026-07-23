@@ -37,6 +37,12 @@ public class ComplianceDeadline {
     @Column(name = "psp_id")
     private Long pspId;
 
+    @Column(name = "source_type", length = 40)
+    private String sourceType;
+
+    @Column(name = "source_id")
+    private Long sourceId;
+
     @Column(nullable = false)
     private Boolean completed = false;
 
@@ -62,6 +68,10 @@ public class ComplianceDeadline {
     public void setJurisdiction(String jurisdiction) { this.jurisdiction = jurisdiction; }
     public Long getPspId() { return pspId; }
     public void setPspId(Long pspId) { this.pspId = pspId; }
+    public String getSourceType() { return sourceType; }
+    public void setSourceType(String sourceType) { this.sourceType = sourceType; }
+    public Long getSourceId() { return sourceId; }
+    public void setSourceId(Long sourceId) { this.sourceId = sourceId; }
     public Boolean getCompleted() { return completed; }
     public void setCompleted(Boolean completed) { this.completed = completed; }
     public LocalDateTime getCompletedAt() { return completedAt; }

@@ -1,5 +1,6 @@
 package com.posgateway.aml.dto.request;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 
@@ -48,6 +49,15 @@ public class MerchantOnboardingRequest {
 
     @Size(max = 500)
     private String website;
+
+    @Size(max = 200)
+    private String contactEmail;
+
+    @Size(max = 200)
+    private String cbkSettlementAccountNumber;
+
+    @Size(max = 100)
+    private String cbkEconomicSectorCode;
 
     // Address
     private String addressStreet;
@@ -240,12 +250,56 @@ public class MerchantOnboardingRequest {
         this.registrationDate = registrationDate;
     }
 
+    public String getContactEmail() {
+        return contactEmail;
+    }
+
+    public void setContactEmail(String contactEmail) {
+        this.contactEmail = contactEmail;
+    }
+
+    public String getCbkSettlementAccountNumber() {
+        return cbkSettlementAccountNumber;
+    }
+
+    public void setCbkSettlementAccountNumber(String cbkSettlementAccountNumber) {
+        this.cbkSettlementAccountNumber = cbkSettlementAccountNumber;
+    }
+
+    public String getCbkEconomicSectorCode() {
+        return cbkEconomicSectorCode;
+    }
+
+    public void setCbkEconomicSectorCode(String cbkEconomicSectorCode) {
+        this.cbkEconomicSectorCode = cbkEconomicSectorCode;
+    }
+
     public List<BeneficialOwnerRequest> getBeneficialOwners() {
         return beneficialOwners;
     }
 
     public void setBeneficialOwners(List<BeneficialOwnerRequest> beneficialOwners) {
         this.beneficialOwners = beneficialOwners;
+    }
+
+    @JsonIgnore
+    @AssertTrue(message = "Beneficial ownership percentages must be positive and total no more than 100")
+    public boolean isOwnershipDeclarationValid() {
+        if (beneficialOwners == null || beneficialOwners.isEmpty()) {
+            return true;
+        }
+        int total = 0;
+        for (BeneficialOwnerRequest owner : beneficialOwners) {
+            if (owner == null || owner.getOwnershipPercentage() == null
+                    || owner.getOwnershipPercentage() <= 0) {
+                return false;
+            }
+            total += owner.getOwnershipPercentage();
+            if (total > 100) {
+                return false;
+            }
+        }
+        return total > 0;
     }
 
     public static MerchantOnboardingRequestBuilder builder() {

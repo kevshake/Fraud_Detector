@@ -70,6 +70,16 @@ public class Psp {
     @Column(name = "is_test_mode")
     private Boolean isTestMode = false;
 
+    /**
+     * Master per-PSP KYC/KYB toggle. When true (default), merchants under this PSP go
+     * through full KYC/KYB screening + underwriting at onboarding. When false, an admin
+     * has explicitly waived KYC for this PSP: merchants onboard as ACTIVE with
+     * kycStatus=NOT_REQUIRED and transactions flow without KYC gating. Safe default is
+     * enabled; disabling is an audited admin action.
+     */
+    @Column(name = "kyc_enabled")
+    private Boolean kycEnabled = true;
+
     // Theming
     @Column(name = "logo_url", length = 1000)
     private String logoUrl;
@@ -327,6 +337,19 @@ public class Psp {
         this.isTestMode = isTestMode;
     }
 
+    public Boolean getKycEnabled() {
+        return kycEnabled;
+    }
+
+    public void setKycEnabled(Boolean kycEnabled) {
+        this.kycEnabled = kycEnabled;
+    }
+
+    /** True unless an admin has explicitly waived KYC for this PSP (null-safe, defaults to required). */
+    public boolean isKycRequired() {
+        return kycEnabled == null || Boolean.TRUE.equals(kycEnabled);
+    }
+
     public String getLogoUrl() {
         return logoUrl;
     }
@@ -532,6 +555,7 @@ public class Psp {
         private String currency;
         private String status;
         private Boolean isTestMode;
+        private Boolean kycEnabled;
         private String logoUrl;
         private String primaryColor;
         private String secondaryColor;
@@ -630,6 +654,11 @@ public class Psp {
 
         public PspBuilder isTestMode(Boolean isTestMode) {
             this.isTestMode = isTestMode;
+            return this;
+        }
+
+        public PspBuilder kycEnabled(Boolean kycEnabled) {
+            this.kycEnabled = kycEnabled;
             return this;
         }
 
@@ -743,10 +772,12 @@ public class Psp {
             if (this.users == null)
                 this.users = new ArrayList<>();
 
-            return new Psp(pspId, pspCode, legalName, tradingName, country, registrationNumber, taxId, contactEmail,
+            Psp psp = new Psp(pspId, pspCode, legalName, tradingName, country, registrationNumber, taxId, contactEmail,
                     contactPhone, contactAddress, billingPlan, billingCycle, paymentTerms, currency, status, isTestMode,
                     logoUrl, primaryColor, secondaryColor, accentColor, fontFamily, fontSize, buttonRadius, buttonStyle,
                     navStyle, brandingTheme, onboardedAt, activatedAt, suspendedAt, terminatedAt, createdAt, updatedAt, users);
+            psp.setKycEnabled(this.kycEnabled == null ? Boolean.TRUE : this.kycEnabled);
+            return psp;
         }
 
         public String toString() {

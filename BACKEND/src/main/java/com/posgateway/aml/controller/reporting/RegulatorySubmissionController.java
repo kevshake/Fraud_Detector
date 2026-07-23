@@ -133,10 +133,29 @@ public class RegulatorySubmissionController {
         User user = (User) authentication.getPrincipal();
         Long userId = user.getId();
         Long pspId = pspIsolationService.getCurrentUserPspId();
-        
-        RegulatorySubmissionDTO submission = submissionService.prepareSubmission(id, regulatoryBody, userId, pspId);
+        String executionId = request.get("executionId");
+        RegulatorySubmissionDTO submission = executionId == null || executionId.isBlank()
+                ? submissionService.prepareSubmission(id, regulatoryBody, userId, pspId)
+                : submissionService.prepareSubmissionForExecution(
+                        Long.valueOf(executionId), regulatoryBody, userId, pspId);
         
         return ResponseEntity.status(HttpStatus.CREATED).body(submission);
+    }
+
+    /**
+     * Prepare from an exact completed report execution.
+     */
+    @PostMapping("/executions/{executionId}/prepare")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
+    public ResponseEntity<RegulatorySubmissionDTO> prepareExecution(
+            @PathVariable Long executionId,
+            @RequestBody Map<String, String> request,
+            Authentication authentication) {
+        User user = (User) authentication.getPrincipal();
+        Long pspId = pspIsolationService.getCurrentUserPspId();
+        return ResponseEntity.status(HttpStatus.CREATED).body(
+                submissionService.prepareSubmissionForExecution(
+                        executionId, request.get("regulatoryBody"), user.getId(), pspId));
     }
 
     /**
@@ -162,6 +181,11 @@ public class RegulatorySubmissionController {
                 break;
             case "FCA":
                 result = submissionService.submitToFCA(id, userId, pspId);
+                break;
+            case "FRC":
+            case "FIU":
+            case "KENYA_FRC":
+                result = submissionService.submitToFRC(id, userId, pspId);
                 break;
             case "OFAC":
                 result = submissionService.submitToOFAC(id, userId, pspId);
@@ -207,6 +231,19 @@ public class RegulatorySubmissionController {
         
         RegulatorySubmissionDTO result = submissionService.submitToFCA(id, userId, pspId);
         return ResponseEntity.ok(result);
+    }
+
+    /**
+     * Submit to Kenya FRC through the configured goAML XML transport.
+     */
+    @PostMapping("/{id}/submit/frc")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'COMPLIANCE_OFFICER', 'PSP_ADMIN')")
+    public ResponseEntity<RegulatorySubmissionDTO> submitToFRC(@PathVariable Long id,
+                                                               Authentication authentication) {
+        logger.info("Submit to FRC for report: {}", id);
+        User user = (User) authentication.getPrincipal();
+        Long pspId = pspIsolationService.getCurrentUserPspId();
+        return ResponseEntity.ok(submissionService.submitToFRC(id, user.getId(), pspId));
     }
 
     /**
@@ -265,6 +302,18 @@ public class RegulatorySubmissionController {
     }
 
     /**
+     * File an exact approved submission through its configured regulator client.
+     */
+    @PostMapping("/submissions/{id}/file")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO', 'PSP_ADMIN')")
+    public ResponseEntity<RegulatorySubmissionDTO> fileSubmission(
+            @PathVariable Long id,
+            Authentication authentication) {
+        User user = (User) authentication.getPrincipal();
+        return ResponseEntity.ok(submissionService.fileSubmission(id, user.getId()));
+    }
+
+    /**
      * Reject submission
      * POST /api/reports/submissions/{id}/reject
      */
@@ -278,7 +327,8 @@ public class RegulatorySubmissionController {
         User user = (User) authentication.getPrincipal();
         Long userId = user.getId();
         
-        RegulatorySubmissionDTO result = submissionService.updateSubmissionStatus(id, SubmissionStatus.REJECTED, userId);
+        String reason = request == null ? null : request.get("reason");
+        RegulatorySubmissionDTO result = submissionService.rejectSubmission(id, reason, userId);
         return ResponseEntity.ok(result);
     }
 
@@ -416,14 +466,12 @@ public class RegulatorySubmissionController {
         logger.debug("Get available regulators");
         
         List<Map<String, String>> regulators = List.of(
+            Map.of("code", "FRC", "name", "Financial Reporting Centre", "jurisdiction", "KE",
+                   "description", "Kenya goAML filing channel"),
             Map.of("code", "FINCEN", "name", "FinCEN (US)", "jurisdiction", "US", 
                    "description", "Financial Crimes Enforcement Network"),
             Map.of("code", "FCA", "name", "FCA (UK)", "jurisdiction", "UK",
-                   "description", "Financial Conduct Authority"),
-            Map.of("code", "OFAC", "name", "OFAC (US)", "jurisdiction", "US",
-                   "description", "Office of Foreign Assets Control"),
-            Map.of("code", "FIU", "name", "FIU", "jurisdiction", "GENERAL",
-                   "description", "Financial Intelligence Unit")
+                   "description", "Financial Conduct Authority")
         );
         
         return ResponseEntity.ok(regulators);

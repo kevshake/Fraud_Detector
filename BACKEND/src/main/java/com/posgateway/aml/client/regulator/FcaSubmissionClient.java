@@ -12,9 +12,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.netty.http.client.HttpClient;
 
 import javax.crypto.Mac;
@@ -91,26 +93,44 @@ public class FcaSubmissionClient implements RegulatorSubmissionClient {
         String signature = hmacSha256Hex(hmacSecret, body);
 
         try {
-            FcaResponse resp = webClient.post()
+            ResponseEntity<String> response = webClient.post()
                     .uri(endpoint)
                     .header("X-API-Key", apiKey)
                     .header("X-Signature", signature)
                     .header("X-Idempotency-Key", idempotencyKey)
                     .bodyValue(body)
                     .retrieve()
-                    .bodyToMono(FcaResponse.class)
+                    .toEntity(String.class)
                     .block(timeout.plusSeconds(2));
-
-            if (resp == null || resp.submissionReference == null || resp.submissionReference.isBlank()) {
-                log.warn("FCA response missing submissionReference submissionRef={} idempotencyKey={}",
-                        submission.getSubmissionReference(), idempotencyKey);
-                throw new IllegalStateException("FCA response missing submissionReference");
+            if (response == null) {
+                throw new RegulatorTransportException(
+                        "FCA returned no HTTP response", null, "EMPTY_RESPONSE", null);
             }
-            String status = resp.status == null ? "ACCEPTED" : resp.status;
-            return new SubmissionResult(resp.submissionReference, status, Instant.now(), REGULATOR);
+            FcaResponse resp = parseResponse(response.getBody());
+
+            String status = resp != null && resp.status != null ? resp.status : "RECEIVED";
+            return new SubmissionResult(
+                    resp != null ? resp.submissionReference : null,
+                    status,
+                    Instant.now(),
+                    REGULATOR,
+                    response.getStatusCode().value(),
+                    response.getBody());
+        } catch (WebClientResponseException failure) {
+            String responseBody = failure.getResponseBodyAsString();
+            FcaResponse response = parseResponse(responseBody);
+            throw new RegulatorTransportException(
+                    "FCA returned HTTP " + failure.getStatusCode().value(),
+                    failure.getStatusCode().value(),
+                    response != null ? response.status : "HTTP_ERROR",
+                    responseBody,
+                    failure);
         } catch (Exception e) {
             log.warn("FCA submission failed submissionRef={} idempotencyKey={} endpoint={} cause={}",
                     submission.getSubmissionReference(), idempotencyKey, endpoint, e.getMessage());
+            if (e instanceof RegulatorTransportException transportFailure) {
+                throw transportFailure;
+            }
             throw new RuntimeException("FCA submission failed: " + e.getMessage(), e);
         }
     }
@@ -142,6 +162,16 @@ public class FcaSubmissionClient implements RegulatorSubmissionClient {
             return HexFormat.of().formatHex(sig);
         } catch (Exception e) {
             throw new RuntimeException("HMAC-SHA256 unavailable", e);
+        }
+    }
+
+    private FcaResponse parseResponse(String body) {
+        if (body == null || body.isBlank()) return null;
+        try {
+            return objectMapper.readValue(body, FcaResponse.class);
+        } catch (JsonProcessingException failure) {
+            log.warn("Unable to parse FCA response body: {}", failure.getMessage());
+            return null;
         }
     }
 

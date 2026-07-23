@@ -36,8 +36,6 @@ interface ScheduleReportDialogProps {
 }
 
 const FREQUENCIES = [
-  { value: "once", label: "One Time" },
-  { value: "hourly", label: "Hourly" },
   { value: "daily", label: "Daily" },
   { value: "weekly", label: "Weekly" },
   { value: "monthly", label: "Monthly" },
@@ -57,6 +55,7 @@ const DAYS_OF_WEEK = [
 
 const TIMEZONES = [
   "UTC",
+  "Africa/Nairobi",
   "America/New_York",
   "America/Chicago",
   "America/Denver",
@@ -79,7 +78,9 @@ export default function ScheduleReportDialog({
   const [dayOfWeek, setDayOfWeek] = useState(1); // Monday
   const [dayOfMonth, setDayOfMonth] = useState(1);
   const [time, setTime] = useState("08:00");
-  const [timezone, setTimezone] = useState("America/New_York");
+  const [timezone, setTimezone] = useState(
+    () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"
+  );
   const [recipients, setRecipients] = useState<string[]>([]);
   const [newRecipient, setNewRecipient] = useState("");
   const [selectedFormats, setSelectedFormats] = useState<ExportFormat[]>(["PDF"]);
@@ -118,8 +119,9 @@ export default function ScheduleReportDialog({
       fullWidth
       PaperProps={{
         sx: {
-          borderRadius: "20px",
-          background: "linear-gradient(135deg, #ffffff 0%, #faf8f5 100%)",
+          borderRadius: "var(--radius)",
+          backgroundColor: "var(--surface-2)",
+          border: "1px solid var(--line)",
         },
       }}
     >
@@ -127,19 +129,20 @@ export default function ScheduleReportDialog({
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
           <Box
             sx={{
-              width: 40,
-              height: 40,
-              borderRadius: "12px",
-              background: "linear-gradient(135deg, #800020 0%, #a52a2a 100%)",
+              width: 36,
+              height: 36,
+              borderRadius: "var(--radius)",
+              backgroundColor: "var(--brand-soft)",
+              border: "1px solid color-mix(in srgb, var(--gold) 35%, transparent)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
             }}
           >
-            <ScheduleIcon sx={{ color: "#FFD700", fontSize: 20 }} />
+            <ScheduleIcon sx={{ color: "var(--gold-bright)", fontSize: 20 }} />
           </Box>
           <Box>
-            <Typography variant="h6" sx={{ fontWeight: 600, color: "#2c3e50" }}>
+            <Typography variant="h6" sx={{ fontWeight: 600, color: "var(--ink)" }}>
               Schedule Report
             </Typography>
             <Typography variant="caption" color="text.secondary">
@@ -158,7 +161,7 @@ export default function ScheduleReportDialog({
               value={frequency}
               onChange={(e) => setFrequency(e.target.value as ScheduleConfig["frequency"])}
               label="Frequency"
-              sx={{ borderRadius: "12px" }}
+              sx={{ borderRadius: "var(--radius)" }}
             >
               {FREQUENCIES.map((f) => (
                 <MenuItem key={f.value} value={f.value}>{f.label}</MenuItem>
@@ -174,7 +177,7 @@ export default function ScheduleReportDialog({
                 value={dayOfWeek}
                 onChange={(e) => setDayOfWeek(e.target.value as number)}
                 label="Day of Week"
-                sx={{ borderRadius: "12px" }}
+                sx={{ borderRadius: "var(--radius)" }}
               >
                 {DAYS_OF_WEEK.map((d) => (
                   <MenuItem key={d.value} value={d.value}>{d.label}</MenuItem>
@@ -192,7 +195,7 @@ export default function ScheduleReportDialog({
               value={dayOfMonth}
               onChange={(e) => setDayOfMonth(parseInt(e.target.value))}
               inputProps={{ min: 1, max: 31 }}
-              sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
+              sx={{ "& .MuiOutlinedInput-root": { borderRadius: "var(--radius)" } }}
             />
           )}
 
@@ -206,7 +209,7 @@ export default function ScheduleReportDialog({
                 value={time}
                 onChange={(e) => setTime(e.target.value)}
                 InputLabelProps={{ shrink: true }}
-                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
+                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "var(--radius)" } }}
               />
             </Grid>
             <Grid item xs={6}>
@@ -216,7 +219,7 @@ export default function ScheduleReportDialog({
                   value={timezone}
                   onChange={(e) => setTimezone(e.target.value)}
                   label="Timezone"
-                  sx={{ borderRadius: "12px" }}
+                  sx={{ borderRadius: "var(--radius)" }}
                 >
                   {TIMEZONES.map((tz) => (
                     <MenuItem key={tz} value={tz}>{tz}</MenuItem>
@@ -246,9 +249,9 @@ export default function ScheduleReportDialog({
                         }
                       }}
                       sx={{
-                        color: "#800020",
-                        "&. Mui-checked": {
-                          color: "#800020",
+                        color: "var(--gold)",
+                        "&.Mui-checked": {
+                          color: "var(--gold)",
                         },
                       }}
                     />
@@ -277,16 +280,14 @@ export default function ScheduleReportDialog({
                     handleAddRecipient();
                   }
                 }}
-                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
+                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "var(--radius)" } }}
               />
               <Button
                 variant="contained"
                 onClick={handleAddRecipient}
                 disabled={!newRecipient}
                 sx={{
-                  backgroundColor: "#800020",
-                  "&:hover": { backgroundColor: "primary.dark" },
-                  borderRadius: "12px",
+                                    borderRadius: "var(--radius)",
                   minWidth: "100px",
                 }}
               >
@@ -301,11 +302,11 @@ export default function ScheduleReportDialog({
                   label={email}
                   onDelete={() => handleRemoveRecipient(email)}
                   sx={{
-                    backgroundColor: "rgba(128, 0, 32, 0.1)",
-                    color: "#800020",
+                    backgroundColor: "var(--brand-soft)",
+                    color: "var(--gold)",
                     "& .MuiChip-deleteIcon": {
-                      color: "#800020",
-                      "&: hover": { color: "primary.dark" },
+                      color: "var(--gold)",
+                      "&:hover": { color: "primary.dark" },
                     },
                   }}
                 />
@@ -325,7 +326,7 @@ export default function ScheduleReportDialog({
           onClick={onClose}
           sx={{
             color: "text.secondary",
-            borderRadius: "12px",
+            borderRadius: "var(--radius)",
             px: 3,
           }}
         >
@@ -336,9 +337,7 @@ export default function ScheduleReportDialog({
           onClick={handleSchedule}
           disabled={!isValid}
           sx={{
-            backgroundColor: "#800020",
-            "&:hover": { backgroundColor: "primary.dark" },
-            borderRadius: "12px",
+                        borderRadius: "var(--radius)",
             px: 4,
           }}
         >

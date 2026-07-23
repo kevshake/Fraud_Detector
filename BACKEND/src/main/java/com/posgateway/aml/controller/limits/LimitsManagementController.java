@@ -5,8 +5,9 @@ import com.posgateway.aml.entity.User;
 import com.posgateway.aml.repository.UserRepository;
 import com.posgateway.aml.service.limits.LimitsManagementService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -32,18 +33,20 @@ public class LimitsManagementController {
         this.userRepository = userRepository;
     }
 
-    private User getCurrentUser() {
+    private User requireCurrentUser() {
         org.springframework.security.core.Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null)
-            return null;
-        return userRepository.findByUsername(auth.getName()).orElse(null);
+        if (auth == null || !auth.isAuthenticated()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not authenticated");
+        }
+        return userRepository.findByUsername(auth.getName())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authenticated user not found"));
     }
 
     // Dashboard Stats
     @GetMapping("/dashboard/stats")
     public ResponseEntity<Map<String, Object>> getDashboardStats() {
-        User user = getCurrentUser();
-        Long pspId = (user != null && user.getPsp() != null) ? user.getPsp().getPspId() : null;
+        User user = requireCurrentUser();
+        Long pspId = user.getPsp() == null ? null : user.getPsp().getPspId();
         return ResponseEntity.ok(limitsService.getDashboardStats(pspId));
     }
 
@@ -71,43 +74,27 @@ public class LimitsManagementController {
     @PostMapping("/merchant/{merchantId}")
     public ResponseEntity<MerchantTransactionLimit> createOrUpdateMerchantLimit(
             @PathVariable Long merchantId,
-            @RequestBody MerchantTransactionLimit limit,
-            @AuthenticationPrincipal org.springframework.security.core.userdetails.User user) {
-        Long userId = Long.parseLong(user.getUsername());
-        return ResponseEntity.ok(limitsService.createOrUpdateMerchantLimit(merchantId, limit, userId));
+            @RequestBody MerchantTransactionLimit limit) {
+        return ResponseEntity.ok(limitsService.createOrUpdateMerchantLimit(merchantId, limit, requireCurrentUser().getId()));
     }
 
     // Global Limits
     @GetMapping("/global")
     public ResponseEntity<?> getAllGlobalLimits() {
-        try {
-            List<GlobalLimit> limits = limitsService.getAllGlobalLimits();
-            return ResponseEntity.ok(limits != null ? limits : new java.util.ArrayList<>());
-        } catch (Exception e) {
-            org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(LimitsManagementController.class);
-            log.error("Error loading global limits: {}", e.getMessage(), e);
-            java.util.Map<String, Object> error = new java.util.HashMap<>();
-            error.put("error", "Error loading transaction limits");
-            error.put("message", e.getMessage());
-            return ResponseEntity.status(500).body(error);
-        }
+        return ResponseEntity.ok(limitsService.getAllGlobalLimits());
     }
 
     @PostMapping("/global")
     public ResponseEntity<GlobalLimit> createGlobalLimit(
-            @RequestBody GlobalLimit limit,
-            @AuthenticationPrincipal org.springframework.security.core.userdetails.User user) {
-        Long userId = Long.parseLong(user.getUsername());
-        return ResponseEntity.ok(limitsService.createGlobalLimit(limit, userId));
+            @RequestBody GlobalLimit limit) {
+        return ResponseEntity.ok(limitsService.createGlobalLimit(limit, requireCurrentUser().getId()));
     }
 
     @PutMapping("/global/{id}")
     public ResponseEntity<GlobalLimit> updateGlobalLimit(
             @PathVariable Long id,
-            @RequestBody GlobalLimit limit,
-            @AuthenticationPrincipal org.springframework.security.core.userdetails.User user) {
-        Long userId = Long.parseLong(user.getUsername());
-        return ResponseEntity.ok(limitsService.updateGlobalLimit(id, limit, userId));
+            @RequestBody GlobalLimit limit) {
+        return ResponseEntity.ok(limitsService.updateGlobalLimit(id, limit, requireCurrentUser().getId()));
     }
 
     @DeleteMapping("/global/{id}")
@@ -119,32 +106,23 @@ public class LimitsManagementController {
     /**
      * AML limits — single endpoint the LimitsAml page POSTs to.
      * Body: { transactionLimit?: number, dailyLimit?: number }
-     * Persists as two GlobalLimit rows (TRANSACTION, DAILY) scoped to current user.
+     * Persists as two tenant-scoped GlobalLimit rows used by transaction enforcement.
      */
+    @GetMapping("/aml")
+    public ResponseEntity<Map<String, java.math.BigDecimal>> getAmlLimits() {
+        return ResponseEntity.ok(limitsService.getAmlLimits());
+    }
+
     @PostMapping("/aml")
     public ResponseEntity<?> saveAmlLimits(
-            @RequestBody Map<String, Object> body,
-            @AuthenticationPrincipal org.springframework.security.core.userdetails.User authUser) {
-        User user = getCurrentUser();
-        if (user == null) {
-            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
-        }
-        Long userId = user.getId();
-        java.util.List<GlobalLimit> saved = new java.util.ArrayList<>();
+            @RequestBody Map<String, Object> body) {
+        User user = requireCurrentUser();
         Object txn = body.get("transactionLimit");
         Object daily = body.get("dailyLimit");
-        if (txn != null) {
-            GlobalLimit l = new GlobalLimit();
-            l.setLimitType("TRANSACTION");
-            l.setLimitValue(new java.math.BigDecimal(txn.toString()));
-            saved.add(limitsService.createGlobalLimit(l, userId));
-        }
-        if (daily != null) {
-            GlobalLimit l = new GlobalLimit();
-            l.setLimitType("DAILY");
-            l.setLimitValue(new java.math.BigDecimal(daily.toString()));
-            saved.add(limitsService.createGlobalLimit(l, userId));
-        }
+        java.util.List<GlobalLimit> saved = limitsService.upsertAmlLimits(
+                txn == null ? null : new java.math.BigDecimal(txn.toString()),
+                daily == null ? null : new java.math.BigDecimal(daily.toString()),
+                user.getId());
         return ResponseEntity.ok(Map.of("success", true, "saved", saved.size()));
     }
 
@@ -156,11 +134,9 @@ public class LimitsManagementController {
 
     @PostMapping("/risk-thresholds")
     public ResponseEntity<RiskThreshold> createOrUpdateRiskThreshold(
-            @RequestBody RiskThreshold threshold,
-            @AuthenticationPrincipal org.springframework.security.core.userdetails.User user) {
+            @RequestBody RiskThreshold threshold) {
         try {
-            Long userId = Long.parseLong(user.getUsername());
-            return ResponseEntity.ok(limitsService.createOrUpdateRiskThreshold(threshold, userId));
+            return ResponseEntity.ok(limitsService.createOrUpdateRiskThreshold(threshold, requireCurrentUser().getId()));
         } catch (org.springframework.web.server.ResponseStatusException e) {
             return ResponseEntity.status(e.getStatusCode()).build();
         }
@@ -174,20 +150,16 @@ public class LimitsManagementController {
 
     @PostMapping("/velocity-rules")
     public ResponseEntity<VelocityRule> createVelocityRule(
-            @RequestBody VelocityRule rule,
-            @AuthenticationPrincipal org.springframework.security.core.userdetails.User user) {
-        Long userId = Long.parseLong(user.getUsername());
-        return ResponseEntity.ok(limitsService.createVelocityRule(rule, userId));
+            @RequestBody VelocityRule rule) {
+        return ResponseEntity.ok(limitsService.createVelocityRule(rule, requireCurrentUser().getId()));
     }
 
     @PutMapping("/velocity-rules/{id}")
     public ResponseEntity<VelocityRule> updateVelocityRule(
             @PathVariable Long id,
-            @RequestBody VelocityRule rule,
-            @AuthenticationPrincipal org.springframework.security.core.userdetails.User user) {
+            @RequestBody VelocityRule rule) {
         try {
-            Long userId = Long.parseLong(user.getUsername());
-            return ResponseEntity.ok(limitsService.updateVelocityRule(id, rule, userId));
+            return ResponseEntity.ok(limitsService.updateVelocityRule(id, rule, requireCurrentUser().getId()));
         } catch (org.springframework.web.server.ResponseStatusException e) {
             return ResponseEntity.status(e.getStatusCode()).build();
         }
@@ -195,8 +167,7 @@ public class LimitsManagementController {
 
     @DeleteMapping("/velocity-rules/{id}")
     public ResponseEntity<Void> deleteVelocityRule(
-            @PathVariable Long id,
-            @AuthenticationPrincipal org.springframework.security.core.userdetails.User user) {
+            @PathVariable Long id) {
         try {
             limitsService.deleteVelocityRule(id);
             return ResponseEntity.ok().build();
@@ -213,10 +184,8 @@ public class LimitsManagementController {
 
     @PostMapping("/country-compliance")
     public ResponseEntity<CountryComplianceRule> createOrUpdateCountryCompliance(
-            @RequestBody CountryComplianceRule rule,
-            @AuthenticationPrincipal org.springframework.security.core.userdetails.User user) {
-        Long userId = Long.parseLong(user.getUsername());
-        return ResponseEntity.ok(limitsService.createOrUpdateCountryCompliance(rule, userId));
+            @RequestBody CountryComplianceRule rule) {
+        return ResponseEntity.ok(limitsService.createOrUpdateCountryCompliance(rule, requireCurrentUser().getId()));
     }
 }
 

@@ -1,29 +1,26 @@
 import * as Tabs from '@radix-ui/react-tabs'
-import { ArrowRight } from 'lucide-react'
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { ComposableMap, Geographies, Geography } from 'react-simple-maps'
-import GlassCard from '../Common/GlassCard'
-import { useRiskHeatmap, type CountryRisk } from '../../hooks/useDashboard'
+import DashboardPanel from '../dashboard/DashboardPanel'
+import DashboardWidgetHeader from '../dashboard/DashboardWidgetHeader'
+import DashboardRiskBadge from '../dashboard/DashboardRiskBadge'
+import { DashboardEmpty, DashboardError, DashboardLoading } from '../dashboard/DashboardState'
+import { useRiskHeatmap, useTopRiskMerchants, type CountryRisk } from '../../hooks/useDashboard'
 
 const GEO_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json'
 
 const COLORS = {
-  LOW: '#22C55E',
-  MEDIUM: '#F59E0B',
-  HIGH: '#EF4444',
-  NONE: 'rgba(18, 6, 10, 0.92)',
+  LOW: '#079455',
+  MEDIUM: '#b54708',
+  HIGH: '#d92d20',
+  NONE: '#e4e7ec',
 }
 
-const TABS = [
-  { value: 'geography', label: 'Geography' },
-  { value: 'merchants', label: 'Merchants' },
-  { value: 'customers', label: 'Customers' },
-  { value: 'products', label: 'Products' },
-]
-
+/** Answers: Where is geographic and merchant risk concentrated? */
 export default function RiskHeatmap() {
   const { data, isLoading, error } = useRiskHeatmap()
+  const topRisk = useTopRiskMerchants(8)
 
   const indexAlpha: Record<string, CountryRisk> = useMemo(() => {
     const out: Record<string, CountryRisk> = {}
@@ -44,11 +41,10 @@ export default function RiskHeatmap() {
   const topCountries = useMemo(() => {
     const list = [...(data ?? [])]
     list.sort((a, b) => b.transactionCount - a.transactionCount)
-    return list.slice(0, 6)
+    return list.slice(0, 5)
   }, [data])
 
   function fillForGeo(geo: {
-    id?: string | number
     properties?: { name?: string; iso_a3?: string }
   }) {
     const iso3 = geo?.properties?.iso_a3?.toUpperCase()
@@ -61,41 +57,39 @@ export default function RiskHeatmap() {
   }
 
   return (
-    <GlassCard padding="sm" glowVariant="red" className="flex h-full min-h-0 flex-col !p-3">
-      <div className="mb-1.5 flex items-center justify-between">
-        <h3 className="text-xs font-semibold text-white">Risk Heatmap</h3>
-        <Link
-          to="/risk-analytics"
-          className="flex items-center gap-1 text-[10px] font-medium text-gold hover:underline"
-        >
-          View full map <ArrowRight size={12} />
-        </Link>
-      </div>
+    <DashboardPanel aria-labelledby="db-risk-heatmap" className="h-full">
+      <DashboardWidgetHeader
+        id="db-risk-heatmap"
+        title="Risk concentration"
+        description="Where transaction volume meets elevated alert rates"
+        actionLabel="Risk analytics"
+        actionTo="/risk-analytics"
+      />
 
       <Tabs.Root defaultValue="geography" className="flex min-h-0 flex-1 flex-col">
-        <Tabs.List className="mb-1.5 flex gap-3 border-b border-glass-border">
-          {TABS.map((t) => (
-            <Tabs.Trigger
-              key={t.value}
-              value={t.value}
-              className="-mb-px border-b-2 border-transparent pb-1 text-[10px] font-medium text-glass-muted outline-none transition-colors data-[state=active]:border-gold data-[state=active]:text-gold"
-            >
-              {t.label}
-            </Tabs.Trigger>
-          ))}
+        <Tabs.List className="db-tabs mb-3" aria-label="Risk concentration views">
+          <Tabs.Trigger value="geography" className="db-tab">
+            Geography
+          </Tabs.Trigger>
+          <Tabs.Trigger value="merchants" className="db-tab">
+            Merchants
+          </Tabs.Trigger>
         </Tabs.List>
 
         <Tabs.Content value="geography" className="flex min-h-0 flex-1 flex-col outline-none">
-          {isLoading ? (
-            <div className="h-full w-full animate-pulse rounded bg-glass-skeleton" />
+          {isLoading && !data ? (
+            <DashboardLoading rows={6} />
           ) : error ? (
-            <p className="text-xs text-danger">Could not load</p>
+            <DashboardError message="Geographic risk data unavailable." />
+          ) : !(data ?? []).length ? (
+            <DashboardEmpty message="No country-level risk aggregates yet." />
           ) : (
             <>
-              <div className="min-h-0 flex-1">
+              <div className="min-h-[160px] flex-1 rounded-[var(--db-radius-sm)] border border-[var(--db-border)] bg-[var(--db-surface-muted)]">
                 <ComposableMap
-                  projectionConfig={{ scale: 115 }}
+                  projectionConfig={{ scale: 120 }}
                   style={{ width: '100%', height: '100%' }}
+                  aria-label="World map of country risk"
                 >
                   <Geographies geography={GEO_URL}>
                     {({ geographies }) =>
@@ -104,11 +98,11 @@ export default function RiskHeatmap() {
                           key={geo.rsmKey}
                           geography={geo}
                           fill={fillForGeo(geo)}
-                          stroke="rgba(123, 35, 50, 0.35)"
+                          stroke="#ffffff"
                           strokeWidth={0.4}
                           style={{
                             default: { outline: 'none' },
-                            hover: { outline: 'none', fill: '#C9A96E' },
+                            hover: { outline: 'none', fill: 'var(--db-accent)' },
                             pressed: { outline: 'none' },
                           }}
                         />
@@ -118,17 +112,20 @@ export default function RiskHeatmap() {
                 </ComposableMap>
               </div>
 
-              <div className="mt-1 flex items-center justify-center gap-4 text-[9px] text-glass-muted">
+              <div className="mt-2 flex flex-wrap items-center justify-center gap-4 text-[11px] text-[var(--db-text-muted)]">
                 <LegendDot color={COLORS.LOW} label="Low" />
                 <LegendDot color={COLORS.MEDIUM} label="Medium" />
                 <LegendDot color={COLORS.HIGH} label="High" />
               </div>
 
               {topCountries.length > 0 && (
-                <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[9px]">
+                <ul className="mt-2 grid grid-cols-1 gap-1 sm:grid-cols-2">
                   {topCountries.map((c) => (
-                    <div key={c.countryCode} className="flex items-center justify-between">
-                      <span className="flex items-center gap-1.5 truncate text-white/70">
+                    <li
+                      key={c.countryCode}
+                      className="flex items-center justify-between gap-2 rounded-[var(--db-radius-sm)] px-1 py-0.5 text-xs"
+                    >
+                      <span className="flex min-w-0 items-center gap-1.5 truncate text-[var(--db-text-secondary)]">
                         <span
                           className="inline-block h-1.5 w-1.5 rounded-full"
                           style={{
@@ -139,34 +136,63 @@ export default function RiskHeatmap() {
                                   ? COLORS.MEDIUM
                                   : COLORS.LOW,
                           }}
+                          aria-hidden
                         />
                         {c.countryName || c.countryCode}
                       </span>
-                      <span className="font-medium text-white/90">
+                      <span className="tabular-nums font-medium text-[var(--db-text)]">
                         {c.transactionCount.toLocaleString()}
                       </span>
-                    </div>
+                    </li>
                   ))}
-                </div>
+                </ul>
               )}
             </>
           )}
         </Tabs.Content>
 
-        {TABS.slice(1).map((t) => (
-          <Tabs.Content key={t.value} value={t.value} className="flex flex-1 items-center justify-center">
-            <p className="text-[10px] text-glass-muted">No {t.label.toLowerCase()} data available</p>
-          </Tabs.Content>
-        ))}
+        <Tabs.Content value="merchants" className="flex min-h-0 flex-1 flex-col outline-none">
+          {topRisk.isLoading && !topRisk.data ? (
+            <DashboardLoading rows={6} />
+          ) : topRisk.error ? (
+            <DashboardError message="Top-risk merchants unavailable." />
+          ) : (topRisk.data ?? []).length === 0 ? (
+            <DashboardEmpty message="No high-risk merchants to rank." />
+          ) : (
+            <ol className="space-y-1.5">
+              {(topRisk.data ?? []).map((m) => (
+                <li
+                  key={m.merchantId ?? m.rank}
+                  className="flex items-center justify-between gap-2 rounded-[var(--db-radius-sm)] border border-transparent px-1 py-1.5 text-xs hover:border-[var(--db-border)] hover:bg-[var(--db-surface-muted)]"
+                >
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="w-4 tabular-nums text-[var(--db-text-muted)]">{m.rank}.</span>
+                    <Link to="/merchants" className="truncate font-medium text-[var(--db-text)] hover:text-[var(--db-accent)]">
+                      {m.name ?? `Merchant #${m.merchantId ?? '—'}`}
+                    </Link>
+                  </div>
+                  <div className="flex flex-shrink-0 items-center gap-2">
+                    {m.riskScore != null && (
+                      <span className="tabular-nums font-semibold text-[var(--db-text)]">
+                        {Math.round(m.riskScore)}
+                      </span>
+                    )}
+                    <DashboardRiskBadge level={m.riskLevel} />
+                  </div>
+                </li>
+              ))}
+            </ol>
+          )}
+        </Tabs.Content>
       </Tabs.Root>
-    </GlassCard>
+    </DashboardPanel>
   )
 }
 
 function LegendDot({ color, label }: { color: string; label: string }) {
   return (
     <div className="flex items-center gap-1.5">
-      <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
+      <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: color }} aria-hidden />
       <span>{label}</span>
     </div>
   )

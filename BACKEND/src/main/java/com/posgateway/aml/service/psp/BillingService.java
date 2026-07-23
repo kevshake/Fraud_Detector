@@ -57,6 +57,19 @@ public class BillingService {
         return billingRateRepository.findDefaultRate(serviceType, today);
     }
 
+    /**
+     * Currency of the effective rate for this PSP + service type, falling back to
+     * {@code USD} when no rate is configured. Used so usage-log rows are stamped
+     * with the rate's real currency rather than a hardcoded value.
+     */
+    @Transactional(readOnly = true)
+    public String getEffectiveCurrency(Long pspId, String serviceType) {
+        return getEffectiveRate(pspId, serviceType)
+                .map(BillingRate::getCurrency)
+                .filter(c -> c != null && !c.isBlank())
+                .orElse("USD");
+    }
+
     @Transactional(readOnly = true)
     public BigDecimal calculateUsageCost(Long pspId, String serviceType, int count) {
         Optional<BillingRate> rateOpt = getEffectiveRate(pspId, serviceType);
@@ -158,7 +171,9 @@ public class BillingService {
                         + UUID.randomUUID().toString().substring(0, 4))
                 .billingPeriodStart(periodStart)
                 .billingPeriodEnd(periodEnd)
-                .status("DRAFT")
+                // Issued as SENT (it is emailed to the PSP below) so it is immediately
+                // payable — PaymentController only accepts SENT/OVERDUE invoices.
+                .status("SENT")
                 .dueDate(periodEnd.plusDays(psp.getPaymentTerms()))
                 .currency(psp.getCurrency())
                 .subtotal(BigDecimal.ZERO)

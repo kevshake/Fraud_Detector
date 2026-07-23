@@ -1,138 +1,131 @@
 package com.posgateway.aml.service.kyc;
 
+import com.posgateway.aml.dto.request.BeneficialOwnerRequest;
 import com.posgateway.aml.entity.merchant.BeneficialOwner;
+import com.posgateway.aml.entity.merchant.Merchant;
+import com.posgateway.aml.model.ScreeningResult;
 import com.posgateway.aml.repository.BeneficialOwnerRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.posgateway.aml.repository.MerchantRepository;
+import com.posgateway.aml.service.aml.AmlScreeningOrchestrator;
+import com.posgateway.aml.service.security.PiiLookupHasher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Locale;
 
-/**
- * Beneficial Ownership Service
- * Manages Ultimate Beneficial Owner (UBO) identification and verification
- */
 @Service
 public class BeneficialOwnershipService {
 
-    private static final Logger logger = LoggerFactory.getLogger(BeneficialOwnershipService.class);
+    private final BeneficialOwnerRepository ownerRepository;
+    private final MerchantRepository merchantRepository;
+    private final AmlScreeningOrchestrator screeningOrchestrator;
+    private final PiiLookupHasher piiLookupHasher;
 
-    private final BeneficialOwnerRepository beneficialOwnerRepository;
-
-    @Autowired
-    public BeneficialOwnershipService(BeneficialOwnerRepository beneficialOwnerRepository) {
-        this.beneficialOwnerRepository = beneficialOwnerRepository;
+    public BeneficialOwnershipService(BeneficialOwnerRepository ownerRepository,
+                                      MerchantRepository merchantRepository,
+                                      AmlScreeningOrchestrator screeningOrchestrator,
+                                      PiiLookupHasher piiLookupHasher) {
+        this.ownerRepository = ownerRepository;
+        this.merchantRepository = merchantRepository;
+        this.screeningOrchestrator = screeningOrchestrator;
+        this.piiLookupHasher = piiLookupHasher;
     }
 
-    /**
-     * Identify Ultimate Beneficial Owners
-     */
-    public List<BeneficialOwner> identifyUbo(Long merchantId) {
-        return beneficialOwnerRepository.findByMerchant_MerchantId(merchantId).stream()
-                .filter(bo -> bo.getOwnershipPercentage() != null && bo.getOwnershipPercentage() >= 25)
-                .toList();
-    }
-
-    /**
-     * Update beneficial owner screening status
-     */
-    @Transactional
-    public void updateScreeningStatus(Long beneficialOwnerId, boolean isPep, boolean isSanctioned) {
-        BeneficialOwner owner = beneficialOwnerRepository.findById(beneficialOwnerId)
-                .orElseThrow(() -> new IllegalArgumentException("Beneficial owner not found"));
-
-        owner.setIsPep(isPep);
-        owner.setIsSanctioned(isSanctioned);
-        owner.setLastScreenedAt(java.time.LocalDateTime.now());
-
-        beneficialOwnerRepository.save(owner);
-        logger.info("Beneficial owner {} screening updated - PEP: {}, Sanctioned: {}", 
-                beneficialOwnerId, isPep, isSanctioned);
-    }
-
-    /**
-     * Get ownership structure
-     */
+    @Transactional(readOnly = true)
     public OwnershipStructure getOwnershipStructure(Long merchantId) {
-        List<BeneficialOwner> owners = beneficialOwnerRepository.findByMerchant_MerchantId(merchantId);
-        
-        double totalOwnership = owners.stream()
-                .filter(bo -> bo.getOwnershipPercentage() != null)
-                .mapToDouble(bo -> bo.getOwnershipPercentage().doubleValue())
-                .sum();
-
-        return OwnershipStructure.builder()
-                .merchantId(merchantId)
-                .beneficialOwners(owners)
-                .totalOwnershipPercentage(totalOwnership)
-                .isComplete(totalOwnership >= 100.0)
-                .build();
+        requireMerchant(merchantId);
+        List<BeneficialOwner> owners = ownerRepository.findByMerchant_MerchantId(merchantId);
+        int total = owners.stream().map(BeneficialOwner::getOwnershipPercentage)
+                .filter(java.util.Objects::nonNull).mapToInt(Integer::intValue).sum();
+        List<BeneficialOwner> ubos = owners.stream()
+                .filter(owner -> owner.getOwnershipPercentage() != null && owner.getOwnershipPercentage() >= 25)
+                .toList();
+        return new OwnershipStructure(merchantId, owners, ubos, total, total == 100);
     }
 
-    /**
-     * Ownership Structure DTO
-     */
-    public static class OwnershipStructure {
-        private Long merchantId;
-        private List<BeneficialOwner> beneficialOwners;
-        private double totalOwnershipPercentage;
-        private boolean isComplete;
+    @Transactional
+    public BeneficialOwner create(Long merchantId, BeneficialOwnerRequest request) {
+        Merchant merchant = requireMerchant(merchantId);
+        validateOwnershipTotal(merchantId, null, request.getOwnershipPercentage());
+        BeneficialOwner owner = new BeneficialOwner();
+        apply(owner, request, false);
+        owner.setMerchant(merchant);
+        return ownerRepository.save(owner);
+    }
 
-        public static OwnershipStructureBuilder builder() {
-            return new OwnershipStructureBuilder();
+    @Transactional
+    public BeneficialOwner update(Long merchantId, Long ownerId, BeneficialOwnerRequest request) {
+        BeneficialOwner owner = requireOwner(merchantId, ownerId);
+        validateOwnershipTotal(merchantId, ownerId, request.getOwnershipPercentage());
+        apply(owner, request, true);
+        return ownerRepository.save(owner);
+    }
+
+    @Transactional
+    public void delete(Long merchantId, Long ownerId) {
+        BeneficialOwner owner = requireOwner(merchantId, ownerId);
+        ownerRepository.delete(owner);
+    }
+
+    @Transactional
+    public ScreeningResult screen(Long merchantId, Long ownerId) {
+        BeneficialOwner owner = requireOwner(merchantId, ownerId);
+        ScreeningResult result = screeningOrchestrator.screenBeneficialOwner(owner, owner.getMerchant());
+        ownerRepository.save(owner);
+        return result;
+    }
+
+    @Transactional(readOnly = true)
+    public BeneficialOwner requireOwner(Long merchantId, Long ownerId) {
+        BeneficialOwner owner = ownerRepository.findById(ownerId)
+                .orElseThrow(() -> new IllegalArgumentException("Beneficial owner not found: " + ownerId));
+        if (owner.getMerchant() == null || !merchantId.equals(owner.getMerchant().getMerchantId())) {
+            throw new IllegalArgumentException("Beneficial owner does not belong to merchant: " + merchantId);
         }
+        return owner;
+    }
 
-        // Getters and Setters
-        public Long getMerchantId() { return merchantId; }
-        public void setMerchantId(Long merchantId) { this.merchantId = merchantId; }
-        public List<BeneficialOwner> getBeneficialOwners() { return beneficialOwners; }
-        public void setBeneficialOwners(List<BeneficialOwner> beneficialOwners) { 
-            this.beneficialOwners = beneficialOwners; 
-        }
-        public double getTotalOwnershipPercentage() { return totalOwnershipPercentage; }
-        public void setTotalOwnershipPercentage(double totalOwnershipPercentage) { 
-            this.totalOwnershipPercentage = totalOwnershipPercentage; 
-        }
-        public boolean isComplete() { return isComplete; }
-        public void setComplete(boolean complete) { isComplete = complete; }
+    private Merchant requireMerchant(Long merchantId) {
+        return merchantRepository.findById(merchantId)
+                .orElseThrow(() -> new IllegalArgumentException("Merchant not found: " + merchantId));
+    }
 
-        public static class OwnershipStructureBuilder {
-            private Long merchantId;
-            private List<BeneficialOwner> beneficialOwners;
-            private double totalOwnershipPercentage;
-            private boolean isComplete;
-
-            public OwnershipStructureBuilder merchantId(Long merchantId) {
-                this.merchantId = merchantId;
-                return this;
-            }
-
-            public OwnershipStructureBuilder beneficialOwners(List<BeneficialOwner> beneficialOwners) {
-                this.beneficialOwners = beneficialOwners;
-                return this;
-            }
-
-            public OwnershipStructureBuilder totalOwnershipPercentage(double totalOwnershipPercentage) {
-                this.totalOwnershipPercentage = totalOwnershipPercentage;
-                return this;
-            }
-
-            public OwnershipStructureBuilder isComplete(boolean isComplete) {
-                this.isComplete = isComplete;
-                return this;
-            }
-
-            public OwnershipStructure build() {
-                OwnershipStructure structure = new OwnershipStructure();
-                structure.merchantId = this.merchantId;
-                structure.beneficialOwners = this.beneficialOwners;
-                structure.totalOwnershipPercentage = this.totalOwnershipPercentage;
-                structure.isComplete = this.isComplete;
-                return structure;
-            }
+    private void validateOwnershipTotal(Long merchantId, Long excludedOwnerId, Integer requestedPercentage) {
+        int existing = ownerRepository.findByMerchant_MerchantId(merchantId).stream()
+                .filter(owner -> excludedOwnerId == null || !excludedOwnerId.equals(owner.getOwnerId()))
+                .map(BeneficialOwner::getOwnershipPercentage).filter(java.util.Objects::nonNull)
+                .mapToInt(Integer::intValue).sum();
+        if (requestedPercentage == null || requestedPercentage < 0 || requestedPercentage > 100
+                || existing + requestedPercentage > 100) {
+            throw new IllegalArgumentException("Beneficial ownership percentages cannot exceed 100");
         }
     }
+
+    private void apply(BeneficialOwner owner, BeneficialOwnerRequest request, boolean preserveMissingIdentifiers) {
+        owner.setFullName(request.getFullName().strip());
+        owner.setDateOfBirth(request.getDateOfBirth());
+        owner.setNationality(request.getNationality().strip().toUpperCase(Locale.ROOT));
+        owner.setCountryOfResidence(request.getCountryOfResidence() == null ? null
+                : request.getCountryOfResidence().strip().toUpperCase(Locale.ROOT));
+        String passport = blankToNull(request.getPassportNumber());
+        String nationalId = blankToNull(request.getNationalId());
+        if (!preserveMissingIdentifiers || passport != null) {
+            owner.setPassportNumber(passport);
+            owner.setPassportHash(piiLookupHasher.hashIdentifier(passport));
+        }
+        if (!preserveMissingIdentifiers || nationalId != null) {
+            owner.setNationalId(nationalId);
+            owner.setNationalIdHash(piiLookupHasher.hashIdentifier(nationalId));
+        }
+        owner.setOwnershipPercentage(request.getOwnershipPercentage());
+    }
+
+    private String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.strip();
+    }
+
+    public record OwnershipStructure(Long merchantId, List<BeneficialOwner> beneficialOwners,
+                                     List<BeneficialOwner> ultimateBeneficialOwners,
+                                     int totalOwnershipPercentage, boolean complete) {}
 }
-

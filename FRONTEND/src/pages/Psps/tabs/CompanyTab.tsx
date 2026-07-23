@@ -31,7 +31,7 @@ export default function CompanyTab({ pspId, psp }: CompanyTabProps) {
     finally { setSaving(false); }
   };
 
-  const inputClass = "w-full rounded-lg border border-white/10 bg-[#1a2744] px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-burgundy-700";
+  const inputClass = "w-full rounded-lg border border-white/10 bg-[var(--surface-3)] px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-burgundy-700";
   const labelClass = "text-[11px] font-semibold uppercase tracking-wider text-glass-muted";
 
   return (

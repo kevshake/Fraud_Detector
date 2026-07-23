@@ -1,4 +1,5 @@
 import { cn } from '../../lib/utils'
+import { useTheme } from '../../contexts/ThemeContext'
 
 export const HOKEKA_LOGO_SRC = '/images/hokeka-logo.png'
 /** Fits within the shared 72px app header row beside the wordmark stack */
@@ -25,7 +26,7 @@ interface HokekaLogoProps {
 
 /**
  * Hokeka brand logo — official transparent gold shield (nobg).
- * Use variant="header" for the sidebar top bar on dark #0e0606 (shield + wordmark).
+ * Use variant="header" for the sidebar top bar on the dark ground (shield + wordmark).
  */
 export default function HokekaLogo({
   className,
@@ -34,13 +35,15 @@ export default function HokekaLogo({
   variant = 'default',
   collapsed = false,
 }: HokekaLogoProps) {
+  const { pspTheme } = useTheme()
+  const logoSrc = pspTheme?.logoUrl || HOKEKA_LOGO_SRC
   if (variant === 'header') {
     const headerLogoSize = collapsed ? HEADER_LOGO_SIZE_COLLAPSED : HEADER_LOGO_SIZE
 
     return (
       <div className={cn('flex min-w-0 items-center gap-3 select-none', className)}>
         <img
-          src={HOKEKA_LOGO_SRC}
+          src={logoSrc}
           alt="Hokeka"
           width={headerLogoSize}
           height={headerLogoSize}
@@ -54,7 +57,7 @@ export default function HokekaLogo({
             </span>
             <span
               className="mt-1 truncate text-[11px] font-medium uppercase tracking-[0.14em]"
-              style={{ color: '#C9A96E' }}
+              style={{ color: 'var(--gold)' }}
             >
               AML INTELLIGENCE
             </span>
@@ -69,7 +72,7 @@ export default function HokekaLogo({
   return (
     <div className={cn('flex flex-col items-center select-none', className)}>
       <img
-        src={HOKEKA_LOGO_SRC}
+        src={logoSrc}
         alt="Hokeka"
         width={px}
         height={px}

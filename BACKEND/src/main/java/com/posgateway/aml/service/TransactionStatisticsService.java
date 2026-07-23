@@ -75,7 +75,10 @@ public class TransactionStatisticsService {
         }
 
         try {
-            if (hours <= 24) {
+            // Only the exact 24h window maps to the rolling :24h key. Any other window
+            // must sum the per-hour buckets for the requested number of hours — otherwise a
+            // 1h/6h burst check would wrongly read the full 24h total.
+            if (hours == 24) {
                 String key = String.format("%s:merchant:%s:count:24h", keyPrefix, merchantId);
                 Object value = redisTemplate.opsForValue().get(key);
                 return value != null ? Long.parseLong(value.toString()) : 0;
@@ -105,7 +108,7 @@ public class TransactionStatisticsService {
         }
 
         try {
-            if (hours <= 24) {
+            if (hours == 24) {
                 String key = String.format("%s:merchant:%s:amount:24h", keyPrefix, merchantId);
                 Object value = redisTemplate.opsForValue().get(key);
                 return value != null ? Long.parseLong(value.toString()) : 0;
@@ -295,12 +298,19 @@ public class TransactionStatisticsService {
         }
     }
 
-    /** Increment a counter in Redis (read-modify-write to mirror prior behavior). */
+    /**
+     * Atomically increment a counter in Redis using INCRBY, then (re)apply the TTL.
+     *
+     * <p>Previously this was a non-atomic get→parse→set, so concurrent transactions for the
+     * same key clobbered each other's increments and velocity counters chronically
+     * under-counted under load (velocity/structuring rules would then fail-open). Redis
+     * INCRBY is atomic; the JSON value serializer stores a Long as the native integer
+     * string, so INCRBY is wire-compatible with values written by the old set() path.
+     */
     private void incrementCounter(String key, Long incrementBy, int ttlSeconds) {
         try {
-            Object currentValue = redisTemplate.opsForValue().get(key);
-            long newValue = (currentValue != null ? Long.parseLong(currentValue.toString()) : 0) + incrementBy;
-            redisTemplate.opsForValue().set(key, newValue, Duration.ofSeconds(ttlSeconds));
+            redisTemplate.opsForValue().increment(key, incrementBy);
+            redisTemplate.expire(key, Duration.ofSeconds(ttlSeconds));
         } catch (Exception e) {
             logger.debug("Error incrementing counter {}: {}", key, e.getMessage());
         }

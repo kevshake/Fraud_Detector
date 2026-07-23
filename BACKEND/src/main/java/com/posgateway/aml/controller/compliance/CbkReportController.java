@@ -9,6 +9,7 @@ import com.posgateway.aml.service.cbk.CbkEndpointType;
 import com.posgateway.aml.service.cbk.CbkSubmissionOrchestrator;
 import com.posgateway.aml.service.cbk.CbkSubmissionResult;
 import com.posgateway.aml.service.compliance.CbkReportService;
+import com.posgateway.aml.service.security.PspIsolationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -43,11 +44,14 @@ public class CbkReportController {
 
     private final CbkReportService cbkReportService;
     private final CbkSubmissionOrchestrator cbkSubmissionOrchestrator;
+    private final PspIsolationService pspIsolationService;
 
     public CbkReportController(CbkReportService cbkReportService,
-                                CbkSubmissionOrchestrator cbkSubmissionOrchestrator) {
+                                CbkSubmissionOrchestrator cbkSubmissionOrchestrator,
+                                PspIsolationService pspIsolationService) {
         this.cbkReportService = cbkReportService;
         this.cbkSubmissionOrchestrator = cbkSubmissionOrchestrator;
+        this.pspIsolationService = pspIsolationService;
     }
 
     @GetMapping("/reports")
@@ -60,11 +64,8 @@ public class CbkReportController {
         if (user == null) {
             return ResponseEntity.status(401).build();
         }
-        Long pspId = (user.getPsp() != null) ? user.getPsp().getPspId() : null;
-        if (pspId == null) {
-            log.debug("CBK list: user {} has no PSP context, returning empty page", user.getUsername());
-            return ResponseEntity.ok(CbkReportPage.of(List.of()));
-        }
+        Long requestedPspId = (user.getPsp() != null) ? user.getPsp().getPspId() : null;
+        Long pspId = pspIsolationService.sanitizePspId(requestedPspId);
 
         List<CbkSubmissionDto> rows = cbkReportService.listReports(pspId, period, from, to);
         return ResponseEntity.ok(CbkReportPage.of(rows));
@@ -82,6 +83,11 @@ public class CbkReportController {
         }
 
         CbkSubmitResponse resp = cbkReportService.submitReport(pspId, user.getId(), req);
+        if ("failed".equalsIgnoreCase(resp.status())) {
+            log.warn("CBK submission failed for user {} PSP {}: {}",
+                    user.getUsername(), pspId, resp.message());
+            return ResponseEntity.status(502).body(resp);
+        }
         log.info("CBK submission accepted by user {} for PSP {}: ref={}",
                 user.getUsername(), pspId, resp.referenceNumber());
         return ResponseEntity.ok(resp);
@@ -101,14 +107,13 @@ public class CbkReportController {
             @RequestParam(defaultValue = "25") int size) {
 
         User user = getCurrentUser();
-        Long effectivePspId = pspId;
-        if (effectivePspId == null && user != null && user.getPsp() != null) {
-            effectivePspId = user.getPsp().getPspId();
+        if (user == null) {
+            return ResponseEntity.status(401).build();
         }
+        Long effectivePspId = pspIsolationService.sanitizePspId(pspId);
 
-        List<CbkSubmissionDto> all = (effectivePspId != null)
-                ? cbkReportService.listReports(effectivePspId, null, null, null)
-                : Collections.emptyList();
+        List<CbkSubmissionDto> all =
+                cbkReportService.listReports(effectivePspId, null, null, null);
 
         // Apply optional filters
         if (status != null && !status.isBlank()) {
@@ -153,17 +158,24 @@ public class CbkReportController {
             @PathVariable CbkEndpointType endpointType,
             @RequestBody Map<String, Long> body) {
 
-        Long pspId = body.get("pspId");
-        if (pspId == null) {
+        Long requestedPspId = body.get("pspId");
+        if (requestedPspId == null) {
             log.warn("CBK manual run: missing pspId in request body for endpoint {}", endpointType);
             return ResponseEntity.badRequest().build();
         }
+        Long pspId = pspIsolationService.sanitizePspId(requestedPspId);
 
         log.info("CBK manual run triggered: endpoint={} pspId={}", endpointType, pspId);
         CbkSubmissionResult result = cbkSubmissionOrchestrator.runSingleEndpoint(pspId, endpointType);
         log.info("CBK manual run completed: endpoint={} pspId={} outcome={}",
                 endpointType, pspId, result.getOutcome());
 
+        if (result.getOutcome() == CbkSubmissionResult.Outcome.SKIPPED) {
+            return ResponseEntity.status(409).body(result);
+        }
+        if (!result.isSuccess()) {
+            return ResponseEntity.status(502).body(result);
+        }
         return ResponseEntity.ok(result);
     }
 
@@ -176,8 +188,4 @@ public class CbkReportController {
         return (principal instanceof User user) ? user : null;
     }
 
-    private Long getCurrentPspId() {
-        User u = getCurrentUser();
-        return (u != null && u.getPsp() != null) ? u.getPsp().getPspId() : null;
-    }
 }

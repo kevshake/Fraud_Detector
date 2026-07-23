@@ -24,6 +24,14 @@ public class PaymentBlacklistEntry {
     @Column(name = "active")
     private Boolean active = true;
 
+    /**
+     * Optional expiry. When null the block is permanent (e.g. a confirmed fraud/lost-stolen PAN).
+     * When set, the entry only counts as blacklisted while {@code expires_at > now} — used by the
+     * "Do Not Honour" rule to decline a card for a fixed window (30 days) after a decline decision.
+     */
+    @Column(name = "expires_at")
+    private LocalDateTime expiresAt;
+
     @Column(name = "created_by")
     private Long createdBy;
 
@@ -47,6 +55,8 @@ public class PaymentBlacklistEntry {
     public void setReason(String reason) { this.reason = reason; }
     public Boolean getActive() { return active; }
     public void setActive(Boolean active) { this.active = active; }
+    public LocalDateTime getExpiresAt() { return expiresAt; }
+    public void setExpiresAt(LocalDateTime expiresAt) { this.expiresAt = expiresAt; }
     public Long getCreatedBy() { return createdBy; }
     public void setCreatedBy(Long createdBy) { this.createdBy = createdBy; }
     public LocalDateTime getCreatedAt() { return createdAt; }

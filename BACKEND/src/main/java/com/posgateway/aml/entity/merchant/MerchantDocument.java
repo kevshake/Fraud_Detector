@@ -23,6 +23,15 @@ public class MerchantDocument {
     @Column(nullable = false)
     private String fileName;
 
+    @Column(name = "content_type", length = 100)
+    private String contentType;
+
+    @Column(name = "file_size")
+    private Long fileSize;
+
+    @Column(name = "sha256_hash", length = 64)
+    private String sha256Hash;
+
     @Column(nullable = false)
     private String status; // PENDING, VERIFIED, REJECTED
 
@@ -30,6 +39,27 @@ public class MerchantDocument {
 
     private LocalDateTime uploadedAt;
     private LocalDateTime verifiedAt;
+
+    @Column(name = "verified_by", length = 200)
+    private String verifiedBy;
+
+    @Column(name = "verification_notes", columnDefinition = "TEXT")
+    private String verificationNotes;
+
+    @Column(name = "verification_method", length = 50)
+    private String verificationMethod;
+
+    @Column(name = "malware_scan_status", length = 30)
+    private String malwareScanStatus;
+
+    @Column(name = "malware_scan_engine", length = 100)
+    private String malwareScanEngine;
+
+    @Column(name = "malware_threat_name", length = 255)
+    private String malwareThreatName;
+
+    @Column(name = "malware_scanned_at")
+    private LocalDateTime malwareScannedAt;
 
     // Version Control Fields
     @Column(name = "version")
@@ -97,6 +127,13 @@ public class MerchantDocument {
         this.fileName = fileName;
     }
 
+    public String getContentType() { return contentType; }
+    public void setContentType(String contentType) { this.contentType = contentType; }
+    public Long getFileSize() { return fileSize; }
+    public void setFileSize(Long fileSize) { this.fileSize = fileSize; }
+    public String getSha256Hash() { return sha256Hash; }
+    public void setSha256Hash(String sha256Hash) { this.sha256Hash = sha256Hash; }
+
     public String getStatus() {
         return status;
     }
@@ -128,6 +165,21 @@ public class MerchantDocument {
     public void setVerifiedAt(LocalDateTime verifiedAt) {
         this.verifiedAt = verifiedAt;
     }
+
+    public String getVerifiedBy() { return verifiedBy; }
+    public void setVerifiedBy(String verifiedBy) { this.verifiedBy = verifiedBy; }
+    public String getVerificationNotes() { return verificationNotes; }
+    public void setVerificationNotes(String verificationNotes) { this.verificationNotes = verificationNotes; }
+    public String getVerificationMethod() { return verificationMethod; }
+    public void setVerificationMethod(String verificationMethod) { this.verificationMethod = verificationMethod; }
+    public String getMalwareScanStatus() { return malwareScanStatus; }
+    public void setMalwareScanStatus(String malwareScanStatus) { this.malwareScanStatus = malwareScanStatus; }
+    public String getMalwareScanEngine() { return malwareScanEngine; }
+    public void setMalwareScanEngine(String malwareScanEngine) { this.malwareScanEngine = malwareScanEngine; }
+    public String getMalwareThreatName() { return malwareThreatName; }
+    public void setMalwareThreatName(String malwareThreatName) { this.malwareThreatName = malwareThreatName; }
+    public LocalDateTime getMalwareScannedAt() { return malwareScannedAt; }
+    public void setMalwareScannedAt(LocalDateTime malwareScannedAt) { this.malwareScannedAt = malwareScannedAt; }
 
     public Integer getVersion() {
         return version;

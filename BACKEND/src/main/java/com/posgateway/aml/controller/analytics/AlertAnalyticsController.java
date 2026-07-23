@@ -17,7 +17,9 @@ import java.util.stream.Collectors;
  */
 @RestController
 @RequestMapping("/analytics")
-@PreAuthorize("isAuthenticated()")
+// Platform-wide alert trends span all PSPs, so restrict to platform-level roles — a PSP-scoped
+// user must not receive cross-tenant alert metrics via this aggregate endpoint.
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MLRO')")
 public class AlertAnalyticsController {
 
     private final AlertRepository alertRepository;
@@ -33,8 +35,9 @@ public class AlertAnalyticsController {
         LocalDateTime since = LocalDateTime.now().minusDays(days);
         List<Alert> alerts = alertRepository.findByCreatedAtAfter(since);
 
-        // Group by date
+        // Group by date (skip rows with a null timestamp to avoid an NPE)
         Map<LocalDate, List<Alert>> byDate = alerts.stream()
+                .filter(a -> a.getCreatedAt() != null)
                 .collect(Collectors.groupingBy(a -> a.getCreatedAt().toLocalDate()));
 
         // Build sorted list covering every day in the window

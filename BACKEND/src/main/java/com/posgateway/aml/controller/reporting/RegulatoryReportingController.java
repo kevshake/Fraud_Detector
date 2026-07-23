@@ -2,6 +2,7 @@ package com.posgateway.aml.controller.reporting;
 
 import com.posgateway.aml.service.reporting.RegulatoryReportingService;
 import com.posgateway.aml.service.reporting.ReportExportService;
+import com.posgateway.aml.service.reporting.ReportRunTraceService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -23,11 +24,14 @@ public class RegulatoryReportingController {
 
     private final RegulatoryReportingService reportingService;
     private final ReportExportService reportExportService;
+    private final ReportRunTraceService reportRunTraceService;
 
     public RegulatoryReportingController(RegulatoryReportingService reportingService,
-                                          ReportExportService reportExportService) {
+                                          ReportExportService reportExportService,
+                                          ReportRunTraceService reportRunTraceService) {
         this.reportingService = reportingService;
         this.reportExportService = reportExportService;
+        this.reportRunTraceService = reportRunTraceService;
     }
 
     /** Generate Currency Transaction Report (CTR) — JSON */
@@ -40,7 +44,12 @@ public class RegulatoryReportingController {
         if (startDate == null) startDate = LocalDateTime.now().minusDays(30);
         if (endDate == null) endDate = LocalDateTime.now();
         log.info("Generating CTR from {} to {}", startDate, endDate);
-        return ResponseEntity.ok(reportingService.generateCtr(startDate, endDate));
+        var report = reportingService.generateCtr(startDate, endDate);
+        String executionId = recordRun("CTR_001", startDate, endDate,
+                flattenReport(report.getTransactions(), "transactionId", "merchantId", "amount", "currency", "timestamp"),
+                report.getTransactionCount(), report.getTotalAmount());
+        report.setExecutionId(executionId);
+        return ResponseEntity.ok().header("X-Report-Execution-Id", executionId).body(report);
     }
 
     /** Generate Large Cash Transaction Report (LCTR) — JSON */
@@ -53,7 +62,12 @@ public class RegulatoryReportingController {
         if (startDate == null) startDate = LocalDateTime.now().minusDays(30);
         if (endDate == null) endDate = LocalDateTime.now();
         log.info("Generating LCTR from {} to {}", startDate, endDate);
-        return ResponseEntity.ok(reportingService.generateLctr(startDate, endDate));
+        var report = reportingService.generateLctr(startDate, endDate);
+        String executionId = recordRun("CTR_002", startDate, endDate,
+                flattenReport(report.getTransactions(), "transactionId", "merchantId", "amount", "currency", "timestamp"),
+                report.getTransactionCount(), report.getTotalAmount());
+        report.setExecutionId(executionId);
+        return ResponseEntity.ok().header("X-Report-Execution-Id", executionId).body(report);
     }
 
     /** Generate International Funds Transfer Report (IFTR) — JSON */
@@ -66,7 +80,12 @@ public class RegulatoryReportingController {
         if (startDate == null) startDate = LocalDateTime.now().minusDays(30);
         if (endDate == null) endDate = LocalDateTime.now();
         log.info("Generating IFTR from {} to {}", startDate, endDate);
-        return ResponseEntity.ok(reportingService.generateIftr(startDate, endDate));
+        var report = reportingService.generateIftr(startDate, endDate);
+        String executionId = recordRun("TXN_011", startDate, endDate,
+                flattenReport(report.getTransactions(), "transactionId", "merchantId", "amount", "currency", "transferType", "timestamp"),
+                report.getTransactionCount(), report.getTotalAmount());
+        report.setExecutionId(executionId);
+        return ResponseEntity.ok().header("X-Report-Execution-Id", executionId).body(report);
     }
 
     // =========================================================================
@@ -116,6 +135,14 @@ public class RegulatoryReportingController {
             }
         }
 
+        String reportCode = switch (type.toLowerCase()) {
+            case "ctr" -> "CTR_001";
+            case "lctr" -> "CTR_002";
+            case "iftr" -> "TXN_011";
+            default -> throw new IllegalStateException("Unsupported report type");
+        };
+        String executionId = recordRun(reportCode, startDate, endDate, reportData, reportData.size(), null);
+
         byte[] content;
         String extension;
         MediaType mediaType;
@@ -138,6 +165,7 @@ public class RegulatoryReportingController {
 
         return ResponseEntity.ok()
                 .contentType(mediaType)
+                .header("X-Report-Execution-Id", executionId)
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"")
                 .body(content);
     }
@@ -149,8 +177,13 @@ public class RegulatoryReportingController {
             Map<String, Object> row = new LinkedHashMap<>();
             for (String key : keys) {
                 try {
-                    var getter = item.getClass().getMethod(
-                            "get" + Character.toUpperCase(key.charAt(0)) + key.substring(1));
+                    String getterName = switch (key) {
+                        case "transactionId" -> "getTxnId";
+                        case "amount" -> "getAmountCents";
+                        case "timestamp" -> "getTxnTs";
+                        default -> "get" + Character.toUpperCase(key.charAt(0)) + key.substring(1);
+                    };
+                    var getter = item.getClass().getMethod(getterName);
                     row.put(key, getter.invoke(item));
                 } catch (Exception e) {
                     row.put(key, null);
@@ -159,5 +192,13 @@ public class RegulatoryReportingController {
             result.add(row);
         }
         return result;
+    }
+
+    private String recordRun(String reportCode, LocalDateTime startDate, LocalDateTime endDate,
+                             List<Map<String, Object>> rows, Number transactionCount, Number totalAmount) {
+        Map<String, Object> summary = new LinkedHashMap<>();
+        if (transactionCount != null) summary.put("transactionCount", transactionCount);
+        if (totalAmount != null) summary.put("totalAmount", totalAmount);
+        return reportRunTraceService.record(reportCode, startDate, endDate, rows, summary);
     }
 }

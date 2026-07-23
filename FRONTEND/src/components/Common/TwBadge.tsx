@@ -3,25 +3,31 @@ import type { ReactNode } from 'react'
 
 interface TwBadgeProps {
   children: ReactNode
-  variant?: 'default' | 'success' | 'warning' | 'danger' | 'info'
+  variant?: 'default' | 'success' | 'warning' | 'danger' | 'info' | 'gold'
   size?: 'sm' | 'md'
   className?: string
 }
 
 const VARIANT_CLASSES = {
-  default: 'bg-white/10 text-glass-muted border-white/10',
-  success: 'bg-emerald-900/30 text-emerald-300 border-emerald-700/30',
-  warning: 'bg-amber-900/30 text-amber-300 border-amber-700/30',
-  danger: 'bg-red-900/30 text-red-300 border-red-700/30',
-  info: 'bg-sky-900/30 text-sky-300 border-sky-700/30',
+  default: 'bg-neutral-soft text-ink-muted border-hairline-strong',
+  success: 'bg-success-soft text-success border-success/35',
+  warning: 'bg-warning-soft text-warning border-warning/35',
+  danger: 'bg-danger-soft text-danger border-danger/35',
+  info: 'bg-info-soft text-info border-info/35',
+  gold: 'bg-[var(--brand-soft)] text-gold border-gold/35',
 }
 
-export default function TwBadge({ children, variant = 'default', size = 'sm', className }: TwBadgeProps) {
+export default function TwBadge({
+  children,
+  variant = 'default',
+  size = 'sm',
+  className,
+}: TwBadgeProps) {
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-full border px-2.5 py-0.5 font-semibold',
-        size === 'sm' ? 'text-[11px]' : 'text-xs',
+        'hokeka-badge',
+        size === 'sm' ? 'text-[11px]' : 'text-xs px-3 py-1',
         VARIANT_CLASSES[variant],
         className,
       )}

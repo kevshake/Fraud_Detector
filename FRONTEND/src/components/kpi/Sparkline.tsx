@@ -29,7 +29,7 @@ export function normalizeSparklineData(data?: number[]): number[] | undefined {
 
 export default function Sparkline({
   data,
-  color = '#C9A96E',
+  color = 'var(--gold)',
   glow = 'gold',
   className,
   height = 40,

@@ -14,6 +14,7 @@ import java.util.List;
  *   <li>{@code CLEAR}    — no match >= the configured similarity threshold</li>
  *   <li>{@code REVIEW}   — at least one match in [threshold, 0.95)</li>
  *   <li>{@code FLAGGED}  — at least one match >= 0.95</li>
+ *   <li>{@code UNAVAILABLE} — Aerospike could not complete the screening</li>
  * </ul>
  */
 public class SanctionsScreenResponse {
@@ -60,6 +61,9 @@ public class SanctionsScreenResponse {
         private String listName;
         @JsonProperty("entityId")
         private String entityId;
+        /** PEP classification of the matched entity: "PEP", "RCA", or null when not a PEP. */
+        @JsonProperty("pepLevel")
+        private String pepLevel;
 
         public MatchDto() {}
 
@@ -81,5 +85,8 @@ public class SanctionsScreenResponse {
 
         public String getEntityId() { return entityId; }
         public void setEntityId(String entityId) { this.entityId = entityId; }
+
+        public String getPepLevel() { return pepLevel; }
+        public void setPepLevel(String pepLevel) { this.pepLevel = pepLevel; }
     }
 }

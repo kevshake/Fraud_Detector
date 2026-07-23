@@ -2,6 +2,7 @@ import { ArrowRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import GlassCard from '../Common/GlassCard'
 import { useComplianceHealth } from '../../hooks/useDashboard'
+import { withAlpha } from "../../theme/tokens"
 
 interface Row {
   label: string
@@ -9,9 +10,9 @@ interface Row {
 }
 
 function barColor(pct: number) {
-  if (pct >= 90) return '#22C55E'
-  if (pct >= 75) return '#F59E0B'
-  return '#EF4444'
+  if (pct >= 90) return 'var(--success)'
+  if (pct >= 75) return 'var(--warning)'
+  return 'var(--danger)'
 }
 
 export default function ComplianceHealth() {
@@ -60,7 +61,7 @@ export default function ComplianceHealth() {
                     style={{
                       width: `${r.pct}%`,
                       backgroundColor: color,
-                      boxShadow: `0 0 6px ${color}88`,
+                      boxShadow: `0 0 6px ${withAlpha(color, 0.5)}`,
                     }}
                   />
                 </div>

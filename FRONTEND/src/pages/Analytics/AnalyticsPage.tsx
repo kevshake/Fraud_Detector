@@ -47,16 +47,16 @@ import HokekaPageShell from "../../components/Layout/HokekaPageShell";
 // Grafana base URL — optional; when set, an extra "Advanced Analytics" tab appears
 const GRAFANA_BASE_URL = import.meta.env.VITE_GRAFANA_URL as string | undefined;
 
-const BRAND = "#8B4049";
+const BRAND = "var(--gold)";
 const COLORS = {
-  HIGH: "#e74c3c",
-  MEDIUM: "#f39c12",
-  LOW: "#2ecc71",
-  approved: "#27ae60",
-  declined: "#e74c3c",
-  manual: "#f39c12",
+  HIGH: "var(--danger)",
+  MEDIUM: "var(--warning)",
+  LOW: "var(--success)",
+  approved: "var(--success)",
+  declined: "var(--danger)",
+  manual: "var(--warning)",
 };
-const CHART_COLORS = [BRAND, "#3498db", "#2ecc71", "#f39c12", "#9b59b6", "#e74c3c"];
+const CHART_COLORS = [BRAND, "var(--info)", "var(--success)", "var(--warning)", "#b094c2", "var(--danger)"];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -163,7 +163,7 @@ function TransactionOverviewTab() {
             label="Avg Per Day"
             value={statsLoading ? "…" : avgPerDay.toLocaleString()}
             sub="transactions / day"
-            color="#3498db"
+            color="var(--info)"
             glowVariant="teal"
           />
         </Grid>
@@ -172,7 +172,7 @@ function TransactionOverviewTab() {
             label="Peak Day"
             value={peakDay ? peakDay.count.toLocaleString() : "—"}
             sub={peakDay?.date ?? ""}
-            color="#27ae60"
+            color="var(--success)"
             glowVariant="green"
           />
         </Grid>
@@ -292,7 +292,7 @@ function RiskAnalyticsTab() {
                 ? COLORS.HIGH
                 : trends?.trendDirection === "DECREASING"
                 ? COLORS.LOW
-                : "#3498db"
+                : "var(--info)"
             }
             glowVariant={
               trends?.trendDirection === "INCREASING"
@@ -393,7 +393,7 @@ function AlertTrendsTab() {
             label="Resolution Rate"
             value={resolutionRate}
             sub="resolved / total"
-            color="#27ae60"
+            color="var(--success)"
             glowVariant="green"
           />
         </Grid>
@@ -402,7 +402,7 @@ function AlertTrendsTab() {
             label="Resolved Alerts"
             value={totalResolved.toLocaleString()}
             sub="last 30 days"
-            color="#27ae60"
+            color="var(--success)"
             glowVariant="teal"
           />
         </Grid>
@@ -442,8 +442,8 @@ function AlertTrendsTab() {
                 <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip />
                 <Legend />
-                <Bar dataKey="open" name="Open" stackId="a" fill="#3498db" />
-                <Bar dataKey="resolved" name="Resolved" stackId="a" fill="#27ae60" />
+                <Bar dataKey="open" name="Open" stackId="a" fill="var(--info)" />
+                <Bar dataKey="resolved" name="Resolved" stackId="a" fill="var(--success)" />
                 <Bar dataKey="escalated" name="Escalated" stackId="a" fill={COLORS.HIGH} radius={[2, 2, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -488,7 +488,7 @@ function ModelPerformanceTab() {
             label="Precision"
             value={anyLoading ? "…" : fraudMetrics?.precision ?? "—"}
             sub="at threshold"
-            color="#3498db"
+            color="var(--info)"
             glowVariant="teal"
           />
         </Grid>
@@ -497,7 +497,7 @@ function ModelPerformanceTab() {
             label="Recall"
             value={anyLoading ? "…" : fraudMetrics?.recall ?? "—"}
             sub="at threshold"
-            color="#27ae60"
+            color="var(--success)"
             glowVariant="green"
           />
         </Grid>
@@ -506,7 +506,7 @@ function ModelPerformanceTab() {
             label="F1 Score"
             value={anyLoading ? "…" : fraudMetrics?.f1 ?? "—"}
             sub="harmonic mean"
-            color="#f39c12"
+            color="var(--warning)"
             glowVariant="gold"
           />
         </Grid>
@@ -694,7 +694,7 @@ export default function AnalyticsPage() {
       <Box sx={{ mb: 3 }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 1 }}>
           {GRAFANA_BASE_URL && (
-            <Chip label="Grafana Connected" size="small" sx={{ backgroundColor: "#e8f5e9", color: "#27ae60", fontWeight: 600 }} />
+            <Chip label="Grafana Connected" size="small" sx={{ backgroundColor: "var(--surface-3)", color: "var(--success)", fontWeight: 600 }} />
           )}
         </Box>
         <Typography variant="body2" sx={{ color: "text.secondary" }}>

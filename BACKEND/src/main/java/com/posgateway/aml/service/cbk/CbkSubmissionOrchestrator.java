@@ -2,7 +2,9 @@ package com.posgateway.aml.service.cbk;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.posgateway.aml.entity.TransactionEntity;
 import com.posgateway.aml.entity.compliance.CbkSubmission;
+import com.posgateway.aml.entity.merchant.Merchant;
 import com.posgateway.aml.entity.psp.Psp;
 import com.posgateway.aml.integration.cbk.CbkGdiClient;
 import com.posgateway.aml.integration.cbk.PspCbkContext;
@@ -12,6 +14,7 @@ import com.posgateway.aml.integration.cbk.records.FailedTransactionRecord;
 import com.posgateway.aml.integration.cbk.records.MerchantTransactionRecord;
 import com.posgateway.aml.integration.cbk.records.SystemActivityRecord;
 import com.posgateway.aml.integration.cbk.records.TransactionDetailRecord;
+import com.posgateway.aml.repository.MerchantRepository;
 import com.posgateway.aml.repository.PspRepository;
 import com.posgateway.aml.repository.TransactionRepository;
 import com.posgateway.aml.repository.compliance.CbkSubmissionRepository;
@@ -52,9 +55,10 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 
 /**
  * Orchestrates CBK GDI scheduled submissions across all eligible PSPs.
@@ -64,8 +68,7 @@ import java.util.UUID;
  *   <li>Collects all PSPs where {@code cbkReportingEnabled=true} and
  *       {@code cbk_institution_code} is non-null.</li>
  *   <li>For each PSP resolves credentials via {@link PspCbkConfigResolver}.</li>
- *   <li>Pulls source data from the appropriate repository (or passes an empty
- *       list at wiring points not yet connected).</li>
+ *   <li>Pulls source data from the endpoint-specific repository.</li>
  *   <li>Calls the matching {@link CbkGdiClient} method.</li>
  *   <li>Persists a {@link CbkSubmission} row regardless of success or failure.</li>
  * </ol>
@@ -83,6 +86,7 @@ public class CbkSubmissionOrchestrator {
     private final PspCbkConfigResolver configResolver;
     private final CbkGdiClient cbkGdiClient;
     private final ObjectMapper objectMapper;
+    private final MerchantRepository merchantRepository;
 
     // Entity-backed repositories (wired — 11 endpoints now source real data)
     private final PspSeniorManagementRepository seniorManagementRepository;
@@ -106,6 +110,7 @@ public class CbkSubmissionOrchestrator {
             PspCbkConfigResolver configResolver,
             CbkGdiClient cbkGdiClient,
             ObjectMapper objectMapper,
+            MerchantRepository merchantRepository,
             PspSeniorManagementRepository seniorManagementRepository,
             PspDirectorRepository directorRepository,
             PspTrusteeRepository trusteeRepository,
@@ -123,6 +128,7 @@ public class CbkSubmissionOrchestrator {
         this.configResolver = configResolver;
         this.cbkGdiClient = cbkGdiClient;
         this.objectMapper = objectMapper;
+        this.merchantRepository = merchantRepository;
         this.seniorManagementRepository = seniorManagementRepository;
         this.directorRepository = directorRepository;
         this.trusteeRepository = trusteeRepository;
@@ -290,29 +296,35 @@ public class CbkSubmissionOrchestrator {
         log.debug("CBK execute: pspId={} endpoint={}", pspId, type);
 
         String requestExcerpt;
-        Object responseObj;
+        com.posgateway.aml.integration.cbk.CbkSubmissionResult response;
         CbkSubmission.Status status;
         String errorMessage = null;
-        int httpStatus = 0;
+        int httpStatus;
 
         try {
-            // Dispatch
-            responseObj = dispatch(ctx, type);
-            status = CbkSubmission.Status.SUBMITTED;
-            requestExcerpt = buildRequestExcerpt(ctx, type);
+            response = dispatch(ctx, type);
+            httpStatus = response.getHttpStatus();
+            if (response.isSuccess()) {
+                status = CbkSubmission.Status.ACCEPTED;
+            } else {
+                status = CbkSubmission.Status.REJECTED;
+                errorMessage = truncate(response.getErrorMessage(), 1024);
+            }
+            requestExcerpt = buildRequestExcerpt(ctx, type, response.getSourceRecordCount());
         } catch (Exception ex) {
             log.error("CBK GDI client error: pspId={} endpoint={} error={}", pspId, type, ex.getMessage(), ex);
-            requestExcerpt = buildRequestExcerpt(ctx, type);
-            responseObj = null;
+            requestExcerpt = buildRequestExcerpt(ctx, type, null);
+            response = null;
             status = CbkSubmission.Status.REJECTED;
+            httpStatus = -1;
             errorMessage = truncate(ex.getMessage(), 1024);
         }
 
         // Audit row
-        CbkSubmission row = buildAuditRow(pspId, type, requestExcerpt, responseObj, status, errorMessage);
+        CbkSubmission row = buildAuditRow(pspId, type, requestExcerpt, response, status, errorMessage);
         CbkSubmission saved = submissionRepository.save(row);
 
-        CbkSubmissionResult.Outcome outcome = (status == CbkSubmission.Status.SUBMITTED)
+        CbkSubmissionResult.Outcome outcome = response != null && response.isSuccess()
                 ? CbkSubmissionResult.Outcome.SUCCESS
                 : CbkSubmissionResult.Outcome.FAILURE;
 
@@ -334,7 +346,8 @@ public class CbkSubmissionOrchestrator {
      * date-windowed queries, 6 from {@link TransactionRepository} aggregations.
      * The reporting window is derived from the endpoint's {@link CbkEndpointType.Cadence}.
      */
-    private Object dispatch(PspCbkContext ctx, CbkEndpointType type) {
+    private com.posgateway.aml.integration.cbk.CbkSubmissionResult dispatch(
+            PspCbkContext ctx, CbkEndpointType type) {
         Long pspId = ctx.getPspId();
         String institutionCode = ctx.getInstitutionCode();
         ReportingWindow window = computeWindow(type);
@@ -449,8 +462,8 @@ public class CbkSubmissionOrchestrator {
     // =========================================================================
     // Transaction-aggregate builders (CBK GDI #9, #12, #13, #14, #16, #17)
     //
-    // TransactionEntity has no card_brand, bill_classification_code, channel, or
-    // card_class_type columns. Substitutes are documented per builder.
+    // TransactionEntity persists the CBK card, channel, and billing taxonomy
+    // fields used by these aggregate builders.
     // =========================================================================
 
     private static String formatAmountFromCents(Object amountCents) {
@@ -461,7 +474,7 @@ public class CbkSubmissionOrchestrator {
                 .toPlainString();
     }
 
-    /** Endpoint #12 — substitute: {@code direction} stands in for card brand type. */
+    /** Endpoint #12 - card-brand aggregates from persisted transaction classification. */
     private List<CardBrandRecord> buildCardBrandRecords(Long pspId, String institutionCode,
                                                         String reportingDate,
                                                         LocalDateTime start, LocalDateTime end) {
@@ -482,7 +495,7 @@ public class CbkSubmissionOrchestrator {
         return out;
     }
 
-    /** Endpoint #14 — substitute: direction × decision × merchant_country stand in for brand × type × channel. */
+    /** Endpoint #14 - card brand, transaction outcome, and channel mix. */
     private List<TransactionDetailRecord> buildTransactionDetailRecords(Long pspId,
                                                                          String reportingDate,
                                                                          LocalDateTime start,
@@ -533,7 +546,7 @@ public class CbkSubmissionOrchestrator {
         return out;
     }
 
-    /** Endpoint #13 — substitute: {@code merchant_country} stands in for bill_classification_code. */
+    /** Endpoint #13 - persisted CBK bill-classification taxonomy. */
     private List<BillingTemplateRecord> buildBillingTemplateRecords(Long pspId, String reportingDate,
                                                                      LocalDateTime start,
                                                                      LocalDateTime end) {
@@ -560,17 +573,21 @@ public class CbkSubmissionOrchestrator {
         List<Object[]> rows = transactionRepository.findSuccessfulYesterdayByPspId(pspId, start, end);
         List<MerchantTransactionRecord> out = new ArrayList<>(rows.size());
         for (Object[] r : rows) {
+            String merchantId = requiredText(r[0], "merchantId", "CBK merchant transaction");
+            Merchant merchant = findMerchantForPsp(merchantId, pspId);
             MerchantTransactionRecord rec = new MerchantTransactionRecord();
             rec.setBankId(institutionCode);
             rec.setReportingDate(reportingDate);
-            rec.setMerchantId(r[0] != null ? String.valueOf(r[0]) : "");
-            rec.setMerchantAccountNumber(""); // not on TransactionEntity; merchant settlement account lives elsewhere
-            rec.setChannelOfSettlement("POS");
-            rec.setEmailAddress("");
-            rec.setMerchantCountry(String.valueOf(r[1]));
-            rec.setEconomicSectors("");
-            rec.setNumberOfTransactions(String.valueOf(((Number) r[2]).longValue()));
-            rec.setValueOfTransactions(formatAmountFromCents(r[3]));
+            rec.setMerchantId(merchantId);
+            rec.setMerchantAccountNumber(requiredText(
+                    merchant.getCbkSettlementAccountNumber(), "cbkSettlementAccountNumber", merchantId));
+            rec.setChannelOfSettlement(requiredText(r[2], "channelType", merchantId));
+            rec.setEmailAddress(requiredText(merchant.getContactEmail(), "contactEmail", merchantId));
+            rec.setMerchantCountry(requiredCountry(r[1], merchantId));
+            rec.setEconomicSectors(requiredText(
+                    merchant.getCbkEconomicSectorCode(), "cbkEconomicSectorCode", merchantId));
+            rec.setNumberOfTransactions(String.valueOf(((Number) r[3]).longValue()));
+            rec.setValueOfTransactions(formatAmountFromCents(r[4]));
             out.add(rec);
         }
         return out;
@@ -581,22 +598,109 @@ public class CbkSubmissionOrchestrator {
                                                                          String reportingDate,
                                                                          LocalDateTime start,
                                                                          LocalDateTime end) {
-        List<Object[]> rows = transactionRepository.findFailedRejectedForPspByDay(pspId, start, end);
-        List<FailedTransactionRecord> out = new ArrayList<>(rows.size());
-        for (Object[] r : rows) {
+        List<TransactionEntity> transactions =
+                transactionRepository.findFailedRejectedTransactionsForPspByDay(pspId, start, end);
+        Map<FailedTransactionKey, FailedTransactionAggregate> aggregates = new LinkedHashMap<>();
+        for (TransactionEntity transaction : transactions) {
+            String sourceId = "transaction " + transaction.getTxnId();
+            FailedTransactionKey key = new FailedTransactionKey(
+                    requiredText(transaction.getCustomerAccountReference(), "customerAccountReference", sourceId),
+                    requiredText(transaction.getChannelType(), "channelType", sourceId),
+                    requiredText(transaction.getMerchantId(), "merchantId", sourceId),
+                    requiredText(transaction.getCustomerEmail(), "customerEmail", sourceId),
+                    rejectionReason(transaction, sourceId));
+            FailedTransactionAggregate aggregate =
+                    aggregates.computeIfAbsent(key, ignored -> new FailedTransactionAggregate());
+            aggregate.add(requiredAmount(transaction, sourceId));
+        }
+
+        List<FailedTransactionRecord> out = new ArrayList<>(aggregates.size());
+        for (Map.Entry<FailedTransactionKey, FailedTransactionAggregate> entry : aggregates.entrySet()) {
+            FailedTransactionKey key = entry.getKey();
+            FailedTransactionAggregate aggregate = entry.getValue();
             FailedTransactionRecord rec = new FailedTransactionRecord();
             rec.setBankId(institutionCode);
             rec.setReportingDate(reportingDate);
-            rec.setCustomerAccountNumber("");
-            rec.setChannelOfSettlement("POS");
-            rec.setMerchantId(r[0] != null ? String.valueOf(r[0]) : "");
-            rec.setEmail("");
-            rec.setRejectionFailureReason(String.valueOf(r[1]));
-            rec.setNumberOfTransactions(String.valueOf(((Number) r[2]).longValue()));
-            rec.setValueOfTransactions(formatAmountFromCents(r[3]));
+            rec.setCustomerAccountNumber(key.customerAccountReference());
+            rec.setChannelOfSettlement(key.channel());
+            rec.setMerchantId(key.merchantId());
+            rec.setEmail(key.customerEmail());
+            rec.setRejectionFailureReason(key.rejectionReason());
+            rec.setNumberOfTransactions(String.valueOf(aggregate.count));
+            rec.setValueOfTransactions(formatAmountFromCents(aggregate.amountCents));
             out.add(rec);
         }
         return out;
+    }
+
+    private Merchant findMerchantForPsp(String merchantId, Long pspId) {
+        final Long numericMerchantId;
+        try {
+            numericMerchantId = Long.valueOf(merchantId);
+        } catch (NumberFormatException invalid) {
+            throw new IllegalStateException(
+                    "CBK merchant transaction has non-platform merchantId: " + merchantId, invalid);
+        }
+        Merchant merchant = merchantRepository.findById(numericMerchantId)
+                .orElseThrow(() -> new IllegalStateException(
+                        "CBK merchant transaction references missing merchant: " + merchantId));
+        Long merchantPspId = merchant.getPsp() == null ? null : merchant.getPsp().getPspId();
+        if (!pspId.equals(merchantPspId)) {
+            throw new IllegalStateException(
+                    "CBK merchant transaction tenant mismatch for merchant " + merchantId);
+        }
+        return merchant;
+    }
+
+    private String requiredCountry(Object value, String sourceId) {
+        String country = requiredText(value, "merchantCountry", sourceId).toUpperCase(java.util.Locale.ROOT);
+        if (!country.matches("[A-Z]{2,3}") || "XX".equals(country) || "XXX".equals(country)) {
+            throw new IllegalStateException(
+                    "CBK source " + sourceId + " has invalid merchantCountry: " + country);
+        }
+        return country;
+    }
+
+    private String requiredText(Object value, String field, String sourceId) {
+        String text = value == null ? null : String.valueOf(value).trim();
+        if (text == null || text.isBlank()) {
+            throw new IllegalStateException(
+                    "CBK source " + sourceId + " is missing required field " + field);
+        }
+        return text;
+    }
+
+    private long requiredAmount(TransactionEntity transaction, String sourceId) {
+        if (transaction.getAmountCents() == null || transaction.getAmountCents() < 0) {
+            throw new IllegalStateException(
+                    "CBK source " + sourceId + " has invalid amountCents");
+        }
+        return transaction.getAmountCents();
+    }
+
+    private String rejectionReason(TransactionEntity transaction, String sourceId) {
+        String reason = transaction.getAcquirerResponse();
+        if (reason == null || reason.isBlank()) {
+            reason = transaction.getDecision();
+        }
+        return requiredText(reason, "rejectionFailureReason", sourceId);
+    }
+
+    private record FailedTransactionKey(
+            String customerAccountReference,
+            String channel,
+            String merchantId,
+            String customerEmail,
+            String rejectionReason) {}
+
+    private static final class FailedTransactionAggregate {
+        private long count;
+        private long amountCents;
+
+        private void add(long amount) {
+            count++;
+            amountCents = Math.addExact(amountCents, amount);
+        }
     }
 
     // =========================================================================
@@ -611,11 +715,15 @@ public class CbkSubmissionOrchestrator {
     }
 
     private CbkSubmission buildAuditRow(Long pspId, CbkEndpointType type,
-                                         String requestExcerpt, Object responseObj,
+                                         String requestExcerpt,
+                                         com.posgateway.aml.integration.cbk.CbkSubmissionResult response,
                                          CbkSubmission.Status status, String errorMessage) {
         Instant now = Instant.now();
-        String ref = "CBK-" + now.atZone(ZoneOffset.UTC).getYear()
-                + "-" + UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase();
+        String ref = response != null && response.isSuccess()
+                && response.getRequestId() != null && !response.getRequestId().isBlank()
+                ? response.getRequestId()
+                : null;
+        ReportingWindow reportingWindow = computeWindow(type);
 
         String period = switch (type.getCadence()) {
             case DAILY -> LocalDate.now(ZoneOffset.UTC).minusDays(1)
@@ -629,21 +737,29 @@ public class CbkSubmissionOrchestrator {
         row.setPspId(pspId);
         row.setReportType(type.name());
         row.setPeriod(period);
+        row.setPeriodFrom(reportingWindow.start().format(DateTimeFormatter.ISO_LOCAL_DATE));
+        row.setPeriodTo(reportingWindow.end().format(DateTimeFormatter.ISO_LOCAL_DATE));
         row.setReferenceNumber(ref);
+        row.setSourceRecordCount(response != null ? response.getSourceRecordCount() : null);
         row.setStatus(status);
         row.setSubmittedAt(now);
         row.setPayloadJson(requestExcerpt);
-        row.setRegulatorResponse(serializeSafe(responseObj));
+        row.setRegulatorResponse(serializeSafe(response));
         row.setErrorMessage(errorMessage != null ? truncate(errorMessage, 1024) : null);
         return row;
     }
 
-    private String buildRequestExcerpt(PspCbkContext ctx, CbkEndpointType type) {
-        // Minimal excerpt for audit traceability — does not include credentials.
-        return "{\"pspId\":" + ctx.getPspId()
-                + ",\"institutionCode\":\"" + ctx.getInstitutionCode() + "\""
-                + ",\"endpoint\":\"" + type.name() + "\""
-                + ",\"wrapperKey\":\"" + type.getWrapperKey() + "\"}";
+    private String buildRequestExcerpt(PspCbkContext ctx, CbkEndpointType type,
+                                       Integer sourceRecordCount) {
+        Map<String, Object> evidence = new LinkedHashMap<>();
+        evidence.put("pspId", ctx.getPspId());
+        evidence.put("institutionCode", ctx.getInstitutionCode());
+        evidence.put("endpoint", type.name());
+        evidence.put("wrapperKey", type.getWrapperKey());
+        if (sourceRecordCount != null) {
+            evidence.put("sourceRecordCount", sourceRecordCount);
+        }
+        return serializeSafe(evidence);
     }
 
     private String serializeSafe(Object obj) {

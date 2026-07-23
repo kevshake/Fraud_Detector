@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -37,6 +38,9 @@ public class SanctionsController {
         log.debug("Sanctions screen request: name='{}', type={}, pspId={}",
                 request.getName(), request.getType(), request.getPspId());
         SanctionsScreenResponse resp = sanctionsService.screenName(request.getName(), request.getType());
+        if ("UNAVAILABLE".equals(resp.getStatus())) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(resp);
+        }
         return ResponseEntity.ok(resp);
     }
 
@@ -53,7 +57,20 @@ public class SanctionsController {
     @GetMapping("/count")
     public ResponseEntity<Map<String, Object>> count() {
         Map<String, Object> body = new HashMap<>();
-        body.put("count", sanctionsService.count());
+        long count = sanctionsService.count();
+        body.put("count", count);
+        if (count < 0) {
+            body.put("status", "UNAVAILABLE");
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(body);
+        }
+        body.put("status", "UP");
         return ResponseEntity.ok(body);
+    }
+
+    /** Rebuild candidate keys after a sanctions-data or matching-strategy upgrade. */
+    @PostMapping("/reindex")
+    public ResponseEntity<Map<String, Object>> reindex() {
+        int updated = sanctionsService.rebuildSearchIndex();
+        return ResponseEntity.ok(Map.of("updated", updated));
     }
 }

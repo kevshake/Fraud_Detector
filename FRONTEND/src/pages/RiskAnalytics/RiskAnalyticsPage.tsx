@@ -14,6 +14,7 @@ import { Line } from "react-chartjs-2";
 import GlassCard from "../../components/Common/GlassCard";
 import HokekaPageShell from "../../components/Layout/HokekaPageShell";
 import { Loader2 } from "lucide-react";
+import { colors } from "../../theme/tokens";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
@@ -31,8 +32,8 @@ export default function RiskAnalyticsPage() {
           {
             label: "Risk Trend",
             data: trends.data || Object.values(trends),
-            borderColor: "#8B4049",
-            backgroundColor: "rgba(139, 64, 73, 0.1)",
+            borderColor: colors.gold,
+            backgroundColor: "rgba(211, 179, 113, 0.12)",
             tension: 0.4,
           },
         ],
@@ -46,14 +47,14 @@ export default function RiskAnalyticsPage() {
       <div className="mb-3 flex justify-end">
         <div className="flex gap-3">
           <select value={period} onChange={(e) => setPeriod(Number(e.target.value))}
-            className="rounded-lg border border-white/10 bg-[#1a2744] px-3 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-burgundy-700">
+            className="rounded-lg border border-white/10 bg-[var(--surface-3)] px-3 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-burgundy-700">
             <option value={7}>7 days</option>
             <option value={30}>30 days</option>
             <option value={90}>90 days</option>
             <option value={180}>180 days</option>
           </select>
           <select value={heatmapType} onChange={(e) => setHeatmapType(e.target.value as any)}
-            className="rounded-lg border border-white/10 bg-[#1a2744] px-3 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-burgundy-700">
+            className="rounded-lg border border-white/10 bg-[var(--surface-3)] px-3 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-burgundy-700">
             <option value="customer">Customer</option>
             <option value="merchant">Merchant</option>
           </select>
@@ -95,10 +96,10 @@ export default function RiskAnalyticsPage() {
                   options={{
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { labels: { color: "#94a3b8" } } },
+                    plugins: { legend: { labels: { color: colors.muted } } },
                     scales: {
-                      x: { ticks: { color: "#94a3b8" }, grid: { color: "rgba(255,255,255,0.1)" } },
-                      y: { ticks: { color: "#94a3b8" }, grid: { color: "rgba(255,255,255,0.1)" } },
+                      x: { ticks: { color: colors.muted }, grid: { color: "rgba(255,255,255,0.10)" } },
+                      y: { ticks: { color: colors.muted }, grid: { color: "rgba(255,255,255,0.10)" } },
                     },
                   }}
                 />

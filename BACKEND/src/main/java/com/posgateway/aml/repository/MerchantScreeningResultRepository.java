@@ -29,6 +29,15 @@ public interface MerchantScreeningResultRepository extends JpaRepository<Merchan
     Optional<MerchantScreeningResult> findLatestByMerchantId(@Param("merchantId") Long merchantId);
 
     /**
+     * Batch fetch of screening rows for a set of merchants, newest first.
+     * Callers pick the first row per merchantId to obtain the latest — this
+     * replaces N per-merchant {@link #findLatestByMerchantId} calls in listing
+     * endpoints (N+1 fix).
+     */
+    List<MerchantScreeningResult> findByMerchant_MerchantIdInOrderByScreenedAtDesc(
+            java.util.Collection<Long> merchantIds);
+
+    /**
      * Find screening results by status
      */
     List<MerchantScreeningResult> findByScreeningStatus(String status);

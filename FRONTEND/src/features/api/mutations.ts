@@ -1,8 +1,11 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../../lib/apiClient";
-import type { AmlRule, VelocityRule, RiskThreshold } from "../../types/rules";
+import type { AmlRule, VelocityRule, RiskThreshold, RuleVersion } from "../../types/rules";
 import type { Priority } from "../../types";
 import type { SubscriptionRequest } from "../../types/billing";
+import type { MarketOrder, MarketSignalStatus, MarketSurveillanceSignal, SurveillanceResult } from "../../types/marketSurveillance";
+import type { MobileMoneyAssessment } from "../../types/mobileMoney";
+import type { CryptoWalletProfile, RegulatorGrant, TravelRulePolicy, TravelRuleTransfer, VaspEntry, WalletScreeningRecord } from "../../types/virtualAssets";
 
 // Case Mutations
 export interface CreateCaseRequest {
@@ -131,6 +134,142 @@ export const useDisableAmlRule = () => {
   });
 };
 
+export interface ReviewRuleVersionRequest {
+  versionId: number;
+  reason: string;
+  effectiveFrom?: string;
+}
+
+export const useApproveRuleVersion = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ versionId, reason, effectiveFrom }: ReviewRuleVersionRequest) =>
+      apiClient.post<RuleVersion>(`rules/governance/versions/${versionId}/approve`, { reason, effectiveFrom }),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["rules"] });
+      queryClient.invalidateQueries({ queryKey: ["rule"] });
+      queryClient.invalidateQueries({ queryKey: ["rules", "governance", "pending"] });
+      queryClient.invalidateQueries({ queryKey: ["rule-version", variables.versionId] });
+    },
+  });
+};
+
+export const useRejectRuleVersion = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ versionId, reason }: ReviewRuleVersionRequest) =>
+      apiClient.post<RuleVersion>(`rules/governance/versions/${versionId}/reject`, { reason }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["rules"] });
+      queryClient.invalidateQueries({ queryKey: ["rules", "governance", "pending"] });
+    },
+  });
+};
+
+const invalidateMarketSurveillance = (queryClient: ReturnType<typeof useQueryClient>) => {
+  queryClient.invalidateQueries({ queryKey: ["market-surveillance"] });
+  queryClient.invalidateQueries({ queryKey: ["alerts"] });
+};
+
+export const usePlaceMarketOrder = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: Record<string, unknown>) => apiClient.post<SurveillanceResult<MarketOrder>>("market-surveillance/orders", body),
+    onSuccess: () => invalidateMarketSurveillance(queryClient),
+  });
+};
+
+export const useRecordMarketExecution = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: Record<string, unknown>) => apiClient.post<SurveillanceResult<Record<string, unknown>>>("market-surveillance/executions", body),
+    onSuccess: () => invalidateMarketSurveillance(queryClient),
+  });
+};
+
+export const useCancelMarketOrder = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ externalOrderId, reason }: { externalOrderId: string; reason: string }) =>
+      apiClient.post<SurveillanceResult<MarketOrder>>(`market-surveillance/orders/${encodeURIComponent(externalOrderId)}/cancel`, { reason }),
+    onSuccess: () => invalidateMarketSurveillance(queryClient),
+  });
+};
+
+export const useReviewMarketSignal = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status, notes }: { id: number; status: MarketSignalStatus; notes: string }) =>
+      apiClient.put<MarketSurveillanceSignal>(`market-surveillance/signals/${id}/review`, { status, notes }),
+    onSuccess: () => invalidateMarketSurveillance(queryClient),
+  });
+};
+
+export const useIngestMobileMoneyTransaction = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: Record<string, unknown>) =>
+      apiClient.post<MobileMoneyAssessment>("mobile-money/transactions", body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["mobile-money"] });
+      queryClient.invalidateQueries({ queryKey: ["multi-asset"] });
+      queryClient.invalidateQueries({ queryKey: ["alerts"] });
+    },
+  });
+};
+
+const invalidateVirtualAssets = (queryClient: ReturnType<typeof useQueryClient>) => {
+  queryClient.invalidateQueries({ queryKey: ["virtual-assets"] });
+  queryClient.invalidateQueries({ queryKey: ["multi-asset"] });
+  queryClient.invalidateQueries({ queryKey: ["alerts"] });
+};
+export const useSaveVasp = () => { const qc = useQueryClient(); return useMutation({
+  mutationFn: ({ id, body }: { id?: number; body: Record<string, unknown> }) => id
+    ? apiClient.put<VaspEntry>(`virtual-assets/vasps/${id}`, body)
+    : apiClient.post<VaspEntry>("virtual-assets/vasps", body),
+  onSuccess: () => invalidateVirtualAssets(qc),
+}); };
+export const useScreenVasp = () => { const qc = useQueryClient(); return useMutation({
+  mutationFn: (id: number) => apiClient.post<VaspEntry>(`virtual-assets/vasps/${id}/screen`, {}),
+  onSuccess: () => invalidateVirtualAssets(qc),
+}); };
+export const useRegisterCryptoWallet = () => { const qc = useQueryClient(); return useMutation({
+  mutationFn: (body: Record<string, unknown>) => apiClient.post<CryptoWalletProfile>("virtual-assets/wallets", body),
+  onSuccess: () => invalidateVirtualAssets(qc),
+}); };
+export const useScreenCryptoWallet = () => { const qc = useQueryClient(); return useMutation({
+  mutationFn: ({ id, trigger, transactionId }: { id: number; trigger: string; transactionId?: number }) =>
+    apiClient.post<WalletScreeningRecord>(`virtual-assets/wallets/${id}/screen?trigger=${trigger}${transactionId ? `&transactionId=${transactionId}` : ""}`, {}),
+  onSuccess: () => invalidateVirtualAssets(qc),
+}); };
+export const useSaveTravelRulePolicy = () => { const qc = useQueryClient(); return useMutation({
+  mutationFn: ({ id, body }: { id?: number; body: Record<string, unknown> }) => id
+    ? apiClient.put<TravelRulePolicy>(`virtual-assets/travel-rule/policies/${id}`, body)
+    : apiClient.post<TravelRulePolicy>("virtual-assets/travel-rule/policies", body),
+  onSuccess: () => invalidateVirtualAssets(qc),
+}); };
+export const usePrepareTravelRuleTransfer = () => { const qc = useQueryClient(); return useMutation({
+  mutationFn: (body: Record<string, unknown>) => apiClient.post<TravelRuleTransfer>("virtual-assets/travel-rule/transfers", body),
+  onSuccess: () => invalidateVirtualAssets(qc),
+}); };
+export const useVerifyTravelRuleIdentity = () => { const qc = useQueryClient(); return useMutation({
+  mutationFn: ({ id, ...body }: { id: number; party: string; verified: boolean; evidenceReference?: string }) =>
+    apiClient.put<TravelRuleTransfer>(`virtual-assets/travel-rule/transfers/${id}/verify`, body),
+  onSuccess: () => invalidateVirtualAssets(qc),
+}); };
+export const useTransmitTravelRule = () => { const qc = useQueryClient(); return useMutation({
+  mutationFn: (id: number) => apiClient.post<TravelRuleTransfer>(`virtual-assets/travel-rule/transfers/${id}/transmit`, {}),
+  onSuccess: () => invalidateVirtualAssets(qc),
+}); };
+export const useCreateRegulatorGrant = () => { const qc = useQueryClient(); return useMutation({
+  mutationFn: (body: Record<string, unknown>) => apiClient.post<RegulatorGrant>("virtual-assets/regulator-grants", body),
+  onSuccess: () => invalidateVirtualAssets(qc),
+}); };
+export const useRevokeRegulatorGrant = () => { const qc = useQueryClient(); return useMutation({
+  mutationFn: (id: number) => apiClient.delete(`virtual-assets/regulator-grants/${id}`),
+  onSuccess: () => invalidateVirtualAssets(qc),
+}); };
+
 // Velocity Rules Mutations
 export const useCreateVelocityRule = () => {
   const queryClient = useQueryClient();
@@ -189,18 +328,36 @@ export const useUpdateAlertStatus = () => {
 
 // Merchant Mutations
 export interface CreateMerchantRequest {
-  merchantId: string;
-  businessName: string;
-  mcc?: string;
-  kycStatus?: string;
-  contractStatus?: string;
+  pspId: number;
+  legalName: string;
+  tradingName?: string;
+  country: string;
+  registrationNumber: string;
+  taxId?: string;
+  mcc: string;
+  businessType?: string;
+  expectedMonthlyVolume?: number;
+  transactionChannel?: string;
+  website?: string;
+  contactEmail?: string;
+  cbkSettlementAccountNumber?: string;
+  cbkEconomicSectorCode?: string;
+  beneficialOwners: Array<{
+    fullName: string;
+    dateOfBirth: string;
+    nationality: string;
+    countryOfResidence?: string;
+    passportNumber?: string;
+    nationalId?: string;
+    ownershipPercentage: number;
+  }>;
 }
 
 export const useCreateMerchant = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (req: CreateMerchantRequest) =>
-      apiClient.post("merchants", req),
+      apiClient.post("merchants/onboard", req),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["merchants"] });
     },
@@ -214,7 +371,7 @@ export interface CreateSarRequest {
   suspiciousActivityType: string;
   jurisdiction?: string;
   sarType?: string;
-  creatorUserId: number;
+  suspicionAroseAt: string;
 }
 
 export const useCreateSar = () => {

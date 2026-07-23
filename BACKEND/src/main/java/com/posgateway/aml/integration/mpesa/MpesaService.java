@@ -86,7 +86,7 @@ public class MpesaService {
                     .header(HttpHeaders.AUTHORIZATION, "Basic " + basicAuth)
                     .retrieve()
                     .bodyToMono(String.class)
-                    .block();
+                    .block(java.time.Duration.ofSeconds(30));
 
             JsonNode root = objectMapper.readTree(body);
             String token = root.path("access_token").asText();
@@ -146,7 +146,7 @@ public class MpesaService {
                     .bodyValue(requestBody)
                     .retrieve()
                     .bodyToMono(String.class)
-                    .block();
+                    .block(java.time.Duration.ofSeconds(30));
 
             JsonNode root = objectMapper.readTree(responseBody);
             MpesaStkResponse response = new MpesaStkResponse(
@@ -229,28 +229,45 @@ public class MpesaService {
             attempt.setCompletedAt(OffsetDateTime.now());
 
             if (resultCode == 0) {
-                // Extract metadata
+                // Extract metadata: receipt AND the actual Amount paid.
                 JsonNode items = stkCallback.path("CallbackMetadata").path("Item");
                 String mpesaReceiptNumber = null;
+                java.math.BigDecimal paidAmount = null;
                 for (JsonNode item : items) {
                     String name = item.path("Name").asText("");
                     if ("MpesaReceiptNumber".equals(name)) {
                         mpesaReceiptNumber = item.path("Value").asText(null);
+                    } else if ("Amount".equals(name)) {
+                        try {
+                            paidAmount = new java.math.BigDecimal(item.path("Value").asText("0"));
+                        } catch (NumberFormatException ignore) { /* leave null */ }
                     }
                 }
-                attempt.setStatus("SUCCESS");
-                attempt.setMpesaTransactionId(mpesaReceiptNumber);
 
-                // Mark invoice as PAID
-                Optional<Invoice> optInvoice = invoiceRepository.findById(attempt.getInvoiceId());
-                if (optInvoice.isPresent()) {
-                    Invoice invoice = optInvoice.get();
-                    invoice.markAsPaid(mpesaReceiptNumber, attempt.getAmount());
-                    invoice.setPaymentMethod("MPESA");
-                    invoiceRepository.save(invoice);
-                    log.info("Invoice {} marked PAID via M-Pesa receipt {}", attempt.getInvoiceId(), mpesaReceiptNumber);
+                // Integrity: never mark an invoice fully PAID on an under-payment. Compare the
+                // amount Daraja actually reports against the requested attempt amount.
+                if (paidAmount != null && attempt.getAmount() != null
+                        && paidAmount.compareTo(attempt.getAmount()) < 0) {
+                    attempt.setStatus("UNDERPAID");
+                    attempt.setMpesaTransactionId(mpesaReceiptNumber);
+                    log.warn("M-Pesa under-payment for invoice {}: paid {} < requested {} — NOT marking PAID",
+                            attempt.getInvoiceId(), paidAmount, attempt.getAmount());
                 } else {
-                    log.warn("Invoice {} not found when processing successful M-Pesa callback", attempt.getInvoiceId());
+                    attempt.setStatus("SUCCESS");
+                    attempt.setMpesaTransactionId(mpesaReceiptNumber);
+                    // Mark invoice as PAID with the ACTUAL amount received (fallback to attempt amount).
+                    java.math.BigDecimal settledAmount = paidAmount != null ? paidAmount : attempt.getAmount();
+                    Optional<Invoice> optInvoice = invoiceRepository.findById(attempt.getInvoiceId());
+                    if (optInvoice.isPresent()) {
+                        Invoice invoice = optInvoice.get();
+                        invoice.markAsPaid(mpesaReceiptNumber, settledAmount);
+                        invoice.setPaymentMethod("MPESA");
+                        invoiceRepository.save(invoice);
+                        log.info("Invoice {} marked PAID via M-Pesa receipt {} (amount {})",
+                                attempt.getInvoiceId(), mpesaReceiptNumber, settledAmount);
+                    } else {
+                        log.warn("Invoice {} not found when processing successful M-Pesa callback", attempt.getInvoiceId());
+                    }
                 }
 
             } else if (resultCode == 1032) {

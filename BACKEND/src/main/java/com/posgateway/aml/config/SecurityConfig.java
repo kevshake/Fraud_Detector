@@ -27,11 +27,36 @@ public class SecurityConfig {
         private final CustomUserDetailsService userDetailsService;
         private final CustomAuthenticationFailureHandler failureHandler;
 
+        /**
+         * Refuse plaintext HTTP at the application layer. nginx terminates TLS in the deployed
+         * topology and Spring binds 0.0.0.0, so without this a request that reaches Spring directly
+         * (bypassing the proxy) is served happily over plaintext. Enabled in the `production`
+         * profile via application-production.properties; off elsewhere so dev/testenv keep working
+         * over plain HTTP.
+         *
+         * <p>`server.forward-headers-strategy=native` is set in production, so `request.isSecure()`
+         * correctly reflects the client's `X-Forwarded-Proto` and a proxied HTTPS request is not
+         * redirected.
+         */
+        @org.springframework.beans.factory.annotation.Value("${security.require-ssl:false}")
+        private boolean requireSsl;
+
         public SecurityConfig(CustomUserDetailsService userDetailsService,
                         CustomAuthenticationFailureHandler failureHandler) {
                 this.userDetailsService = userDetailsService;
                 this.failureHandler = failureHandler;
         }
+
+        /**
+         * Container/orchestrator liveness probes that legitimately hit the app over plain HTTP on
+         * the loopback interface. Everything else must be HTTPS when {@link #requireSsl} is on.
+         */
+        private static final org.springframework.security.web.util.matcher.RequestMatcher HEALTH_PROBES =
+                        new org.springframework.security.web.util.matcher.OrRequestMatcher(
+                                        AntPathRequestMatcher.antMatcher("/actuator/health"),
+                                        AntPathRequestMatcher.antMatcher("/actuator/health/**"),
+                                        AntPathRequestMatcher.antMatcher("/api/v1/actuator/health"),
+                                        AntPathRequestMatcher.antMatcher("/api/v1/actuator/health/**"));
 
         // ...
 
@@ -111,7 +136,37 @@ public class SecurityConfig {
                                                                 "/integrations/verifi/rdr/health",
                                                                 "/api/v1/chargeback/verifi/rdr/health",
                                                                 "/chargeback/verifi/rdr/health").permitAll()
-                                                .requestMatchers("/actuator/**").permitAll()
+                                                // Actuator: liveness/readiness probes stay open (nginx
+                                                // also restricts /actuator/ to localhost), but the
+                                                // metrics surfaces require a platform role. The edge
+                                                // topology means more direct-to-Spring paths, so this is
+                                                // enforced at the Spring layer too rather than relying on
+                                                // the reverse proxy alone.
+                                                .requestMatchers(
+                                                                "/actuator/health", "/actuator/health/**",
+                                                                "/actuator/info",
+                                                                "/api/v1/actuator/health", "/api/v1/actuator/health/**",
+                                                                "/api/v1/actuator/info")
+                                                .permitAll()
+                                                .requestMatchers("/actuator/**", "/api/v1/actuator/**")
+                                                .hasAnyAuthority("ROLE_ADMIN", "ROLE_SUPER_ADMIN", "ROLE_PLATFORM_ADMIN")
+
+                                                // ── Edge channel (docs/architecture/edge-channel-contract.md §5)
+                                                // Machine-to-machine only. There is no session or JWT here:
+                                                // the caller is authenticated by its mTLS client certificate
+                                                // (EdgeIdentityResolver) plus its ACTIVE authorisation state,
+                                                // or — for /enroll — by a single-use enrollment code. Only
+                                                // these three exact paths are permitted; everything else under
+                                                // /edge (the fleet admin API at /edge/nodes) goes through the
+                                                // normal user chain and its @PreAuthorize rules.
+                                                .requestMatchers(
+                                                                "/edge/enroll", "/edge/bundle", "/edge/metrics",
+                                                                "/api/v1/edge/enroll", "/api/v1/edge/bundle",
+                                                                "/api/v1/edge/metrics")
+                                                .permitAll()
+                                                .requestMatchers("/edge/**", "/api/v1/edge/**").authenticated()
+                                                // Read-only regulator feed authenticates a hashed access key in the controller.
+                                                .requestMatchers("/api/v1/regulator/virtual-assets/**", "/regulator/virtual-assets/**").permitAll()
                                                 // Swagger / OpenAPI documentation (springdoc-openapi).
                                                 // Both forms — with and without the /api/v1 context path —
                                                 // because Spring Security matches the request URI before the
@@ -201,6 +256,15 @@ public class SecurityConfig {
                                         // This ensures that even if an attacker knows a session ID, they cannot use it after login
                                         session.sessionFixation().migrateSession();
                                 });
+
+                // Fail closed on plaintext: when security.require-ssl is on (production), every
+                // request except loopback health probes must arrive over TLS.
+                if (requireSsl) {
+                        http.requiresChannel(channel -> channel
+                                        .requestMatchers(new org.springframework.security.web.util.matcher.NegatedRequestMatcher(
+                                                        HEALTH_PROBES))
+                                        .requiresSecure());
+                }
                 // HTTP Basic Auth disabled - using form-based login only
                 // .httpBasic(basic -> {
                 // });

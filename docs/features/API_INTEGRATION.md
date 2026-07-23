@@ -17,17 +17,27 @@ curl -s -X POST https://api.hokeka.com/api/v1/transactions/ingest \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "amount": 12500.00,
+    "amountCents": 1250000,
     "currency": "KES",
-    "merchantId": "MRC-00123",
+    "merchantId": "123",
+    "pan": "4111111111111111",
     "ipAddress": "41.204.187.12",
-    "mcc": "5411"
+    "countryCode": "KE",
+    "direction": "OUTBOUND",
+    "channelType": "ECOMMERCE",
+    "customerAccountReference": "PSP-TOKEN-CUST-78901",
+    "customerEmail": "customer@example.com"
   }'
 
 # 3. Check billing usage
 curl -s https://api.hokeka.com/api/v1/billing/usage/7/current \
   -H "Authorization: Bearer $TOKEN"
 ```
+
+Amounts are integer minor units. The merchant ID is the platform merchant
+primary key represented as a string. Raw PAN is hashed immediately and is never
+persisted. Customer account references must be PSP-issued opaque tokens; the
+customer email is encrypted at rest.
 
 ## Authentication
 

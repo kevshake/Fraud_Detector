@@ -86,6 +86,7 @@ public class MonitoringController {
      * @return Success message
      */
     @PostMapping("/metrics/compute")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN')")
     public ResponseEntity<String> computeMetrics() {
         logger.info("Manual metrics computation triggered");
         metricsService.computeDailyMetrics();

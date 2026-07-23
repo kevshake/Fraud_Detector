@@ -44,7 +44,8 @@ public class PspReportingConfigService {
             throw new AccessDeniedException("Not authenticated");
         }
 
-        boolean isGlobalAdmin = user.getRole().getName().equals("ADMIN") ||
+        boolean isGlobalAdmin = user.getRole().getName().equals("SUPER_ADMIN") ||
+                user.getRole().getName().equals("ADMIN") ||
                 user.getRole().getName().equals("APP_CONTROLLER");
 
         if (isGlobalAdmin) {

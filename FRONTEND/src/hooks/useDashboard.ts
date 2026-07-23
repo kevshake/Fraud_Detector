@@ -1,9 +1,13 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { apiClient } from '../lib/apiClient'
 import type { Alert } from '../types'
 
-const STALE = 30_000
-const REFETCH = 45_000
+/** Fresh enough for KPI tiles; avoids refetch storms on every focus/nav. */
+const STALE = 45_000
+const REFETCH = 60_000
+/** Live queue / alerts can refresh a bit more often. */
+const LIVE_STALE = 20_000
+const LIVE_REFETCH = 30_000
 
 // ---- response shapes (mirrored from BACKEND DashboardController) ----
 
@@ -132,6 +136,33 @@ export interface MerchantListItem {
   status?: string
 }
 
+/** Bundled sparkline payload — one round-trip for all KPI series. */
+export interface DashboardSparklines {
+  transactionVolume: TransactionVolume
+  alertTrends: AlertTrendsResponse
+  caseTrends: DailyTrendResponse
+  screeningMatchTrends: DailyTrendResponse
+  highRiskTrends: DailyTrendResponse
+}
+
+function keepPrevious<T>(prev: T | undefined) {
+  return prev
+}
+
+/** Fetch sparklines and seed per-series caches (shared by hook + layout prefetch). */
+export async function fetchDashboardSparklines(
+  queryClient: QueryClient,
+  days = 7,
+): Promise<DashboardSparklines> {
+  const data = await apiClient.get<DashboardSparklines>(`dashboard/sparklines?days=${days}`)
+  queryClient.setQueryData(['dashboard', 'transaction-volume', days], data.transactionVolume)
+  queryClient.setQueryData(['dashboard', 'alert-trends', days], data.alertTrends)
+  queryClient.setQueryData(['dashboard', 'case-trends', days], data.caseTrends)
+  queryClient.setQueryData(['dashboard', 'screening-match-trends', days], data.screeningMatchTrends)
+  queryClient.setQueryData(['dashboard', 'high-risk-trends', days], data.highRiskTrends)
+  return data
+}
+
 // ---- hooks ----
 
 export const useDashboardStats = () =>
@@ -140,14 +171,32 @@ export const useDashboardStats = () =>
     queryFn: () => apiClient.get<DashboardStats>('dashboard/stats'),
     staleTime: STALE,
     refetchInterval: REFETCH,
+    placeholderData: keepPrevious,
   })
+
+/**
+ * Single request for all KPI sparkline series. Seeds the individual
+ * query caches so child widgets (AlertTrends, etc.) reuse the data
+ * without extra HTTP calls.
+ */
+export const useDashboardSparklines = (days = 7) => {
+  const queryClient = useQueryClient()
+  return useQuery<DashboardSparklines>({
+    queryKey: ['dashboard', 'sparklines', days],
+    queryFn: () => fetchDashboardSparklines(queryClient, days),
+    staleTime: STALE,
+    refetchInterval: REFETCH,
+    placeholderData: keepPrevious,
+  })
+}
 
 export const useLiveAlerts = (limit = 6) =>
   useQuery<Alert[]>({
     queryKey: ['dashboard', 'live-alerts', limit],
     queryFn: () => apiClient.get<Alert[]>(`dashboard/live-alerts?limit=${limit}`),
-    staleTime: STALE,
-    refetchInterval: REFETCH,
+    staleTime: LIVE_STALE,
+    refetchInterval: LIVE_REFETCH,
+    placeholderData: keepPrevious,
   })
 
 export const useRiskDistribution = () =>
@@ -155,6 +204,8 @@ export const useRiskDistribution = () =>
     queryKey: ['dashboard', 'risk-distribution'],
     queryFn: () => apiClient.get<RiskDistribution>('dashboard/risk-distribution'),
     staleTime: STALE,
+    refetchInterval: REFETCH,
+    placeholderData: keepPrevious,
   })
 
 export const useSanctionsStatus = () =>
@@ -162,6 +213,8 @@ export const useSanctionsStatus = () =>
     queryKey: ['dashboard', 'sanctions-status'],
     queryFn: () => apiClient.get<SanctionsStatus>('dashboard/sanctions/status'),
     staleTime: STALE,
+    refetchInterval: REFETCH,
+    placeholderData: keepPrevious,
   })
 
 export const useFraudMetrics = () =>
@@ -169,6 +222,8 @@ export const useFraudMetrics = () =>
     queryKey: ['dashboard', 'fraud-metrics'],
     queryFn: () => apiClient.get<FraudMetrics>('dashboard/fraud-metrics'),
     staleTime: STALE,
+    refetchInterval: REFETCH,
+    placeholderData: keepPrevious,
   })
 
 export const useTransactionVolume = (days = 7) =>
@@ -177,6 +232,8 @@ export const useTransactionVolume = (days = 7) =>
     queryFn: () =>
       apiClient.get<TransactionVolume>(`dashboard/transaction-volume?days=${days}`),
     staleTime: STALE,
+    refetchInterval: REFETCH,
+    placeholderData: keepPrevious,
   })
 
 export const useCasesPriority = () =>
@@ -184,16 +241,19 @@ export const useCasesPriority = () =>
     queryKey: ['dashboard', 'cases-priority'],
     queryFn: () => apiClient.get<CasesPriority>('dashboard/cases/priority'),
     staleTime: STALE,
+    refetchInterval: REFETCH,
+    placeholderData: keepPrevious,
   })
 
 // Backend-sorted top-risk merchants — `/dashboard/merchants/top-risk?limit=N`
-// returns merchants ranked by stored krs (and risk-level ordinal) without
-// loading every merchant client-side.
 export const useTopRiskMerchants = (limit = 5) =>
   useQuery<TopRiskMerchant[]>({
     queryKey: ['dashboard', 'top-risk-merchants', limit],
-    queryFn: () => apiClient.get<TopRiskMerchant[]>(`dashboard/merchants/top-risk?limit=${limit}`),
+    queryFn: () =>
+      apiClient.get<TopRiskMerchant[]>(`dashboard/merchants/top-risk?limit=${limit}`),
     staleTime: STALE,
+    refetchInterval: REFETCH,
+    placeholderData: keepPrevious,
   })
 
 export const useRiskHeatmap = () =>
@@ -201,6 +261,8 @@ export const useRiskHeatmap = () =>
     queryKey: ['dashboard', 'risk-heatmap'],
     queryFn: () => apiClient.get<CountryRisk[]>('dashboard/risk-heatmap'),
     staleTime: STALE,
+    refetchInterval: REFETCH,
+    placeholderData: keepPrevious,
   })
 
 export const useCasesClosedRecent = () =>
@@ -208,6 +270,8 @@ export const useCasesClosedRecent = () =>
     queryKey: ['dashboard', 'cases-closed-recent'],
     queryFn: () => apiClient.get<CasesClosedRecent>('dashboard/cases/closed-recent'),
     staleTime: STALE,
+    refetchInterval: REFETCH,
+    placeholderData: keepPrevious,
   })
 
 export const useScreeningResultsToday = () =>
@@ -216,6 +280,8 @@ export const useScreeningResultsToday = () =>
     queryFn: () =>
       apiClient.get<ScreeningResultsToday>('dashboard/screening/results-today'),
     staleTime: STALE,
+    refetchInterval: REFETCH,
+    placeholderData: keepPrevious,
   })
 
 export const useComplianceHealth = () =>
@@ -223,6 +289,8 @@ export const useComplianceHealth = () =>
     queryKey: ['dashboard', 'compliance-health'],
     queryFn: () => apiClient.get<ComplianceHealth>('dashboard/compliance/health'),
     staleTime: STALE,
+    refetchInterval: REFETCH,
+    placeholderData: keepPrevious,
   })
 
 export const useAlertTrends = (days = 7) =>
@@ -231,6 +299,8 @@ export const useAlertTrends = (days = 7) =>
     queryFn: () =>
       apiClient.get<AlertTrendsResponse>(`dashboard/alerts/trends?days=${days}`),
     staleTime: STALE,
+    refetchInterval: REFETCH,
+    placeholderData: keepPrevious,
   })
 
 export const useCaseTrends = (days = 7) =>
@@ -238,6 +308,8 @@ export const useCaseTrends = (days = 7) =>
     queryKey: ['dashboard', 'case-trends', days],
     queryFn: () => apiClient.get<DailyTrendResponse>(`dashboard/cases/trends?days=${days}`),
     staleTime: STALE,
+    refetchInterval: REFETCH,
+    placeholderData: keepPrevious,
   })
 
 export const useScreeningMatchTrends = (days = 7) =>
@@ -246,6 +318,8 @@ export const useScreeningMatchTrends = (days = 7) =>
     queryFn: () =>
       apiClient.get<DailyTrendResponse>(`dashboard/screening/matches-trends?days=${days}`),
     staleTime: STALE,
+    refetchInterval: REFETCH,
+    placeholderData: keepPrevious,
   })
 
 export const useHighRiskTrends = (days = 7) =>
@@ -254,4 +328,6 @@ export const useHighRiskTrends = (days = 7) =>
     queryFn: () =>
       apiClient.get<DailyTrendResponse>(`dashboard/merchants/high-risk-trends?days=${days}`),
     staleTime: STALE,
+    refetchInterval: REFETCH,
+    placeholderData: keepPrevious,
   })

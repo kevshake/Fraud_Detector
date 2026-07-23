@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import TabNavigation from "../../components/Common/TabNavigation";
 import GlassCard from "../../components/Common/GlassCard";
 import HokekaPageShell from "../../components/Layout/HokekaPageShell";
@@ -6,6 +6,11 @@ import CasesAllCases from "./CasesAllCases";
 import CasesQueues from "./CasesQueues";
 import CasesTimeline from "./CasesTimeline";
 import CasesNetworkGraph from "./CasesNetworkGraph";
+
+function CasesIndexRedirect() {
+  const { search } = useLocation();
+  return <Navigate to={`/cases/all${search}`} replace />;
+}
 
 export default function CasesPage() {
   const tabs = [
@@ -20,7 +25,7 @@ export default function CasesPage() {
       <GlassCard padding="md">
         <TabNavigation tabs={tabs} />
         <Routes>
-          <Route path="/" element={<Navigate to="/cases/all" replace />} />
+          <Route path="/" element={<CasesIndexRedirect />} />
           <Route path="/all" element={<CasesAllCases />} />
           <Route path="/queues" element={<CasesQueues />} />
           <Route path="/timeline" element={<CasesTimeline />} />

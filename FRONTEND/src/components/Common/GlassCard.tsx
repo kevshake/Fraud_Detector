@@ -16,27 +16,27 @@ export type GlassCardGlowVariant =
 export type GlassCardGlowPosition = 'top-left' | 'center'
 
 const GLOW_RGB: Record<GlassCardGlowVariant, string> = {
-  red: '220, 38, 38',
-  orange: '249, 115, 22',
-  amber: '245, 158, 11',
-  gold: '201, 169, 110',
-  green: '34, 197, 94',
-  teal: '20, 184, 166',
-  purple: '168, 85, 247',
-  charcoal: '100, 116, 139',
-  burgundy: '123, 35, 50',
+  red: '232, 119, 107',
+  orange: '224, 138, 79',
+  amber: '226, 178, 93',
+  gold: '211, 179, 113',
+  green: '117, 183, 171',
+  teal: '117, 183, 171',
+  purple: '176, 148, 194',
+  charcoal: '168, 171, 168',
+  burgundy: '211, 179, 113',
 }
 
 const GLOW_OPACITY: Record<GlassCardGlowVariant, number> = {
-  red: 0.12,
-  orange: 0.12,
-  amber: 0.12,
-  gold: 0.1,
-  green: 0.12,
-  teal: 0.12,
-  purple: 0.12,
-  charcoal: 0.08,
-  burgundy: 0.12,
+  red: 0.1,
+  orange: 0.1,
+  amber: 0.1,
+  gold: 0.09,
+  green: 0.1,
+  teal: 0.1,
+  purple: 0.09,
+  charcoal: 0.07,
+  burgundy: 0.09,
 }
 
 export interface GlassCardProps {
@@ -72,7 +72,7 @@ function glowStyleVars(
   const rgb = glowColor ?? (glowVariant ? GLOW_RGB[glowVariant] : undefined)
   if (!rgb) return undefined
 
-  const alpha = glowOpacity ?? (glowVariant ? GLOW_OPACITY[glowVariant] : 0.12)
+  const alpha = glowOpacity ?? (glowVariant ? GLOW_OPACITY[glowVariant] : 0.14)
 
   return {
     '--glow-rgb': rgb,
@@ -98,10 +98,9 @@ export default function GlassCard({
   return (
     <div
       className={cn(
-        'rounded-2xl border border-glass-border bg-glass-surface backdrop-blur-glass shadow-glass',
-        'ring-1 ring-inset ring-red-950/25',
+        'hokeka-glass-card rounded-2xl',
         hasGlow && 'glass-card-glow relative overflow-hidden',
-        !isStatic && 'transition-all duration-200 hover:border-glass-border-hover hover:shadow-glass-glow',
+        !isStatic && 'hover:-translate-y-px',
         paddingMap[padding],
         className,
       )}

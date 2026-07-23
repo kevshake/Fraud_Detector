@@ -7,7 +7,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
@@ -22,12 +21,12 @@ public class CaseEventProducer {
 
     private static final Logger logger = LoggerFactory.getLogger(CaseEventProducer.class);
 
-    private final KafkaTemplate<String, String> kafkaTemplate;
+    private final KafkaOutboxService kafkaOutboxService;
     private final ObjectMapper objectMapper;
 
     @Autowired
-    public CaseEventProducer(KafkaTemplate<String, String> kafkaTemplate, ObjectMapper objectMapper) {
-        this.kafkaTemplate = kafkaTemplate;
+    public CaseEventProducer(KafkaOutboxService kafkaOutboxService, ObjectMapper objectMapper) {
+        this.kafkaOutboxService = kafkaOutboxService;
         this.objectMapper = objectMapper;
     }
 
@@ -48,34 +47,43 @@ public class CaseEventProducer {
 
             String payload = objectMapper.writeValueAsString(event);
 
-            kafkaTemplate.send(KafkaConfig.TOPIC_CASE_LIFECYCLE, String.valueOf(cCase.getId()), payload);
-            logger.info("Published {} event for case {}", eventType, cCase.getCaseReference());
+            String eventKey = "case.lifecycle:" + cCase.getId() + ":" + eventType + ":" + cCase.getUpdatedAt();
+            kafkaOutboxService.enqueue(eventKey, KafkaConfig.TOPIC_CASE_LIFECYCLE,
+                    String.valueOf(cCase.getId()), payload);
+            logger.info("Queued {} event for case {}", eventType, cCase.getCaseReference());
 
         } catch (Exception e) {
-            logger.error("Failed to publish case lifecycle event for {}", cCase.getCaseReference(), e);
+            throw new IllegalStateException(
+                    "Failed to enqueue case lifecycle event for " + cCase.getCaseReference(), e);
         }
     }
 
     /**
      * Publish CASE_DECIDED event.
      */
-    public void publishDecisionEvent(Long caseId, String decisionType, String justification, String username) {
+    public void publishDecisionEvent(Long caseId, Long pspId, String decisionType,
+                                     String justification, String username) {
         try {
             Map<String, Object> event = new HashMap<>();
             event.put("eventType", "CASE_DECIDED");
             event.put("caseId", caseId);
             event.put("decision", decisionType);
+            event.put("pspId", pspId);
             event.put("justification", justification); // Brief or hashed if PII sensitive
             event.put("decidedBy", username);
             event.put("timestamp", java.time.LocalDateTime.now().toString());
 
             String payload = objectMapper.writeValueAsString(event);
 
-            kafkaTemplate.send(KafkaConfig.TOPIC_CASE_DECISION, String.valueOf(caseId), payload);
-            logger.info("Published CASE_DECISION event for case {}", caseId);
+            kafkaOutboxService.enqueue(
+                    "case.decision:" + caseId + ":" + decisionType,
+                    KafkaConfig.TOPIC_CASE_DECISION,
+                    String.valueOf(caseId),
+                    payload);
+            logger.info("Queued CASE_DECISION event for case {}", caseId);
 
         } catch (Exception e) {
-            logger.error("Failed to publish case decision event for case {}", caseId, e);
+            throw new IllegalStateException("Failed to enqueue case decision event for case " + caseId, e);
         }
     }
 }

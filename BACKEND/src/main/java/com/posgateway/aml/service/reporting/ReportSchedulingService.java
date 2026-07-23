@@ -6,6 +6,7 @@ import com.posgateway.aml.entity.User;
 import com.posgateway.aml.entity.reporting.*;
 import com.posgateway.aml.repository.reporting.ReportRepository;
 import com.posgateway.aml.repository.reporting.ReportScheduleRepository;
+import com.posgateway.aml.repository.reporting.ReportScheduleHistoryRepository;
 import com.posgateway.aml.repository.UserRepository;
 import com.posgateway.aml.service.security.PspIsolationService;
 import org.slf4j.Logger;
@@ -23,6 +24,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -37,6 +39,7 @@ public class ReportSchedulingService {
     private static final Logger logger = LoggerFactory.getLogger(ReportSchedulingService.class);
 
     private final ReportScheduleRepository reportScheduleRepository;
+    private final ReportScheduleHistoryRepository scheduleHistoryRepository;
     private final ReportRepository reportRepository;
     private final UserRepository userRepository;
     private final PspIsolationService pspIsolationService;
@@ -44,12 +47,82 @@ public class ReportSchedulingService {
     public ReportSchedulingService(ReportScheduleRepository reportScheduleRepository,
                                    ReportRepository reportRepository,
                                    UserRepository userRepository,
-                                   PspIsolationService pspIsolationService) {
+                                   PspIsolationService pspIsolationService,
+                                   ReportScheduleHistoryRepository scheduleHistoryRepository) {
         this.reportScheduleRepository = reportScheduleRepository;
         this.reportRepository = reportRepository;
         this.userRepository = userRepository;
         this.pspIsolationService = pspIsolationService;
+        this.scheduleHistoryRepository = scheduleHistoryRepository;
     }
+
+    /** Atomically claim due schedules and advance their next-run timestamps. */
+    @Transactional
+    public List<ScheduledReportClaim> claimDueSchedules(LocalDateTime now) {
+        return reportScheduleRepository.findDueForUpdate(now).stream().map(schedule -> {
+            LocalDateTime scheduledFor = schedule.getNextRunAt();
+            schedule.setLastRunAt(now);
+            schedule.setRunCount((schedule.getRunCount() == null ? 0 : schedule.getRunCount()) + 1);
+            schedule.setNextRunAt(calculateNextRunTime(schedule));
+            reportScheduleRepository.save(schedule);
+            return new ScheduledReportClaim(schedule.getId(), schedule.getReport().getReportCode(),
+                    schedule.getPspId(), schedule.getCreatedBy() != null ? schedule.getCreatedBy().getId() : null,
+                    schedule.getDefaultParameters() == null ? Map.of() : new LinkedHashMap<>(schedule.getDefaultParameters()),
+                    schedule.getDefaultFilters() == null ? Map.of() : new LinkedHashMap<>(schedule.getDefaultFilters()),
+                    schedule.getDateRangeType(), schedule.getExportFormats() == null || schedule.getExportFormats().isEmpty()
+                            ? List.of("PDF") : List.copyOf(schedule.getExportFormats()), schedule.getTimezone(),
+                    scheduledFor, schedule.getEmailRecipients() == null ? List.of() : List.copyOf(schedule.getEmailRecipients()),
+                    schedule.getEmailSubject(), schedule.getEmailBody());
+        }).toList();
+    }
+
+    @Transactional
+    public Long recordScheduledDispatch(Long scheduleId, Long executionId, Long pspId,
+                                        LocalDateTime scheduledFor, String outputFormat, List<String> recipients) {
+        ReportScheduleHistory history = new ReportScheduleHistory();
+        history.setScheduleId(scheduleId);
+        history.setExecutionId(executionId);
+        history.setPspId(pspId);
+        history.setOutputFormat(outputFormat);
+        history.setRecipients(recipients == null ? List.of() : List.copyOf(recipients));
+        history.setScheduledFor(scheduledFor);
+        history.setExecutedAt(LocalDateTime.now());
+        history.setStatus("RUNNING");
+        return scheduleHistoryRepository.save(history).getId();
+    }
+
+    @Transactional
+    public void completeScheduledDispatch(Long historyId, String status, String errorMessage) {
+        ReportScheduleHistory history = scheduleHistoryRepository.findById(historyId)
+                .orElseThrow(() -> new IllegalArgumentException("Schedule history not found: " + historyId));
+        history.setStatus(status);
+        history.setErrorMessage(errorMessage);
+        history.setExecutedAt(LocalDateTime.now());
+        if ("DELIVERED".equals(status)) history.setDeliveredAt(LocalDateTime.now());
+        scheduleHistoryRepository.save(history);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReportScheduleHistory> getScheduleHistory(Long scheduleId) {
+        ReportSchedule schedule = reportScheduleRepository.findById(scheduleId)
+                .orElseThrow(() -> new IllegalArgumentException("Schedule not found: " + scheduleId));
+        pspIsolationService.validatePspAccess(schedule.getPspId());
+        return scheduleHistoryRepository.findByScheduleIdOrderByScheduledForDesc(scheduleId);
+    }
+
+    @Transactional
+    public void recordScheduledExecutionFailure(Long scheduleId) {
+        reportScheduleRepository.findById(scheduleId).ifPresent(schedule -> {
+            schedule.setFailCount((schedule.getFailCount() == null ? 0 : schedule.getFailCount()) + 1);
+            reportScheduleRepository.save(schedule);
+        });
+    }
+
+    public record ScheduledReportClaim(Long scheduleId, String reportCode, Long pspId, Long createdBy,
+                                       Map<String, Object> parameters, Map<String, Object> filters,
+                                       DateRangeType dateRangeType, List<String> exportFormats, String timezone,
+                                       LocalDateTime scheduledFor, List<String> emailRecipients,
+                                       String emailSubject, String emailBody) { }
 
     /**
      * Schedule a new recurring report

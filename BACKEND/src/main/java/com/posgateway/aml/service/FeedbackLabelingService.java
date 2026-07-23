@@ -13,8 +13,13 @@ import java.util.List;
 
 /**
  * Feedback Labeling Service
- * Allows investigators to label transactions (fraud/not fraud) for model retraining
- * Labels flow back to training database for nightly retrain
+ *
+ * <p>Lets investigators label transactions (fraud / not fraud) on their persisted
+ * feature rows. These labels are the ground-truth store for supervised training.
+ *
+ * <p>NOTE: there is no automated in-app retraining loop. Model training is performed
+ * offline (Python/LightGBM per the ML strategy) against this labelled feature store;
+ * this service only records the labels — it does not schedule or trigger a retrain.
  */
 @Service
 public class FeedbackLabelingService {

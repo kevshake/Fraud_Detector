@@ -23,6 +23,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.*;
 import com.posgateway.aml.service.security.PspIsolationService;
 
@@ -289,6 +290,10 @@ public class TransactionController {
         request.setDirection(dto.getDirection());
         request.setIpAddress(dto.getIpAddress());
         request.setCountryCode(dto.getCountryCode());
+        request.setChannelType(dto.getChannelType());
+        request.setCashTransaction(Boolean.TRUE.equals(dto.getCashTransaction()));
+        request.setCustomerAccountReference(dto.getCustomerAccountReference());
+        request.setCustomerEmail(dto.getCustomerEmail());
         return request;
     }
 
@@ -308,7 +313,14 @@ public class TransactionController {
     public ResponseEntity<TransactionEntity> getTransactionById(@PathVariable Long id) {
         logger.info("Get transaction by ID: {}", id);
         return transactionRepository.findById(id)
-                .map(ResponseEntity::ok)
+                .map(transaction -> {
+                    try {
+                        pspIsolationService.validateTransactionAccess(transaction);
+                    } catch (SecurityException denied) {
+                        throw new AccessDeniedException("Cannot access a transaction from another PSP", denied);
+                    }
+                    return ResponseEntity.ok(transaction);
+                })
                 .orElse(ResponseEntity.notFound().build());
     }
 

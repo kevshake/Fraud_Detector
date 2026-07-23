@@ -434,7 +434,8 @@ public class ScreeningResult {
     public enum ScreeningStatus {
         CLEAR,
         POTENTIAL_MATCH,
-        MATCH
+        MATCH,
+        UNAVAILABLE
     }
 
     public enum EntityType {

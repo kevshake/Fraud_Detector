@@ -230,10 +230,9 @@ public class MonitoringMetricsService {
     }
 
     public List<ModelMetrics> getMetricsForDateRange(LocalDate startDate, LocalDate endDate) {
-        return metricsRepository.findAll().stream()
-                .filter(m -> m.getDate() != null
-                        && !m.getDate().isBefore(startDate)
-                        && !m.getDate().isAfter(endDate))
+        // Bounded DB query instead of loading the whole metrics table into memory.
+        return metricsRepository.findByDateBetween(startDate, endDate).stream()
+                .filter(m -> m.getDate() != null)
                 .sorted(Comparator.comparing(ModelMetrics::getDate))
                 .toList();
     }

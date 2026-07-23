@@ -106,16 +106,18 @@ public class TransactionMonitoringService {
      * Get transactions filtered by PSP ID
      */
     private List<TransactionEntity> getTransactionsByPsp(Long pspId, LocalDateTime startTime) {
+        // Time-bounded, PSP-scoped fetch pushed to the database (indexed on txn_ts /
+        // (psp_id, txn_ts)) instead of loading the whole table and filtering in Java.
+        // A null startTime falls back to an early epoch so the semantics ("all txns
+        // with a non-null timestamp") are preserved for the unbounded case.
+        LocalDateTime start = (startTime != null) ? startTime : LocalDateTime.of(1970, 1, 1, 0, 0);
+        LocalDateTime end = LocalDateTime.now();
         if (pspId == null) {
-            // Admin view - all transactions
-            return transactionRepository.findAll().stream()
-                    .filter(t -> t.getTxnTs() != null && (startTime == null || t.getTxnTs().isAfter(startTime)))
-                    .collect(Collectors.toList());
+            // Admin view - all transactions in window
+            return transactionRepository.findByTxnTsBetween(start, end);
         } else {
-            // Filter by PSP ID
-            return transactionRepository.findByPspIdOrderByTxnTsDesc(pspId).stream()
-                    .filter(t -> t.getTxnTs() != null && (startTime == null || t.getTxnTs().isAfter(startTime)))
-                    .collect(Collectors.toList());
+            // Filter by PSP ID in window
+            return transactionRepository.findByPspIdAndTxnTsBetween(pspId, start, end);
         }
     }
 
@@ -145,7 +147,8 @@ public class TransactionMonitoringService {
                     pspId, last24Hours, LocalDateTime.now()).size();
             flagged = transactionRepository.countByPspIdAndRiskLevelInSince(pspId, flaggedLevels, last24Hours);
             highRisk = transactionRepository.countByPspIdAndRiskLevelInSince(pspId, highRiskLevels, last24Hours);
-            blocked = transactionRepository.countByPspIdAndDecisionSince(pspId, "DECLINED", last24Hours);
+            blocked = transactionRepository.countByPspIdAndDecisionInSince(
+                    pspId, List.of("BLOCK", "DECLINED", "REJECTED"), last24Hours);
         } else {
             // Admin view — same indexed counts across all PSPs. Total is approximated as
             // the sum across all four buckets so admins get a real number even if some
@@ -154,7 +157,8 @@ public class TransactionMonitoringService {
             totalMonitored = transactionRepository.countByRiskLevelInSince(allLevels, last24Hours);
             flagged = transactionRepository.countByRiskLevelInSince(flaggedLevels, last24Hours);
             highRisk = transactionRepository.countByRiskLevelInSince(highRiskLevels, last24Hours);
-            blocked = transactionRepository.countByDecisionSince("DECLINED", last24Hours);
+            blocked = transactionRepository.countByDecisionInSince(
+                    List.of("BLOCK", "DECLINED", "REJECTED"), last24Hours);
         }
 
         Map<String, Object> stats = new HashMap<>();
@@ -438,8 +442,8 @@ public class TransactionMonitoringService {
             return txn.getTrs().intValue();
         }
         // Fallback for old data or if scoring failed
-        if (txn.getAmountCents() != null && txn.getAmountCents() > 100000) return 75;
-        if (txn.getAmountCents() != null && txn.getAmountCents() > 50000) return 95;
+        if (txn.getAmountCents() != null && txn.getAmountCents() > 100000) return 95;
+        if (txn.getAmountCents() != null && txn.getAmountCents() > 50000) return 75;
         return 25;
     }
 
@@ -452,10 +456,10 @@ public class TransactionMonitoringService {
     }
 
     private String getDecision(TransactionEntity txn) {
-        String riskLevel = getRiskLevel(txn);
-        if ("CRITICAL".equals(riskLevel)) return "DECLINED";
-        if ("HIGH".equals(riskLevel)) return "MANUAL_REVIEW";
-        return "APPROVED";
+        com.posgateway.aml.model.TransactionDecision stored =
+                com.posgateway.aml.model.TransactionDecision.fromStored(txn.getDecision());
+        return (stored != null ? stored
+                : com.posgateway.aml.model.TransactionDecision.fromRiskLevel(getRiskLevel(txn))).name();
     }
 
     /**
@@ -495,22 +499,22 @@ public class TransactionMonitoringService {
      * Sanctions status surfaced on the live monitoring page. Delegates to the
      * AML microservice via {@link SanctionsScreenClient}; returns the upstream
      * status string (CLEAR / REVIEW / FLAGGED). When the client is absent or
-     * the upstream is unavailable we return "UNKNOWN" so operators know the
+     * the upstream is unavailable we return "UNAVAILABLE" so operators know the
      * data is missing rather than a misleading false-CLEAR.
      */
     private String getSanctionsStatus(TransactionEntity txn) {
         if (sanctionsScreenClient == null || txn == null || txn.getMerchantId() == null) {
-            return "UNKNOWN";
+            return "UNAVAILABLE";
         }
         try {
             BackendSanctionsScreenResponse resp = sanctionsScreenClient.screen(
                     new BackendSanctionsScreenRequest(txn.getMerchantId(), null, null));
-            if (resp == null || resp.status() == null || resp.status().isBlank()) {
-                return "UNKNOWN";
+            if (resp.status() == null || resp.status().isBlank()) {
+                return "UNAVAILABLE";
             }
             return resp.status();
         } catch (Exception ex) {
-            return "UNKNOWN";
+            return "UNAVAILABLE";
         }
     }
 
@@ -582,13 +586,13 @@ public class TransactionMonitoringService {
     }
 
     private boolean isBlocked(TransactionEntity txn) {
-        return "DECLINED".equals(getDecision(txn));
+        return "BLOCK".equals(getDecision(txn));
     }
 
     private String getActivityType(TransactionEntity txn) {
         String decision = getDecision(txn);
-        if ("DECLINED".equals(decision)) return "blocked";
-        if ("MANUAL_REVIEW".equals(decision)) return "review";
+        if ("BLOCK".equals(decision)) return "blocked";
+        if ("HOLD".equals(decision) || "ALERT".equals(decision)) return "review";
         return "approved";
     }
 
@@ -614,7 +618,7 @@ public class TransactionMonitoringService {
 
         // Filter declined transactions
         List<TransactionEntity> declinedTransactions = transactions.stream()
-                .filter(t -> isBlocked(t) || "DECLINED".equals(getDecision(t)))
+                .filter(this::isBlocked)
                 .collect(Collectors.toList());
 
         long totalDeclines = declinedTransactions.size();

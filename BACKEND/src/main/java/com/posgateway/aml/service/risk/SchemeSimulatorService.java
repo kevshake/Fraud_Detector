@@ -1,7 +1,7 @@
 package com.posgateway.aml.service.risk;
 
 import com.posgateway.aml.model.MerchantMetrics;
-import com.posgateway.aml.repository.AerospikeMetricsRepository;
+import com.posgateway.aml.repository.MerchantMetricsRepository;
 import com.posgateway.aml.service.risk.HecmSimulator.HecmResult;
 import com.posgateway.aml.service.risk.VfmpSimulator.VfmpResult;
 import org.springframework.stereotype.Service;
@@ -13,11 +13,11 @@ import java.util.Map;
 @Service
 public class SchemeSimulatorService {
 
-    private final AerospikeMetricsRepository metricsRepository;
+    private final MerchantMetricsRepository metricsRepository;
     private final VfmpSimulator vfmpSimulator;
     private final HecmSimulator hecmSimulator;
 
-    public SchemeSimulatorService(AerospikeMetricsRepository metricsRepository, VfmpSimulator vfmpSimulator,
+    public SchemeSimulatorService(MerchantMetricsRepository metricsRepository, VfmpSimulator vfmpSimulator,
             HecmSimulator hecmSimulator) {
         this.metricsRepository = metricsRepository;
         this.vfmpSimulator = vfmpSimulator;
@@ -35,7 +35,6 @@ public class SchemeSimulatorService {
         VfmpResult vfmpResult = vfmpSimulator.evaluate(metrics);
         HecmResult hecmResult = hecmSimulator.evaluate(metrics);
 
-        // 3. Construct Assessment Result
         // 3. Construct Assessment Result
         return new MerchantRiskAssessment(merchantId, vfmpResult, hecmResult, metrics);
     }

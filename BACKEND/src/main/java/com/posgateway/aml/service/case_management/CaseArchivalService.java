@@ -33,6 +33,10 @@ public class CaseArchivalService {
     // Regulatory Requirements
     private static final int ARCHIVE_AFTER_YEARS = 1;
     private static final int DELETE_AFTER_YEARS_CBK = 7;
+    /** All terminal (CLOSED_*) case statuses — the archival/retention candidate set. */
+    private static final List<CaseStatus> CLOSED_STATUSES = List.of(
+            CaseStatus.CLOSED_CLEARED, CaseStatus.CLOSED_SAR_FILED,
+            CaseStatus.CLOSED_BLOCKED, CaseStatus.CLOSED_REJECTED);
     // private static final int DELETE_AFTER_YEARS_FATF = 5; // Minimum
 
     @Autowired
@@ -54,18 +58,9 @@ public class CaseArchivalService {
         logger.info("Starting scheduled case archival process...");
         LocalDateTime cutoffDate = LocalDateTime.now().minusYears(ARCHIVE_AFTER_YEARS);
 
-        // Ideally use a repository method:
-        // findByStatusInAndUpdatedAtBeforeAndArchivedFalse
-        // For now, fetching all relevant status and filtering
-        // Optimized: We should implement a custom query in repository for performance
-        List<ComplianceCase> candidates = complianceCaseRepository.findAll().stream()
-                .filter(c -> !c.getArchived())
-                .filter(c -> c.getStatus() == CaseStatus.CLOSED_CLEARED ||
-                        c.getStatus() == CaseStatus.CLOSED_SAR_FILED ||
-                        c.getStatus() == CaseStatus.CLOSED_BLOCKED ||
-                        c.getStatus() == CaseStatus.CLOSED_REJECTED)
-                .filter(c -> c.getUpdatedAt().isBefore(cutoffDate))
-                .toList();
+        // Bounded query instead of findAll(): unarchived, closed, older than the cutoff.
+        List<ComplianceCase> candidates = complianceCaseRepository
+                .findByArchivedFalseAndStatusInAndUpdatedAtBefore(CLOSED_STATUSES, cutoffDate);
 
         for (ComplianceCase cCase : candidates) {
             try {
@@ -112,10 +107,8 @@ public class CaseArchivalService {
         logger.info("Starting retention policy enforcement (Hard Delete)...");
         LocalDateTime retentionLimit = LocalDateTime.now().minusYears(DELETE_AFTER_YEARS_CBK);
 
-        List<ComplianceCase> expiredCases = complianceCaseRepository.findAll().stream()
-                .filter(c -> c.getStatus().name().startsWith("CLOSED"))
-                .filter(c -> c.getUpdatedAt().isBefore(retentionLimit))
-                .toList();
+        List<ComplianceCase> expiredCases = complianceCaseRepository
+                .findByStatusInAndUpdatedAtBefore(CLOSED_STATUSES, retentionLimit);
 
         // CAUTION: This performs actual deletion
         for (ComplianceCase cCase : expiredCases) {

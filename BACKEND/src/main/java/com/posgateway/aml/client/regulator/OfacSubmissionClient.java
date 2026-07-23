@@ -23,7 +23,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * OFAC adapter.
  *
  * <p>OFAC's public Treasury services are read-mostly: there is no SAR submission
- * endpoint. The "submit to OFAC" call in the legacy mock is a misnomer for
+ * endpoint. The legacy "submit to OFAC" name is a misnomer for
  * <em>verify the SDN list cache is fresh and treat the submission as a no-op</em>.
  *
  * <p>This client validates that the SDN feed has been touched within the last

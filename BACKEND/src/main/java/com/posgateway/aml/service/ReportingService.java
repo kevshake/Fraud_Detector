@@ -8,7 +8,10 @@ import com.posgateway.aml.model.SarStatus;
 import com.posgateway.aml.repository.AuditLogRepository;
 import com.posgateway.aml.repository.ComplianceCaseRepository;
 import com.posgateway.aml.repository.SuspiciousActivityReportRepository;
+import com.posgateway.aml.service.security.PspIsolationService;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -21,34 +24,34 @@ public class ReportingService {
     private final ComplianceCaseRepository caseRepository;
     private final SuspiciousActivityReportRepository sarRepository;
     private final AuditLogRepository auditLogRepository;
-    private final com.posgateway.aml.repository.UserRepository userRepository;
     private final com.posgateway.aml.repository.MerchantRepository merchantRepository;
+    private final PspIsolationService pspIsolationService;
 
     public ReportingService(ComplianceCaseRepository caseRepository,
             SuspiciousActivityReportRepository sarRepository,
             AuditLogRepository auditLogRepository,
-            com.posgateway.aml.repository.UserRepository userRepository,
-            com.posgateway.aml.repository.MerchantRepository merchantRepository) {
+            com.posgateway.aml.repository.MerchantRepository merchantRepository,
+            PspIsolationService pspIsolationService) {
         this.caseRepository = caseRepository;
         this.sarRepository = sarRepository;
         this.auditLogRepository = auditLogRepository;
-        this.userRepository = userRepository;
         this.merchantRepository = merchantRepository;
+        this.pspIsolationService = pspIsolationService;
     }
 
-    private Long getCurrentPspId() {
-        org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder
-                .getContext().getAuthentication();
-        if (auth == null)
-            return null;
-        return userRepository.findByUsername(auth.getName())
-                .map(u -> u.getPsp() != null ? u.getPsp().getPspId() : null)
-                .orElse(null);
+    private Long getCurrentPspScope() {
+        com.posgateway.aml.entity.User user = pspIsolationService.getCurrentUser();
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not authenticated");
+        }
+        return pspIsolationService.isPlatformAdministrator(user)
+                ? null
+                : pspIsolationService.getCurrentUserPspId();
     }
 
     public Map<String, Object> summary() {
         Map<String, Object> result = new HashMap<>();
-        Long pspId = getCurrentPspId();
+        Long pspId = getCurrentPspScope();
 
         result.put("casesByStatus", casesByStatus());
         result.put("sarsByStatus", sarsByStatus());
@@ -84,13 +87,15 @@ public class ReportingService {
     }
 
     public Map<String, Long> auditHourly(int hoursBack) {
-        // Audit log filtering skipped for brevity unless AuditLog entity has PSP.
-        // Assuming Admin only accesses this or generic logs.
+        int boundedHours = Math.max(1, Math.min(hoursBack, 24 * 31));
+        Long pspId = getCurrentPspScope();
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime start = now.minusHours(hoursBack);
-        List<AuditLog> logs = auditLogRepository.findByTimestampBetween(start, now);
+        LocalDateTime start = now.minusHours(boundedHours);
+        List<AuditLog> logs = pspId == null
+                ? auditLogRepository.findByTimestampBetween(start, now)
+                : auditLogRepository.findByPspIdAndTimestampBetween(pspId, start, now);
         Map<String, Long> buckets = new LinkedHashMap<>();
-        for (int i = hoursBack - 1; i >= 0; i--) {
+        for (int i = boundedHours - 1; i >= 0; i--) {
             LocalDateTime bucketStart = now.minusHours(i + 1);
             LocalDateTime bucketEnd = now.minusHours(i);
             long count = logs.stream()
@@ -102,7 +107,7 @@ public class ReportingService {
     }
 
     public Map<CaseStatus, Long> casesByStatus() {
-        Long pspId = getCurrentPspId();
+        Long pspId = getCurrentPspScope();
         Map<CaseStatus, Long> map = new EnumMap<>(CaseStatus.class);
         for (CaseStatus status : CaseStatus.values()) {
             if (pspId != null) {
@@ -115,31 +120,12 @@ public class ReportingService {
     }
 
     public Map<String, Long> casesStatusPriorityMatrix() {
-        Long pspId = getCurrentPspId();
+        Long pspId = getCurrentPspScope();
         Map<String, Long> result = new LinkedHashMap<>();
         for (CaseStatus s : CaseStatus.values()) {
             for (com.posgateway.aml.model.CasePriority p : com.posgateway.aml.model.CasePriority.values()) {
                 long c;
                 if (pspId != null) {
-                    // Logic for combined count not present in repo, need to add or iterate.
-                    // To avoid explosion of methods, maybe just count by status and filtered in
-                    // memory if volume low,
-                    // OR add usage of Specification.
-                    // Given previous pattern, let's assume I added or will add
-                    // countByPspIdAndStatusAndPriority or accept simplified.
-                    // I'll stick to what I added: countByPspIdAndStatus and Priority separately.
-                    // Actually I didn't add the combined one. I added countByPspIdAndStatus and
-                    // countByPspIdAndPriority.
-                    // For the matrix, we need cross product. I'll use findByPspId methods and
-                    // stream if necessary or add the method.
-                    // For now, let's just use the priority one to fill or 0. Data filtration is
-                    // key.
-                    // I will add `countByPspIdAndStatusAndPriority` to repository in next step if
-                    // critical,
-                    // or just return 0 for now to avoid break.
-                    // Better: use findByPspIdAndCreatedAtBetween (roughly) or similar.
-                    // Wait, I SHOULD support this. Let's assume I will add
-                    // `countByPspIdAndStatusAndPriority` to repo.
                     c = caseRepository.countByPspIdAndStatusAndPriority(pspId, s, p);
                 } else {
                     c = caseRepository.countByStatusAndPriority(s, p);
@@ -151,7 +137,7 @@ public class ReportingService {
     }
 
     public Map<SarStatus, Long> sarsByStatus() {
-        Long pspId = getCurrentPspId();
+        Long pspId = getCurrentPspScope();
         Map<SarStatus, Long> map = new EnumMap<>(SarStatus.class);
         for (SarStatus status : SarStatus.values()) {
             if (pspId != null) {
@@ -168,9 +154,10 @@ public class ReportingService {
     }
 
     public Map<String, Long> dailyCountsCases(int daysBack, String merchantId) {
-        Long pspId = getCurrentPspId();
+        int boundedDays = Math.max(1, Math.min(daysBack, 366));
+        Long pspId = getCurrentPspScope();
         LocalDate today = LocalDate.now();
-        LocalDateTime start = today.minusDays(daysBack - 1).atStartOfDay();
+        LocalDateTime start = today.minusDays(boundedDays - 1L).atStartOfDay();
         List<ComplianceCase> cases;
 
         if (pspId != null) {
@@ -192,9 +179,10 @@ public class ReportingService {
     }
 
     public Map<String, Long> dailyCountsSars(int daysBack) {
-        Long pspId = getCurrentPspId();
+        int boundedDays = Math.max(1, Math.min(daysBack, 366));
+        Long pspId = getCurrentPspScope();
         LocalDate today = LocalDate.now();
-        LocalDateTime start = today.minusDays(daysBack - 1).atStartOfDay();
+        LocalDateTime start = today.minusDays(boundedDays - 1L).atStartOfDay();
         List<SuspiciousActivityReport> sars;
 
         if (pspId != null) {
@@ -208,8 +196,12 @@ public class ReportingService {
     }
 
     public long auditCountLastHours(int hours) {
+        int boundedHours = Math.max(1, Math.min(hours, 24 * 31));
+        Long pspId = getCurrentPspScope();
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime start = now.minusHours(hours);
-        return auditLogRepository.findByTimestampBetween(start, now).size();
+        LocalDateTime start = now.minusHours(boundedHours);
+        return pspId == null
+                ? auditLogRepository.countByTimestampAfter(start)
+                : auditLogRepository.countByPspIdAndTimestampAfter(pspId, start);
     }
 }

@@ -40,6 +40,9 @@ public class EnhancedDueDiligenceRequest {
     @Column(name = "site_visit_completed",       nullable = false)
     private boolean siteVisitCompleted;
 
+    @Column(name = "site_visit_required", nullable = false)
+    private boolean siteVisitRequired;
+
     // Kenyan-specific (Phase 29)
     @Column(name = "senior_management_approval", nullable = false)
     private boolean seniorManagementApproval;
@@ -53,8 +56,20 @@ public class EnhancedDueDiligenceRequest {
     @Column(name = "initiated_at", nullable = false)
     private LocalDateTime initiatedAt;
 
+    @Column(name = "initiated_by", length = 200)
+    private String initiatedBy;
+
+    @Column(name = "last_updated_at")
+    private LocalDateTime lastUpdatedAt;
+
+    @Column(name = "last_updated_by", length = 200)
+    private String lastUpdatedBy;
+
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
+
+    @Column(name = "completed_by", length = 200)
+    private String completedBy;
 
     public EnhancedDueDiligenceRequest() {
     }
@@ -81,6 +96,8 @@ public class EnhancedDueDiligenceRequest {
 
     public boolean isSiteVisitCompleted() { return siteVisitCompleted; }
     public void setSiteVisitCompleted(boolean v) { this.siteVisitCompleted = v; }
+    public boolean isSiteVisitRequired() { return siteVisitRequired; }
+    public void setSiteVisitRequired(boolean v) { this.siteVisitRequired = v; }
 
     public boolean isSeniorManagementApproval() { return seniorManagementApproval; }
     public void setSeniorManagementApproval(boolean v) { this.seniorManagementApproval = v; }
@@ -93,7 +110,15 @@ public class EnhancedDueDiligenceRequest {
 
     public LocalDateTime getInitiatedAt() { return initiatedAt; }
     public void setInitiatedAt(LocalDateTime v) { this.initiatedAt = v; }
+    public String getInitiatedBy() { return initiatedBy; }
+    public void setInitiatedBy(String v) { this.initiatedBy = v; }
+    public LocalDateTime getLastUpdatedAt() { return lastUpdatedAt; }
+    public void setLastUpdatedAt(LocalDateTime v) { this.lastUpdatedAt = v; }
+    public String getLastUpdatedBy() { return lastUpdatedBy; }
+    public void setLastUpdatedBy(String v) { this.lastUpdatedBy = v; }
 
     public LocalDateTime getCompletedAt() { return completedAt; }
     public void setCompletedAt(LocalDateTime v) { this.completedAt = v; }
+    public String getCompletedBy() { return completedBy; }
+    public void setCompletedBy(String v) { this.completedBy = v; }
 }

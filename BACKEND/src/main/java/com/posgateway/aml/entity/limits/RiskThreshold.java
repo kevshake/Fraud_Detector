@@ -11,15 +11,16 @@ import java.time.LocalDateTime;
  * Stores risk-based transaction limits
  */
 @Entity
-@Table(name = "risk_thresholds", uniqueConstraints = @UniqueConstraint(columnNames = "risk_level"))
-@Data
+@Table(name = "risk_thresholds")
+@lombok.Getter
+@lombok.Setter
 public class RiskThreshold {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "risk_level", nullable = false, length = 20, unique = true)
+    @Column(name = "risk_level", nullable = false, length = 20)
     private String riskLevel; // LOW, MEDIUM, HIGH, CRITICAL
 
     @Column(name = "description", columnDefinition = "TEXT")

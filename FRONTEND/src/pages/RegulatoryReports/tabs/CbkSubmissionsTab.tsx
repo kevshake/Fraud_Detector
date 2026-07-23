@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useCbkSubmissions, useAllPsps } from "../../../features/api/queries";
 import { useReplayCbkSubmission } from "../../../features/api/mutations";
 import { CBK_ENDPOINT_LABELS } from "../../../types/cbk";
@@ -6,7 +7,7 @@ import type { CbkEndpointType } from "../../../types/cbk";
 import TwBadge from "../../../components/Common/TwBadge";
 import TwPagination from "../../../components/Common/TwPagination";
 import TwSnackbar from "../../../components/Common/TwSnackbar";
-import { Repeat, Loader2 } from "lucide-react";
+import { Repeat, Loader2, Network } from "lucide-react";
 
 const statusBadge = (s: string): "success" | "danger" | "warning" | "info" | "default" => {
   if (s === "SUCCESS") return "success";
@@ -48,7 +49,7 @@ export default function CbkSubmissionsTab() {
     finally { setReplayingId(null); }
   };
 
-  const selectClass = "rounded-lg border border-white/10 bg-[#1a2744] px-3 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-burgundy-700";
+  const selectClass = "rounded-lg border border-white/10 bg-[var(--surface-3)] px-3 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-burgundy-700";
 
   return (
     <div>
@@ -76,14 +77,14 @@ export default function CbkSubmissionsTab() {
 
       {isError && <div className="mb-3 rounded-lg border border-red-700/30 bg-red-900/30 px-4 py-3 text-sm text-red-200">Failed to load CBK submission history.</div>}
 
-      <div className="overflow-hidden rounded-lg border border-white/10 bg-[#0f1a2e]">
+      <div className="overflow-hidden rounded-lg border border-white/10 bg-[var(--surface-2)]">
         <div className="overflow-auto" style={{ maxHeight: "calc(100vh - 380px)" }}>
           {isLoading ? (
             <div className="flex justify-center py-12"><Loader2 size={28} className="animate-spin text-glass-muted" /></div>
           ) : (
             <table className="w-full border-collapse">
               <thead className="sticky top-0 z-10">
-                <tr className="border-b border-white/10 bg-[#0f1a2e]">
+                <tr className="border-b border-white/10 bg-[var(--surface-2)]">
                   <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">PSP</th>
                   <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">Endpoint</th>
                   <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">Status</th>
@@ -106,11 +107,14 @@ export default function CbkSubmissionsTab() {
                       <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-glass-muted">{row.requestId ?? "—"}</td>
                       <td className="whitespace-nowrap px-4 py-3 text-xs text-glass-muted">{row.recordCount ?? "—"}</td>
                       <td className="whitespace-nowrap px-4 py-3">
-                        <button onClick={() => handleReplay(row)} disabled={replayingId === row.id}
-                          className="flex items-center gap-1 rounded border border-burgundy-700 px-2 py-1 text-xs text-burgundy-400 transition-colors hover:bg-burgundy-700/10 disabled:opacity-30">
-                          {replayingId === row.id ? <Loader2 size={12} className="animate-spin" /> : <Repeat size={12} />}
-                          Replay
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <Link to={`/records/CBK_SUBMISSION/${row.id}`} title="Trace record" className="rounded border border-sky-700 px-2 py-1 text-sky-300 transition-colors hover:bg-sky-700/10"><Network size={12} /></Link>
+                          <button onClick={() => handleReplay(row)} disabled={replayingId === row.id}
+                            className="flex items-center gap-1 rounded border border-burgundy-700 px-2 py-1 text-xs text-burgundy-400 transition-colors hover:bg-burgundy-700/10 disabled:opacity-30">
+                            {replayingId === row.id ? <Loader2 size={12} className="animate-spin" /> : <Repeat size={12} />}
+                            Replay
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );

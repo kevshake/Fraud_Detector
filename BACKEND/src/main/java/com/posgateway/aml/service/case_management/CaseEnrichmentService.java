@@ -35,7 +35,7 @@ public class CaseEnrichmentService {
     private final CaseEntityRepository caseEntityRepository;
     private final ComplianceCaseRepository caseRepository;
     private final MerchantRepository merchantRepository;
-    private final com.posgateway.aml.service.aml.SumsubAmlService sumsubAmlService;
+    private final com.posgateway.aml.service.aml.AmlScreeningOrchestrator screeningOrchestrator;
     private final com.posgateway.aml.service.graph.Neo4jGdsService neo4jGdsService;
 
     @Autowired
@@ -43,13 +43,13 @@ public class CaseEnrichmentService {
             CaseEntityRepository caseEntityRepository,
             ComplianceCaseRepository caseRepository,
             MerchantRepository merchantRepository,
-            com.posgateway.aml.service.aml.SumsubAmlService sumsubAmlService,
+            com.posgateway.aml.service.aml.AmlScreeningOrchestrator screeningOrchestrator,
             @Autowired(required = false) com.posgateway.aml.service.graph.Neo4jGdsService neo4jGdsService) {
         this.caseTransactionRepository = caseTransactionRepository;
         this.caseEntityRepository = caseEntityRepository;
         this.caseRepository = caseRepository;
         this.merchantRepository = merchantRepository;
-        this.sumsubAmlService = sumsubAmlService;
+        this.screeningOrchestrator = screeningOrchestrator;
         this.neo4jGdsService = neo4jGdsService;
     }
 
@@ -97,11 +97,12 @@ public class CaseEnrichmentService {
                     null);
             caseEntityRepository.save(customEntity);
 
-            // 2. Fetch merchant and perform real-time KYC/AML screening via Sumsub
+            // 2. Fetch merchant and perform real-time AML re-screening through the
+            //    platform's own independent sanctions engine (persists result + audit).
             try {
                 Merchant merchant = merchantRepository.findById(merchantId).orElse(null);
                 if (merchant == null) {
-                    addSystemNote(cCase, "KYC trigger skipped — merchant " + ref + " not found");
+                    addSystemNote(cCase, "AML re-screen skipped — merchant " + ref + " not found");
                 } else {
                     String merchantName = merchant.getLegalName() != null
                             ? merchant.getLegalName()
@@ -114,12 +115,14 @@ public class CaseEnrichmentService {
                                     + ", riskTier=" + riskTier
                                     + ", kycStatus=" + kycStatus);
 
-                    sumsubAmlService.screenMerchantWithSumsub(merchant);
-                    addSystemNote(cCase, "Triggered Sumsub KYC/AML re-screen for merchant "
-                            + ref + " (" + merchantName + ")");
+                    com.posgateway.aml.model.ScreeningResult screen =
+                            screeningOrchestrator.screenMerchant(merchant);
+                    addSystemNote(cCase, "Triggered AML re-screen for merchant "
+                            + ref + " (" + merchantName + "): status=" + screen.getStatus()
+                            + ", matches=" + screen.getMatchCount());
                 }
             } catch (Exception e) {
-                logger.error("KYC trigger failed for merchant {}", merchantId, e);
+                logger.error("AML re-screen trigger failed for merchant {}", merchantId, e);
             }
 
             // 3. Update Graph Context (Integration: Neo4j)
@@ -135,13 +138,22 @@ public class CaseEnrichmentService {
     }
 
     private void addSystemNote(ComplianceCase cCase, String text) {
+        // These enrichment methods are @Async, so the passed case is detached from the
+        // caller's persistence context — touching its lazy `notes` collection directly would
+        // throw LazyInitializationException. Re-load a managed instance inside this thread's
+        // transaction before mutating the collection.
+        ComplianceCase managed = (cCase != null && cCase.getId() != null)
+                ? caseRepository.findById(cCase.getId()).orElse(cCase) : cCase;
+        if (managed == null) {
+            return;
+        }
         CaseNote note = new CaseNote();
-        note.setComplianceCase(cCase);
+        note.setComplianceCase(managed);
         note.setContent(text);
         note.setCreatedAt(LocalDateTime.now());
         note.setInternal(true);
-        cCase.getNotes().add(note);
-        caseRepository.save(cCase);
+        managed.getNotes().add(note);
+        caseRepository.save(managed);
     }
 
     /**
@@ -156,25 +168,9 @@ public class CaseEnrichmentService {
         StringBuilder sb = new StringBuilder("Auto-Generated Risk Assessment:\n");
         riskDetails.forEach((k, v) -> sb.append("- ").append(k).append(": ").append(v).append("\n"));
 
-        // In a real app, we might store this in a structured JSON column or dedicated
-        // Evidence table
-        // For now, appending to Case Description or creating a Note is effective.
-
-        CaseNote note = new CaseNote();
-        note.setComplianceCase(cCase);
-        note.setContent(sb.toString());
-        note.setCreatedAt(LocalDateTime.now());
-        note.setAuthor(null); // System
-        note.setInternal(true);
-
-        // Note: We need CaseNoteRepository or add to Case list.
-        // Since we didn't inject NoteRepo, let's add to case's list if initialized, or
-        // just rely on cascade if we save Case.
-        // Safer to just ensure Note is saved via Cascade or NoteRepo.
-        // Given existing architecture, lets fetch case, add to list, save case.
-
-        cCase.getNotes().add(note);
-        caseRepository.save(cCase);
+        // Persist via the shared helper, which re-loads a managed case (this method is @Async,
+        // so the passed entity is detached and its lazy notes collection cannot be touched here).
+        addSystemNote(cCase, sb.toString());
     }
 
     private static final String CE_TYPE_MERCHANT = "MERCHANT";

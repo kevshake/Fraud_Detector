@@ -91,6 +91,14 @@ export default function RuleEditorModal({
   useEffect(() => {
     if (editingRule) {
       setFormData(editingRule);
+      // Hydrate the editable parameter rows from the rule's saved parameters, else Save
+      // rebuilds `parameters` from an empty array and silently wipes the rule's conditions.
+      const params = (editingRule as any).parameters || {};
+      setSelectedParameters(Object.keys(params).map((key) => ({
+        key,
+        operator: params[key]?.operator ?? '>=',
+        value: params[key]?.value ?? '',
+      })));
     } else {
       resetForm();
     }

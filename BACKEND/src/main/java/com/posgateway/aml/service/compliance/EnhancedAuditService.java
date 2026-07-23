@@ -8,8 +8,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestContextHolder;
@@ -33,8 +31,8 @@ public class EnhancedAuditService extends AuditLogService {
     public EnhancedAuditService(AuditLogRepository auditLogRepository,
                                 com.fasterxml.jackson.databind.ObjectMapper objectMapper,
                                 org.springframework.core.env.Environment environment,
-                                KafkaTemplate<String, String> kafkaTemplate) {
-        super(auditLogRepository, objectMapper, environment, kafkaTemplate);
+                                com.posgateway.aml.service.kafka.KafkaOutboxService kafkaOutboxService) {
+        super(auditLogRepository, objectMapper, environment, kafkaOutboxService);
         this.auditLogRepository = auditLogRepository;
     }
 
@@ -145,16 +143,5 @@ public class EnhancedAuditService extends AuditLogService {
         return null;
     }
 
-    /**
-     * Enforce audit log retention policy
-     */
-    @Scheduled(cron = "0 0 2 * * *") // Daily at 2 AM
-    @Transactional
-    public void enforceRetentionPolicy() {
-        // Delete logs older than retention period (default 7 years)
-        LocalDateTime retentionDate = LocalDateTime.now().minusYears(7);
-        long deleted = auditLogRepository.deleteByTimestampBefore(retentionDate);
-        logger.info("Deleted {} audit logs older than retention period", deleted);
-    }
 }
 

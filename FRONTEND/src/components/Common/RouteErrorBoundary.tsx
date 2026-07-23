@@ -61,10 +61,10 @@ export class RouteErrorBoundary extends Component<Props, State> {
             startIcon={<RefreshIcon />}
             onClick={this.handleReload}
             sx={{
-              color: "#8B4049",
-              borderColor: "#8B4049",
+              color: "var(--gold)",
+              borderColor: "var(--gold)",
               textTransform: "none",
-              "&:hover": { borderColor: "#6B3037", backgroundColor: "rgba(139,64,73,0.08)" },
+              "&:hover": { borderColor: "var(--gold)", backgroundColor: "var(--surface-3)" },
             }}
           >
             Reload page

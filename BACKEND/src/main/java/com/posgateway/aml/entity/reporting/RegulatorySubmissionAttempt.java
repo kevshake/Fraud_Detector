@@ -39,8 +39,20 @@ public class RegulatorySubmissionAttempt {
     @Column(name = "response_body", columnDefinition = "TEXT")
     private String responseBody;
 
+    @Column(name = "request_sha256", length = 64)
+    private String requestSha256;
+
+    @Column(name = "response_sha256", length = 64)
+    private String responseSha256;
+
     @Column(name = "http_status")
     private Integer httpStatus;
+
+    @Column(name = "regulator_status", length = 64)
+    private String regulatorStatus;
+
+    @Column(name = "error_message", columnDefinition = "TEXT")
+    private String errorMessage;
 
     @Column(name = "submitted_at", nullable = false)
     private OffsetDateTime submittedAt = OffsetDateTime.now();
@@ -62,8 +74,16 @@ public class RegulatorySubmissionAttempt {
     public void setRequestBody(String requestBody) { this.requestBody = requestBody; }
     public String getResponseBody() { return responseBody; }
     public void setResponseBody(String responseBody) { this.responseBody = responseBody; }
+    public String getRequestSha256() { return requestSha256; }
+    public void setRequestSha256(String requestSha256) { this.requestSha256 = requestSha256; }
+    public String getResponseSha256() { return responseSha256; }
+    public void setResponseSha256(String responseSha256) { this.responseSha256 = responseSha256; }
     public Integer getHttpStatus() { return httpStatus; }
     public void setHttpStatus(Integer httpStatus) { this.httpStatus = httpStatus; }
+    public String getRegulatorStatus() { return regulatorStatus; }
+    public void setRegulatorStatus(String regulatorStatus) { this.regulatorStatus = regulatorStatus; }
+    public String getErrorMessage() { return errorMessage; }
+    public void setErrorMessage(String errorMessage) { this.errorMessage = errorMessage; }
     public OffsetDateTime getSubmittedAt() { return submittedAt; }
     public void setSubmittedAt(OffsetDateTime submittedAt) { this.submittedAt = submittedAt; }
     public Integer getAttemptNo() { return attemptNo; }

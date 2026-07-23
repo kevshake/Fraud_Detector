@@ -9,12 +9,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.KafkaListener;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
+import java.time.ZoneId;
 
 /**
  * Feature Engine Service — consumes {@code transactions.raw} and maintains
@@ -24,8 +22,7 @@ import java.util.Map;
  * <ol>
  *   <li>Parse raw transaction payload from {@code transactions.raw}.</li>
  *   <li>Update velocity counters (1 h, 24 h) and last-seen timestamp in Redis.</li>
- *   <li>Re-publish an enriched event to {@code transactions.enriched} with the
- *       current velocity snapshot attached.</li>
+ *   <li>Update the cached feature snapshot used by the synchronous scoring path.</li>
  * </ol>
  *
  * <p>Consumer group: {@code aml-feature-engine}.
@@ -44,14 +41,11 @@ public class FeatureEngineService {
 
     private final ObjectMapper objectMapper;
     private final FeatureCacheService featureCacheService;
-    private final KafkaTemplate<String, String> kafkaTemplate;
 
     public FeatureEngineService(ObjectMapper objectMapper,
-                                FeatureCacheService featureCacheService,
-                                KafkaTemplate<String, String> kafkaTemplate) {
+                                FeatureCacheService featureCacheService) {
         this.objectMapper = objectMapper;
         this.featureCacheService = featureCacheService;
-        this.kafkaTemplate = kafkaTemplate;
     }
 
     /**
@@ -70,24 +64,23 @@ public class FeatureEngineService {
 
             String panHash    = optStr(root, "panHash");
             Long   pspId      = optLong(root, "pspId");
-            String merchantId = optStr(root, "merchantId");
+            Long   transactionId = optLong(root, "transactionId");
             Long   amountCents = optLong(root, "amountCents");
-            String channelType = optStr(root, "channelType");
 
             if (panHash == null || panHash.isBlank()) {
                 logger.debug("FeatureEngine: skipping event with no panHash");
                 return;
             }
+            if (transactionId == null) {
+                throw new IllegalArgumentException("Raw transaction event has no transactionId");
+            }
 
-            long nowMs = System.currentTimeMillis();
+            long eventTimestampMs = eventTimestamp(root);
 
             // 1. Record this transaction timestamp in the sorted-set velocity window.
             //    Idempotent: same timestamp written twice doesn't create duplicates in zset.
-            featureCacheService.recordTransaction(panHash, nowMs, amountCents != null ? amountCents : 0);
-
-            // 2. Increment simple counters for 1 h and 24 h windows.
-            featureCacheService.incrementCounter(panHash, "tx.count.1h",  3_600L);
-            featureCacheService.incrementCounter(panHash, "tx.count.24h", 86_400L);
+            featureCacheService.recordTransactionEvent(
+                    panHash, String.valueOf(transactionId), eventTimestampMs);
 
             // 3. Read current velocity counts from the sorted-set for the enriched event.
             long count1h  = featureCacheService.getTxCountInWindow(panHash, WINDOW_1H_MS);
@@ -107,46 +100,24 @@ public class FeatureEngineService {
                 featureCacheService.putFeatures(panHash, features);
             });
 
-            // 5. Publish enriched event (fire-and-forget).
-            publishEnrichedEvent(root, panHash, pspId, merchantId, channelType,
-                                 amountCents, count1h, count24h, count7d);
-
             logger.debug("FeatureEngine: processed panHash={} pspId={} count1h={} count24h={}",
                     panHash, pspId, count1h, count24h);
 
         } catch (Exception e) {
             logger.error("FeatureEngine: failed to process raw transaction event: {}", e.getMessage(), e);
+            throw new IllegalStateException("Feature projection failed", e);
         }
     }
 
-    private void publishEnrichedEvent(JsonNode original, String panHash, Long pspId,
-                                      String merchantId, String channelType,
-                                      Long amountCents, long count1h, long count24h, long count7d) {
-        try {
-            Map<String, Object> enriched = new HashMap<>();
-            // Carry through original fields
-            copyLong(original,   enriched, "transactionId");
-            copyStr(original,    enriched, "currencyCode");
-            copyStr(original,    enriched, "transactionTimestamp");
-            copyStr(original,    enriched, "riskLevel");
-            copyStr(original,    enriched, "decision");
-            enriched.put("panHash",    panHash);
-            enriched.put("pspId",      pspId);
-            enriched.put("merchantId", merchantId);
-            enriched.put("channelType", channelType);
-            enriched.put("amountCents", amountCents);
-            // Velocity snapshot
-            enriched.put("velocityCount1h",  count1h);
-            enriched.put("velocityCount24h", count24h);
-            enriched.put("velocityCount7d",  count7d);
-            enriched.put("enrichedAt", LocalDateTime.now().toString());
-
-            String enrichedPayload = objectMapper.writeValueAsString(enriched);
-            String partitionKey = pspId != null ? String.valueOf(pspId) : "0";
-            kafkaTemplate.send(KafkaConfig.TOPIC_TRANSACTIONS_ENRICHED, partitionKey, enrichedPayload);
-        } catch (Exception e) {
-            logger.warn("FeatureEngine: failed to publish enriched event: {}", e.getMessage());
+    private static long eventTimestamp(JsonNode root) {
+        String value = optStr(root, "transactionTimestamp");
+        if (value == null || value.isBlank()) {
+            return System.currentTimeMillis();
         }
+        return LocalDateTime.parse(value)
+                .atZone(ZoneId.systemDefault())
+                .toInstant()
+                .toEpochMilli();
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────
@@ -161,13 +132,4 @@ public class FeatureEngineService {
         return (n != null && n.canConvertToLong()) ? n.asLong() : null;
     }
 
-    private static void copyStr(JsonNode src, Map<String, Object> dst, String field) {
-        JsonNode n = src.get(field);
-        if (n != null && !n.isNull()) dst.put(field, n.asText());
-    }
-
-    private static void copyLong(JsonNode src, Map<String, Object> dst, String field) {
-        JsonNode n = src.get(field);
-        if (n != null && n.canConvertToLong()) dst.put(field, n.asLong());
-    }
 }

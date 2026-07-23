@@ -211,7 +211,7 @@ public class SettingsController {
         config.put("version", "1.0.0");
         config.put("environment", System.getProperty("spring.profiles.active", "development"));
         config.put("database", "PostgreSQL");
-        config.put("cache", "Aerospike");
+        config.put("cache", "Redis (backend); Aerospike (aml-microservice)");
         return ResponseEntity.ok(config);
     }
 
@@ -241,9 +241,11 @@ public class SettingsController {
      * Get PSP theme configuration
      * GET /settings/psps/{pspId}/theme
      */
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','PSP_ADMIN')")
     @GetMapping("/psps/{pspId}/theme")
-    public ResponseEntity<Map<String, Object>> getPspTheme(@PathVariable Long pspId) {
+    public ResponseEntity<Map<String, Object>> getPspTheme(@PathVariable Long pspId,
+                                                            @AuthenticationPrincipal User currentUser) {
+        if (!canAccessPsp(currentUser, pspId)) return ResponseEntity.status(403).build();
         Psp psp = pspRepository.findById(pspId)
                 .orElseThrow(() -> new IllegalArgumentException("PSP not found"));
 
@@ -268,11 +270,13 @@ public class SettingsController {
      * Update PSP theme configuration
      * PUT /settings/psps/{pspId}/theme
      */
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','PSP_ADMIN')")
     @PutMapping("/psps/{pspId}/theme")
     public ResponseEntity<Map<String, Object>> updatePspTheme(
             @PathVariable Long pspId,
-            @RequestBody PspThemeUpdateRequest request) {
+            @RequestBody PspThemeUpdateRequest request,
+            @AuthenticationPrincipal User currentUser) {
+        if (!canAccessPsp(currentUser, pspId)) return ResponseEntity.status(403).build();
         
         Psp updatedPsp = pspService.updatePspTheme(pspId, request);
 
@@ -297,7 +301,7 @@ public class SettingsController {
      * Get available theme presets
      * GET /settings/themes/presets
      */
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','PSP_ADMIN')")
     @GetMapping("/themes/presets")
     public ResponseEntity<Map<String, Map<String, String>>> getThemePresets() {
         Map<String, Map<String, String>> presets = new HashMap<>();
@@ -331,5 +335,10 @@ public class SettingsController {
         presets.put("purple", purpleTheme);
 
         return ResponseEntity.ok(presets);
+    }
+
+    private boolean canAccessPsp(User currentUser, Long pspId) {
+        if (currentUser == null || pspId == null) return false;
+        return currentUser.getPsp() == null || pspId.equals(currentUser.getPsp().getPspId());
     }
 }

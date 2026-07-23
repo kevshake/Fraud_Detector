@@ -295,6 +295,25 @@ public class SanctionsListDownloadService {
             listName = json.get("datasets").get(0).asText();
         }
 
+        // Derive PEP classification from OpenSanctions topics. "role.pep" (and its
+        // subtypes) => PEP; "role.rca" => relative/close associate. PEP takes precedence.
+        List<String> topics = new ArrayList<>();
+        if (props != null) {
+            collectStrings(props.get("topics"), topics);
+        }
+        String pepLevel = null;
+        for (String t : topics) {
+            if (t == null) continue;
+            String tl = t.toLowerCase();
+            if (tl.equals("role.pep") || tl.startsWith("role.pep.")) {
+                pepLevel = "PEP";
+                break;
+            }
+            if (tl.equals("role.rca")) {
+                pepLevel = "RCA";
+            }
+        }
+
         Map<String, Object> entity = new HashMap<>();
         entity.put("entityId", entityId);
         entity.put("name", name);
@@ -303,6 +322,9 @@ public class SanctionsListDownloadService {
         entity.put("listName", listName);
         entity.put("country", country);
         entity.put("birthDate", birthDate);
+        if (pepLevel != null) {
+            entity.put("pepLevel", pepLevel);
+        }
         return entity;
     }
 

@@ -21,7 +21,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
                     gap: 2,
                 }}
             >
-                <CircularProgress size={60} sx={{ color: "#8B4049" }} />
+                <CircularProgress size={60} sx={{ color: "var(--gold)" }} />
                 <Typography variant="body1" sx={{ color: "text.secondary" }}>
                     Loading...
                 </Typography>

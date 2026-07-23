@@ -29,6 +29,24 @@ public class CurrencyRate {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt = LocalDateTime.now();
 
+    @Column(name = "rate_source", length = 160)
+    private String rateSource;
+
+    @Column(name = "effective_at")
+    private LocalDateTime effectiveAt;
+
+    @Column(name = "expires_at")
+    private LocalDateTime expiresAt;
+
+    @Column(name = "regulatory_approved", nullable = false)
+    private boolean regulatoryApproved;
+
+    @Column(name = "approved_by", length = 255)
+    private String approvedBy;
+
+    @Column(name = "approved_at")
+    private LocalDateTime approvedAt;
+
     // Constructors
     public CurrencyRate() {
     }
@@ -99,6 +117,54 @@ public class CurrencyRate {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public String getRateSource() {
+        return rateSource;
+    }
+
+    public void setRateSource(String rateSource) {
+        this.rateSource = rateSource;
+    }
+
+    public LocalDateTime getEffectiveAt() {
+        return effectiveAt;
+    }
+
+    public void setEffectiveAt(LocalDateTime effectiveAt) {
+        this.effectiveAt = effectiveAt;
+    }
+
+    public LocalDateTime getExpiresAt() {
+        return expiresAt;
+    }
+
+    public void setExpiresAt(LocalDateTime expiresAt) {
+        this.expiresAt = expiresAt;
+    }
+
+    public boolean isRegulatoryApproved() {
+        return regulatoryApproved;
+    }
+
+    public void setRegulatoryApproved(boolean regulatoryApproved) {
+        this.regulatoryApproved = regulatoryApproved;
+    }
+
+    public String getApprovedBy() {
+        return approvedBy;
+    }
+
+    public void setApprovedBy(String approvedBy) {
+        this.approvedBy = approvedBy;
+    }
+
+    public LocalDateTime getApprovedAt() {
+        return approvedAt;
+    }
+
+    public void setApprovedAt(LocalDateTime approvedAt) {
+        this.approvedAt = approvedAt;
     }
 
     @PreUpdate

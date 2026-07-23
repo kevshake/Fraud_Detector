@@ -9,11 +9,11 @@ import com.posgateway.aml.service.enrichment.IpGeoService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.MessageDigest;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
@@ -32,30 +32,33 @@ public class TransactionIngestionService {
     private final TransactionRepository transactionRepository;
     private final com.posgateway.aml.repository.MerchantRepository merchantRepository;
     private final ObjectMapper objectMapper;
-    private final KafkaTemplate<String, String> kafkaTemplate;
+    private final com.posgateway.aml.service.kafka.KafkaOutboxService kafkaOutboxService;
 
     private final TransactionStatisticsService statisticsService;
     private final com.posgateway.aml.service.risk.RiskScoringService riskScoringService;
     private final IpGeoService ipGeoService;
     private final BinLookupService binLookupService;
+    private final com.posgateway.aml.service.security.PiiLookupHasher piiLookupHasher;
 
     @Autowired
     public TransactionIngestionService(TransactionRepository transactionRepository,
             com.posgateway.aml.repository.MerchantRepository merchantRepository,
             ObjectMapper objectMapper,
-            KafkaTemplate<String, String> kafkaTemplate,
+            com.posgateway.aml.service.kafka.KafkaOutboxService kafkaOutboxService,
             TransactionStatisticsService statisticsService,
             com.posgateway.aml.service.risk.RiskScoringService riskScoringService,
             IpGeoService ipGeoService,
-            BinLookupService binLookupService) {
+            BinLookupService binLookupService,
+            com.posgateway.aml.service.security.PiiLookupHasher piiLookupHasher) {
         this.transactionRepository = transactionRepository;
         this.merchantRepository = merchantRepository;
         this.objectMapper = objectMapper;
-        this.kafkaTemplate = kafkaTemplate;
+        this.kafkaOutboxService = kafkaOutboxService;
         this.statisticsService = statisticsService;
         this.riskScoringService = riskScoringService;
         this.ipGeoService = ipGeoService;
         this.binLookupService = binLookupService;
+        this.piiLookupHasher = piiLookupHasher;
     }
 
     /**
@@ -66,6 +69,7 @@ public class TransactionIngestionService {
      */
     @Transactional
     public TransactionEntity ingestTransaction(TransactionRequest transactionRequest) {
+        validateRequest(transactionRequest);
         logger.info("Ingesting transaction from merchant: {}", transactionRequest.getMerchantId());
 
         TransactionEntity transaction = new TransactionEntity();
@@ -80,68 +84,36 @@ public class TransactionIngestionService {
 
         transaction.setMerchantId(transactionRequest.getMerchantId());
 
-        // Lookup merchant for PSP association (Multi-tenancy)
-        merchantRepository.findById(Long.parseLong(transactionRequest.getMerchantId())) // Assuming merchantId is ID
-                                                                                        // string, simplified. If it's
-                                                                                        // alphanumeric ID, repo method
-                                                                                        // needed.
-                // Wait, Merchant.merchantId is String or Long? In Merchant entity, ID is Long.
-                // but 'merchant_id' column usually aligns.
-                // Merchant entity @Id is Long id. Merchant usually has a String 'merchantCode'
-                // or similar.
-                // Let's assume transactionRequest.getMerchantId() matches the @Id for now or
-                // use findByMerchantId if exists.
-                // Let's check MerchantRepository from previous step (Step 148).
-                // It has `findById(Long)`. It doesn't have `findByMerchantId(String)`.
-                // BUT `Merchant` entity has `id` (Long).
-                // Let's try parsing Long. If fails, we might have an issue.
-                // However, existing code in TransactionIngestionService treats it as String.
-                // Let's assume for now we parse it safe, OR if we can't find it we just skip
-                // PSP.
-                // Better: findById.
-                .ifPresent(merchant -> {
-                    if (merchant.getPsp() != null) {
-                        transaction.setPspId(merchant.getPsp().getPspId());
-                    }
-                    
-                    // --- Risk Scoring Integration ---
-                    // 1. Calculate KRS (Merchant Profile Risk)
-                    Double krs = riskScoringService.calculateKrs(merchant);
-                    transaction.setKrs(krs);
+        Long merchantId = parseMerchantId(transactionRequest.getMerchantId());
+        com.posgateway.aml.entity.merchant.Merchant merchant = merchantRepository.findById(merchantId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Unknown merchantId: " + transactionRequest.getMerchantId()));
+        if (merchant.getPsp() != null) {
+            transaction.setPspId(merchant.getPsp().getPspId());
+        }
+        Double krs = riskScoringService.calculateKrs(merchant);
+        transaction.setKrs(krs);
 
-                    // 2. Calculate TRS (Transaction Risk)
-                    // Origin: real GeoIP / BIN lookup; if both fail we leave it null.
-                    String originCountry = deriveOriginCountry(transactionRequest);
-                    String destCountry = merchant.getCountry();
-                    java.math.BigDecimal amount = java.math.BigDecimal.valueOf(transactionRequest.getAmountCents()); // Cents to Unit? Adjust inside service or here. Service takes BigDecimal.
-                    // Service expects standard units? Let's assume passed value is valid relative to thresholds (1000, 5000 etc). 
-                    // If amountCents is 50000 ($500), and threshold is 1000 ($1000), then it's low. 
-                    // Need to check Service logic. Service thresholds are 1000, 5000. 
-                    // If input is cents, 50000 cents = 500.00. 
-                    // Converting cents to standard unit:
-                    java.math.BigDecimal amountUnits = amount.divide(java.math.BigDecimal.valueOf(100));
-                    
-                    Double trs = riskScoringService.calculateTrs(originCountry, destCountry, amountUnits);
-                    transaction.setTrs(trs);
+        String originCountry = deriveOriginCountry(transactionRequest);
+        java.math.BigDecimal amountUnits = java.math.BigDecimal
+                .valueOf(transactionRequest.getAmountCents(), 2);
+        Double trs = riskScoringService.calculateTrs(originCountry, merchant.getCountry(), amountUnits);
+        transaction.setTrs(trs);
 
-                    // 3. Update CRA (Customer Rolling Average)
-                    Double currentCra = merchant.getCra(); // Assuming we added getCra to Merchant
-                    Double newCra = riskScoringService.updateCra(currentCra, trs);
-                    transaction.setCra(newCra);
-                    
-                    // update merchant CRA
-                    merchant.setCra(newCra);
-                    merchant.setKrs(krs); // Ensure KRS is fresh
-                    merchantRepository.save(merchant);
-                    
-                    // Store Merchant Location (Country) on Transaction for History/Audit
-                    transaction.setMerchantCountry(merchant.getCountry());
-                    // --------------------------------
-                });
+        Double newCra = riskScoringService.updateCra(merchant.getCra(), trs);
+        transaction.setCra(newCra);
+        merchant.setCra(newCra);
+        merchant.setKrs(krs);
+        merchantRepository.save(merchant);
+        transaction.setMerchantCountry(merchant.getCountry());
 
         transaction.setTerminalId(transactionRequest.getTerminalId());
+        transaction.setChannelType(transactionRequest.getChannelType());
+        transaction.setCashTransaction(transactionRequest.isCashTransaction());
+        transaction.setCustomerAccountReference(transactionRequest.getCustomerAccountReference());
+        transaction.setCustomerEmail(transactionRequest.getCustomerEmail());
         transaction.setAmountCents(transactionRequest.getAmountCents());
-        transaction.setCurrency(transactionRequest.getCurrency());
+        transaction.setCurrency(transactionRequest.getCurrency().toUpperCase());
         transaction.setIpAddress(transactionRequest.getIpAddress());
         if (transactionRequest.getCountryCode() != null && !transactionRequest.getCountryCode().isBlank()) {
             transaction.setMerchantCountry(transactionRequest.getCountryCode().toUpperCase());
@@ -160,8 +132,6 @@ public class TransactionIngestionService {
         }
 
         transaction.setAcquirerResponse(transactionRequest.getAcquirerResponse());
-
-        transaction.setAcquirerResponse(transactionRequest.getAcquirerResponse());
         transaction.setDirection(transactionRequest.getDirection()); // Store Direction
 
         // Calculate and store riskLevel and decision for pagination performance
@@ -172,8 +142,7 @@ public class TransactionIngestionService {
 
         TransactionEntity saved = transactionRepository.save(transaction);
 
-        // Publish raw transaction event to Kafka for feature pre-computation pipeline.
-        // Fire-and-forget: Kafka failure must never fail the ingestion path.
+        // The transaction and event commit atomically; the dispatcher publishes later.
         publishRawTransactionEvent(saved);
 
         // Automatically record transaction statistics for AML velocity checks
@@ -192,7 +161,7 @@ public class TransactionIngestionService {
     /**
      * Publish a minimal raw-transaction event to {@code transactions.raw}.
      * Keyed by pspId so consumers can partition-route by tenant.
-     * Never throws — Kafka failure is logged at WARN and swallowed.
+     * Enqueues atomically with the transaction; failures roll back the database transaction.
      */
     private void publishRawTransactionEvent(TransactionEntity saved) {
         try {
@@ -204,17 +173,46 @@ public class TransactionIngestionService {
             event.put("currencyCode", saved.getCurrency());
             event.put("transactionTimestamp", saved.getTxnTs() != null ? saved.getTxnTs().toString() : null);
             event.put("channelType", saved.getChannelType());
+            event.put("cashTransaction", saved.isCashTransaction());
             event.put("panHash", saved.getPanHash());
             event.put("riskLevel", saved.getRiskLevel());
             event.put("decision", saved.getDecision());
 
             String payload = objectMapper.writeValueAsString(event);
             String partitionKey = saved.getPspId() != null ? String.valueOf(saved.getPspId()) : "0";
-            kafkaTemplate.send(KafkaConfig.TOPIC_TRANSACTIONS_RAW, partitionKey, payload);
-            logger.debug("Published raw transaction event: txnId={}", saved.getTxnId());
+            kafkaOutboxService.enqueue(
+                    "transaction.raw:" + saved.getTxnId(),
+                    KafkaConfig.TOPIC_TRANSACTIONS_RAW,
+                    partitionKey,
+                    payload);
+            logger.debug("Queued raw transaction event: txnId={}", saved.getTxnId());
         } catch (Exception e) {
-            logger.warn("Failed to publish raw transaction event to Kafka: txnId={} error={}",
-                    saved.getTxnId(), e.getMessage());
+            throw new IllegalStateException(
+                    "Failed to serialize or enqueue transaction event for txnId=" + saved.getTxnId(), e);
+        }
+    }
+
+    private Long parseMerchantId(String merchantId) {
+        if (merchantId == null || merchantId.isBlank()) {
+            throw new IllegalArgumentException("merchantId is required");
+        }
+        try {
+            return Long.valueOf(merchantId);
+        } catch (NumberFormatException invalid) {
+            throw new IllegalArgumentException("merchantId must be a numeric platform merchant ID", invalid);
+        }
+    }
+
+    private void validateRequest(TransactionRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("transaction request is required");
+        }
+        parseMerchantId(request.getMerchantId());
+        if (request.getAmountCents() == null || request.getAmountCents() <= 0) {
+            throw new IllegalArgumentException("amountCents must be greater than zero");
+        }
+        if (request.getCurrency() == null || !request.getCurrency().matches("[A-Za-z]{3}")) {
+            throw new IllegalArgumentException("currency must be a three-letter ISO 4217 code");
         }
     }
 
@@ -233,9 +231,7 @@ public class TransactionIngestionService {
      * Calculate decision based on risk level
      */
     private String calculateDecision(String riskLevel) {
-        if ("CRITICAL".equals(riskLevel)) return "DECLINED";
-        if ("HIGH".equals(riskLevel)) return "MANUAL_REVIEW";
-        return "APPROVED";
+        return com.posgateway.aml.model.TransactionDecision.fromRiskLevel(riskLevel).name();
     }
 
     /**
@@ -247,8 +243,8 @@ public class TransactionIngestionService {
             return txn.getTrs().intValue();
         }
         // Fallback for old data or if scoring failed
-        if (txn.getAmountCents() != null && txn.getAmountCents() > 100000) return 75;
-        if (txn.getAmountCents() != null && txn.getAmountCents() > 50000) return 95;
+        if (txn.getAmountCents() != null && txn.getAmountCents() > 100000) return 95;
+        if (txn.getAmountCents() != null && txn.getAmountCents() > 50000) return 75;
         return 25;
     }
 
@@ -272,12 +268,26 @@ public class TransactionIngestionService {
     }
 
     /**
-     * Hash PAN for privacy (SHA-256)
+     * Produce the "comparable ciphered" card fingerprint stored as {@code pan_hash}.
+     *
+     * <p>Preferred: a <b>keyed HMAC-SHA256</b> ({@link com.posgateway.aml.service.security.PiiLookupHasher}).
+     * It is deterministic — the same card always maps to the same value, which is what makes velocity
+     * checks and the Do-Not-Honour card match work — but because it is keyed, a leaked database cannot
+     * be brute-forced back to PANs the way an unkeyed SHA-256 of a low-entropy PAN can.
+     *
+     * <p>Fallback (dev/test only): if {@code PII_LOOKUP_HMAC_KEY} is not configured we use a plain
+     * SHA-256 digest so local ingestion still works. Production <b>requires</b> the key (enforced at
+     * startup by {@code EnvVarStartupValidator}), so the secure HMAC path is always used there.
      */
     private String hashPan(String pan) {
+        if (piiLookupHasher.isConfigured()) {
+            return piiLookupHasher.hashIdentifier(pan);
+        }
+        logger.warn("PII_LOOKUP_HMAC_KEY not configured — using unkeyed PAN digest (dev/test only; "
+                + "production enforces the HMAC key)");
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(pan.getBytes());
+            byte[] hash = digest.digest(pan.getBytes(StandardCharsets.UTF_8));
             StringBuilder hexString = new StringBuilder();
             for (byte b : hash) {
                 String hex = Integer.toHexString(0xff & b);
@@ -288,8 +298,7 @@ public class TransactionIngestionService {
             }
             return hexString.toString();
         } catch (Exception e) {
-            logger.error("Failed to hash PAN", e);
-            return pan; // Fallback to original (should not happen)
+            throw new IllegalStateException("PAN hashing failed; refusing to persist raw PAN", e);
         }
     }
 
@@ -309,6 +318,10 @@ public class TransactionIngestionService {
         private String direction;
         private String ipAddress;
         private String countryCode;
+        private String channelType;
+        private boolean cashTransaction;
+        private String customerAccountReference;
+        private String customerEmail;
 
         public String getIpAddress() { return ipAddress; }
         public void setIpAddress(String ipAddress) { this.ipAddress = ipAddress; }
@@ -400,6 +413,38 @@ public class TransactionIngestionService {
 
         public void setCountryCode(String countryCode) {
             this.countryCode = countryCode;
+        }
+
+        public String getChannelType() {
+            return channelType;
+        }
+
+        public void setChannelType(String channelType) {
+            this.channelType = channelType;
+        }
+
+        public boolean isCashTransaction() {
+            return cashTransaction;
+        }
+
+        public void setCashTransaction(boolean cashTransaction) {
+            this.cashTransaction = cashTransaction;
+        }
+
+        public String getCustomerAccountReference() {
+            return customerAccountReference;
+        }
+
+        public void setCustomerAccountReference(String customerAccountReference) {
+            this.customerAccountReference = customerAccountReference;
+        }
+
+        public String getCustomerEmail() {
+            return customerEmail;
+        }
+
+        public void setCustomerEmail(String customerEmail) {
+            this.customerEmail = customerEmail;
         }
     }
 }

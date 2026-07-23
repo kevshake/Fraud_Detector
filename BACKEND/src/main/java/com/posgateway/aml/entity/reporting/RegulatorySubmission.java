@@ -376,11 +376,12 @@ public class RegulatorySubmission {
         if (filingDeadline == null) {
             return null;
         }
-        LocalDate now = LocalDate.now();
         if (filedAt != null) {
-            return java.time.temporal.ChronoUnit.DAYS.between(now, filingDeadline);
+            return java.time.temporal.ChronoUnit.DAYS.between(
+                    filedAt.toLocalDate(), filingDeadline);
         }
-        return java.time.temporal.ChronoUnit.DAYS.between(now, filingDeadline);
+        return java.time.temporal.ChronoUnit.DAYS.between(
+                LocalDate.now(), filingDeadline);
     }
 
     public boolean canEdit() {

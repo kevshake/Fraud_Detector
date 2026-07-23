@@ -35,6 +35,8 @@ export default defineConfig({
                     'vendor-query': ['@tanstack/react-query'],
                     // Charts — only loaded by analytics pages
                     'vendor-charts': ['chart.js', 'react-chartjs-2', 'recharts'],
+                    // Map / geography — dashboard heatmap only
+                    'vendor-maps': ['react-simple-maps'],
                 },
             },
         },

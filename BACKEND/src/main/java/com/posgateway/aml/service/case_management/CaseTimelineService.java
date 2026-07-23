@@ -14,13 +14,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * Case Timeline Service
@@ -54,6 +55,7 @@ public class CaseTimelineService {
     /**
      * Build timeline for a case
      */
+    @Transactional(readOnly = true)
     public CaseTimelineDTO buildTimeline(Long caseId) {
         ComplianceCase complianceCase = caseRepository.findById(caseId)
                 .orElseThrow(() -> new IllegalArgumentException("Case not found: " + caseId));
@@ -122,7 +124,7 @@ public class CaseTimelineService {
                         .timestamp(ct.getTransaction().getTxnTs())
                         .type("TRANSACTION")
                         .description("Transaction: " + ct.getTransaction().getTxnId())
-                        .data(ct.getTransaction())
+                        .data(transactionData(ct))
                         .build());
             }
         });
@@ -159,9 +161,7 @@ public class CaseTimelineService {
         });
 
         // SARs related to this case
-        List<SuspiciousActivityReport> sars = sarRepository.findAll().stream()
-                .filter(sar -> sar.getComplianceCase() != null && sar.getComplianceCase().getId().equals(caseId))
-                .collect(Collectors.toList());
+        List<SuspiciousActivityReport> sars = sarRepository.findByComplianceCase_Id(caseId);
         sars.forEach(sar -> {
             // SAR Creation
             if (sar.getCreatedAt() != null) {
@@ -247,16 +247,19 @@ public class CaseTimelineService {
                 org.springframework.data.domain.PageRequest.of(0, 100)
         ).getContent();
         
-        activities.forEach(activity -> {
+        activities.stream()
+                .filter(activity -> activity.getPerformedAt() != null && activity.getActivityType() != null)
+                .forEach(activity -> {
             events.add(TimelineEvent.builder()
                     .timestamp(activity.getPerformedAt())
                     .type(activity.getActivityType().name())
                     .description(activity.getDescription())
-                    .data(activity)
+                    .data(activityData(activity))
                     .build());
         });
 
         // Sort by timestamp
+        events.removeIf(event -> event.getTimestamp() == null);
         events.sort(Comparator.comparing(TimelineEvent::getTimestamp));
 
         return CaseTimelineDTO.builder()
@@ -264,6 +267,37 @@ public class CaseTimelineService {
                 .caseReference(complianceCase.getCaseReference())
                 .events(events)
                 .build();
+    }
+
+    private Map<String, Object> transactionData(CaseTransaction caseTransaction) {
+        var transaction = caseTransaction.getTransaction();
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("transactionId", transaction.getTxnId());
+        putIfPresent(data, "merchantId", transaction.getMerchantId());
+        putIfPresent(data, "amountCents", transaction.getAmountCents());
+        putIfPresent(data, "currency", transaction.getCurrency());
+        putIfPresent(data, "decision", transaction.getDecision());
+        putIfPresent(data, "riskLevel", transaction.getRiskLevel());
+        putIfPresent(data, "relationshipType", caseTransaction.getRelationshipType());
+        return data;
+    }
+
+    private Map<String, Object> activityData(CaseActivity activity) {
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("activityId", activity.getId());
+        if (activity.getPerformedBy() != null) {
+            data.put("performedBy", activity.getPerformedBy().getUsername());
+        }
+        putIfPresent(data, "details", activity.getDetails());
+        putIfPresent(data, "relatedEntityId", activity.getRelatedEntityId());
+        putIfPresent(data, "relatedEntityType", activity.getRelatedEntityType());
+        return data;
+    }
+
+    private static void putIfPresent(Map<String, Object> target, String key, Object value) {
+        if (value != null) {
+            target.put(key, value);
+        }
     }
 
     /**

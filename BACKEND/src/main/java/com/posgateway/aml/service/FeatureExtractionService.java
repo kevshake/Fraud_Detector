@@ -6,10 +6,13 @@ import com.posgateway.aml.repository.TransactionRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -27,16 +30,22 @@ public class FeatureExtractionService {
     private final ObjectMapper objectMapper;
     private final com.posgateway.aml.service.graph.Neo4jGdsService neo4jGdsService;
     private final com.posgateway.aml.service.rules.RuleFeatureEnrichmentService ruleFeatureEnrichmentService;
+    private final com.posgateway.aml.service.enrichment.IpReputationService ipReputationService;
+
+    @Value("${aml.features.high-value-amount-cents:1000000}")
+    private long highValueAmountCents = 1_000_000L;
 
     @Autowired
     public FeatureExtractionService(TransactionRepository transactionRepository,
             ObjectMapper objectMapper,
             @Autowired(required = false) com.posgateway.aml.service.graph.Neo4jGdsService neo4jGdsService,
-            com.posgateway.aml.service.rules.RuleFeatureEnrichmentService ruleFeatureEnrichmentService) {
+            com.posgateway.aml.service.rules.RuleFeatureEnrichmentService ruleFeatureEnrichmentService,
+            com.posgateway.aml.service.enrichment.IpReputationService ipReputationService) {
         this.transactionRepository = transactionRepository;
         this.objectMapper = objectMapper;
         this.neo4jGdsService = neo4jGdsService;
         this.ruleFeatureEnrichmentService = ruleFeatureEnrichmentService;
+        this.ipReputationService = ipReputationService;
     }
 
     /**
@@ -62,6 +71,9 @@ public class FeatureExtractionService {
         // AML-specific features
         extractAmlFeatures(transaction, features);
 
+        // IP reputation (VPN / proxy / datacenter / manipulated source) — deterministic, no I/O
+        extractIpReputationFeatures(transaction, features);
+
         // Graph features from Neo4j GDS (PageRank, Community, Betweenness)
         extractGraphFeatures(transaction, features);
 
@@ -73,8 +85,24 @@ public class FeatureExtractionService {
     }
 
     /**
+     * IP-reputation features so the ML model and the dynamic per-PSP rules can validate/mitigate on
+     * the connection IP. Only the deterministic (no-network) signals run here to keep the hot path
+     * fast: VPN/proxy/datacenter membership and manipulated/masked (private/reserved/malformed)
+     * sources. A rule can then be written as e.g. {@code #features['ip_vpn_or_proxy'] == true}.
+     */
+    private void extractIpReputationFeatures(TransactionEntity transaction, Map<String, Object> features) {
+        String ip = transaction.getIpAddress();
+        // Deterministic signals only (no GeoIP lookup) → no declared/geo country needed here.
+        var assessment = ipReputationService.assess(ip, null, null);
+        features.put("ip_present", assessment.present());
+        features.put("ip_vpn_or_proxy", assessment.anonymizing());
+        features.put("ip_manipulated", assessment.malformed() || assessment.privateOrReserved());
+        features.put("ip_reputation", assessment.category());
+    }
+
+    /**
      * Extract graph-based features from Neo4j GDS.
-     * These are computed by Neo4j algorithms and cached in Aerospike.
+     * These are computed by Neo4j algorithms and returned by the graph service.
      */
     private void extractGraphFeatures(TransactionEntity transaction, Map<String, Object> features) {
         if (neo4jGdsService == null) {
@@ -126,6 +154,11 @@ public class FeatureExtractionService {
         // Merchant features
         features.put("merchant_id", transaction.getMerchantId());
         features.put("terminal_id", transaction.getTerminalId());
+        features.put("pspId", transaction.getPspId());
+        features.put("channel", transaction.getChannelType());
+        features.put("country_code", transaction.getMerchantCountry());
+        features.put("cash_transaction", transaction.isCashTransaction());
+        features.put("pan_hash", transaction.getPanHash());
 
         // Card BIN (first 6 digits) - extract from PAN hash if available
         String panHash = transaction.getPanHash();
@@ -142,7 +175,7 @@ public class FeatureExtractionService {
     }
 
     private void extractBehavioralFeatures(TransactionEntity transaction, Map<String, Object> features) {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = transaction.getTxnTs() != null ? transaction.getTxnTs() : LocalDateTime.now();
         LocalDateTime oneHourAgo = now.minus(1, ChronoUnit.HOURS);
         LocalDateTime twentyFourHoursAgo = now.minus(24, ChronoUnit.HOURS);
         LocalDateTime sevenDaysAgo = now.minus(7, ChronoUnit.DAYS);
@@ -170,16 +203,17 @@ public class FeatureExtractionService {
                     panHash, sevenDaysAgo, now);
             Long distinctTerminals30d = transactionRepository.countDistinctTerminalsByPan(
                     panHash, thirtyDaysAgo, now);
-            Double avgAmount30d = transactionRepository.avgAmountByPanInTimeWindow(
-                    panHash, thirtyDaysAgo, now);
-            LocalDateTime lastTxnTime = transactionRepository.findLastTransactionTimeByPan(
-                    panHash);
+            List<Long> historicalAmounts = transactionRepository.findRecentAmountsByPanBefore(
+                    panHash, thirtyDaysAgo, now, PageRequest.of(0, 1_000));
+            AmountStatistics amountStatistics = calculateAmountStatistics(historicalAmounts);
+            LocalDateTime lastTxnTime = transactionRepository.findLastTransactionTimeByPanBefore(
+                    panHash, now);
 
             features.put("pan_txn_count_1h", panTxnCount1h != null ? panTxnCount1h : 0L);
             features.put("pan_txn_amount_sum_7d", panAmountSum7d != null ? panAmountSum7d / 100.0 : 0.0);
             features.put("distinct_terminals_last_30d_for_pan",
                     distinctTerminals30d != null ? distinctTerminals30d : 0L);
-            features.put("avg_amount_by_pan_30d", avgAmount30d != null ? avgAmount30d / 100.0 : 0.0);
+            features.put("avg_amount_by_pan_30d", amountStatistics.meanCents() / 100.0);
 
             // Time since last transaction
             if (lastTxnTime != null && transaction.getTxnTs() != null) {
@@ -189,19 +223,11 @@ public class FeatureExtractionService {
                 features.put("time_since_last_txn_for_pan_minutes", -1); // New card
             }
 
-            // Z-score of amount vs PAN history - optimize division operations
-            // Note: amountCents already cached in extractTransactionFeatures, but this is a
-            // different method
-            // Cache again here for this method's scope
             Long amountCents = transaction.getAmountCents();
-            if (avgAmount30d != null && avgAmount30d > 0 && amountCents != null) {
-                double currentAmount = amountCents / 100.0;
-                double avgAmount = avgAmount30d / 100.0;
-                // Simplified z-score (would need std dev for proper calculation)
-                double maxAvg = Math.max(avgAmount, 1.0);
-                double zScore = (currentAmount - avgAmount) / maxAvg;
-                features.put("zscore_amount_vs_pan_history", zScore);
-            }
+            double zScore = amountCents != null && amountStatistics.standardDeviationCents() > 0
+                    ? (amountCents - amountStatistics.meanCents()) / amountStatistics.standardDeviationCents()
+                    : 0.0;
+            features.put("zscore_amount_vs_pan_history", zScore);
         }
     }
 
@@ -247,25 +273,41 @@ public class FeatureExtractionService {
     }
 
     private void extractAmlFeatures(TransactionEntity transaction, Map<String, Object> features) {
-        // Cache time calculations for performance
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = transaction.getTxnTs() != null ? transaction.getTxnTs() : LocalDateTime.now();
         LocalDateTime thirtyDaysAgo = now.minus(30, ChronoUnit.DAYS);
         LocalDateTime sevenDaysAgo = now.minus(7, ChronoUnit.DAYS);
 
-        // Cache panHash for performance
         String panHash = transaction.getPanHash();
         if (panHash != null) {
-            // Cumulative debits/credits (simplified - would need transaction type)
-            Long panAmountSum30d = transactionRepository.sumAmountByPanInTimeWindow(
+            Long inboundAmount = transactionRepository.sumInboundAmountByPanInWindow(
                     panHash, thirtyDaysAgo, now);
-            features.put("cumulative_debits_30d", panAmountSum30d != null ? panAmountSum30d / 100.0 : 0.0);
+            Long outboundAmount = transactionRepository.sumOutboundAmountByPanInWindow(
+                    panHash, thirtyDaysAgo, now);
+            features.put("cumulative_credits_30d", inboundAmount != null ? inboundAmount / 100.0 : 0.0);
+            features.put("cumulative_debits_30d", outboundAmount != null ? outboundAmount / 100.0 : 0.0);
 
-            // High value transaction count
-            Long highValueCount = transactionRepository.countByPanInTimeWindow(
-                    panHash, sevenDaysAgo, now);
+            Long highValueCount = transactionRepository.countHighValueByPanInWindow(
+                    panHash, highValueAmountCents, sevenDaysAgo, now);
             features.put("num_high_value_txn_7d", highValueCount != null ? highValueCount : 0L);
         }
     }
+
+    private AmountStatistics calculateAmountStatistics(List<Long> amounts) {
+        if (amounts == null || amounts.isEmpty()) {
+            return new AmountStatistics(0.0, 0.0);
+        }
+        double mean = amounts.stream().mapToLong(Long::longValue).average().orElse(0.0);
+        double variance = amounts.stream()
+                .mapToDouble(amount -> {
+                    double difference = amount - mean;
+                    return difference * difference;
+                })
+                .average()
+                .orElse(0.0);
+        return new AmountStatistics(mean, Math.sqrt(variance));
+    }
+
+    private record AmountStatistics(double meanCents, double standardDeviationCents) {}
 
     private int parseCvmMethod(Object cvmrValue) {
         if (cvmrValue == null) {

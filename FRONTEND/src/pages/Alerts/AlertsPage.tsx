@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useAlerts } from "../../features/api/queries";
 import { useUpdateAlertStatus } from "../../features/api/mutations";
 import { useResponsivePagination } from "../../hooks/useResponsivePagination";
@@ -139,7 +140,7 @@ export default function AlertsPage() {
           {bulkOpen && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setBulkOpen(false)} />
-              <div className="absolute right-0 z-20 mt-1 w-52 rounded-lg border border-white/10 bg-[#0f1a2e] py-1 shadow-xl">
+              <div className="absolute right-0 z-20 mt-1 w-52 rounded-lg border border-white/10 bg-[var(--surface-2)] py-1 shadow-xl">
                 <button onClick={() => handleBulkAction("INVESTIGATING")} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-white transition-colors hover:bg-white/5">
                   <Search size={14} /> Mark as Investigating
                 </button>
@@ -156,7 +157,7 @@ export default function AlertsPage() {
       </div>
 
       {/* Table */}
-      <div className="overflow-hidden rounded-lg border border-white/10 bg-[#0f1a2e]">
+      <div className="overflow-hidden rounded-lg border border-white/10 bg-[var(--surface-2)]">
         <div className="overflow-auto" style={{ maxHeight: "calc(100vh - 320px)" }}>
           {isLoading ? (
             <div className="flex items-center justify-center py-16">
@@ -174,7 +175,7 @@ export default function AlertsPage() {
           ) : (
             <table className="w-full border-collapse">
               <thead className="sticky top-0 z-10">
-                <tr className="border-b border-white/10 bg-[#0f1a2e]">
+                <tr className="border-b border-white/10 bg-[var(--surface-2)]">
                   <th className="w-10 px-4 py-3 text-left">
                     <input
                       type="checkbox"
@@ -182,7 +183,7 @@ export default function AlertsPage() {
                       ref={(el) => { if (el) el.indeterminate = someSelected }}
                       onChange={(e) => handleSelectAll(e.target.checked)}
                       disabled={!content.length}
-                      className="rounded border-white/20 bg-white/5 text-burgundy-700 focus:ring-burgundy-700"
+                      className="rounded border-white/20 bg-white/5 accent-gold text-gold focus:ring-gold"
                     />
                   </th>
                   <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">ID</th>
@@ -207,7 +208,7 @@ export default function AlertsPage() {
                         type="checkbox"
                         checked={selected.has(alert.id)}
                         onChange={(e) => handleSelectOne(alert.id, e.target.checked)}
-                        className="rounded border-white/20 bg-white/5 text-burgundy-700 focus:ring-burgundy-700"
+                        className="rounded border-white/20 bg-white/5 accent-gold text-gold focus:ring-gold"
                       />
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-sm text-white">#{alert.id}</td>
@@ -261,7 +262,7 @@ export default function AlertsPage() {
         <>
           <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={() => setViewAlert(null)} />
           <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2">
-            <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0f1a2e] shadow-2xl">
+            <div className="overflow-hidden rounded-xl border border-white/10 bg-[var(--surface-2)] shadow-2xl">
               {/* Header */}
               <div className="flex items-start justify-between border-b border-white/10 px-6 py-4">
                 <div>
@@ -316,6 +317,7 @@ export default function AlertsPage() {
 
               {/* Footer */}
               <div className="flex justify-end border-t border-white/10 px-6 py-3">
+                <Link to={`/records/ALERT/${viewAlert.id}`} onClick={() => setViewAlert(null)} className="mr-2 rounded-lg border border-gold/50 px-4 py-1.5 text-xs text-gold transition-colors hover:bg-gold hover:text-black">Trace record</Link>
                 <button
                   onClick={() => setViewAlert(null)}
                   className="rounded-lg border border-white/10 px-4 py-1.5 text-xs text-white transition-colors hover:bg-white/5"

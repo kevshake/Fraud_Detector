@@ -10,5 +10,6 @@ import java.util.List;
 public interface AlertTuningRecommendationRepository extends JpaRepository<AlertTuningRecommendation, Long> {
     List<AlertTuningRecommendation> findByStatus(String status);
     List<AlertTuningRecommendation> findByRuleName(String ruleName);
+    List<AlertTuningRecommendation> findByRuleIdAndStatus(Long ruleId, String status);
 }
 

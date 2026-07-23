@@ -33,18 +33,18 @@ export default function TwPagination({
   const { start, end } = getDisplayRange(page, rowsPerPage, totalCount)
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 bg-[#0f1a2e] px-4 py-3">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-glass-border bg-[rgba(12,6,8,0.88)] px-4 py-3">
       <div className="flex items-center gap-2 text-xs text-glass-muted">
         <span>
           {start}–{end} of {totalCount}
         </span>
         <span className="text-white/20">|</span>
-        <span className="flex items-center gap-1">
+        <span className="flex items-center gap-1.5">
           Rows:
           <select
             value={rowsPerPage}
             onChange={(e) => onRowsPerPageChange(Number(e.target.value))}
-            className="rounded border border-white/10 bg-[#1a2744] px-1.5 py-0.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-burgundy-700"
+            className="hokeka-field !w-auto !rounded-md !px-1.5 !py-0.5 !text-xs"
           >
             {rowsPerPageOptions.map((n) => (
               <option key={n} value={n}>
@@ -57,54 +57,58 @@ export default function TwPagination({
 
       <div className="flex items-center gap-1">
         <button
+          type="button"
           onClick={() => onPageChange(0)}
           disabled={page === 0}
           className={cn(
-            'rounded p-1.5 transition-colors',
+            'rounded-lg p-1.5 transition-colors',
             page === 0
               ? 'cursor-not-allowed text-white/20'
-              : 'text-glass-muted hover:bg-white/10 hover:text-white',
+              : 'text-glass-muted hover:bg-burgundy-850/70 hover:text-white',
           )}
         >
           <ChevronsLeft size={16} />
         </button>
         <button
+          type="button"
           onClick={() => onPageChange(page - 1)}
           disabled={page === 0}
           className={cn(
-            'rounded p-1.5 transition-colors',
+            'rounded-lg p-1.5 transition-colors',
             page === 0
               ? 'cursor-not-allowed text-white/20'
-              : 'text-glass-muted hover:bg-white/10 hover:text-white',
+              : 'text-glass-muted hover:bg-burgundy-850/70 hover:text-white',
           )}
         >
           <ChevronLeft size={16} />
         </button>
 
-        <span className="min-w-[4rem] text-center text-xs text-glass-muted">
+        <span className="min-w-[4.5rem] text-center text-xs font-medium text-white/70">
           Page {page + 1} of {totalPages || 1}
         </span>
 
         <button
+          type="button"
           onClick={() => onPageChange(page + 1)}
           disabled={page >= totalPages - 1}
           className={cn(
-            'rounded p-1.5 transition-colors',
+            'rounded-lg p-1.5 transition-colors',
             page >= totalPages - 1
               ? 'cursor-not-allowed text-white/20'
-              : 'text-glass-muted hover:bg-white/10 hover:text-white',
+              : 'text-glass-muted hover:bg-burgundy-850/70 hover:text-white',
           )}
         >
           <ChevronRight size={16} />
         </button>
         <button
+          type="button"
           onClick={() => onPageChange(totalPages - 1)}
           disabled={page >= totalPages - 1}
           className={cn(
-            'rounded p-1.5 transition-colors',
+            'rounded-lg p-1.5 transition-colors',
             page >= totalPages - 1
               ? 'cursor-not-allowed text-white/20'
-              : 'text-glass-muted hover:bg-white/10 hover:text-white',
+              : 'text-glass-muted hover:bg-burgundy-850/70 hover:text-white',
           )}
         >
           <ChevronsRight size={16} />

@@ -188,9 +188,10 @@ class ReportHistoryServiceTest {
     @Test
     void getExecutionStatistics_shouldReturnStatistics() {
         // Given
-        Page<ReportExecution> page = new PageImpl<>(List.of(testExecution));
         when(pspIsolationService.sanitizePspId(1L)).thenReturn(1L);
-        when(reportExecutionRepository.findByPspId(eq(1L), any(Pageable.class))).thenReturn(page);
+        when(reportExecutionRepository.summarizeExecutions(
+                eq(1L), any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(new Object[]{1L, 1L, 0L, 0L, 0L, 250.0, 12L});
 
         // When
         ReportHistoryService.ExecutionStatistics stats = reportHistoryService.getExecutionStatistics(
@@ -201,5 +202,7 @@ class ReportHistoryServiceTest {
         assertNotNull(stats);
         assertEquals(1, stats.getTotalExecutions());
         assertEquals(1, stats.getCompletedCount());
+        assertEquals(250, stats.getAverageExecutionTimeMs());
+        assertEquals(12L, stats.getTotalRecordsProcessed());
     }
 }

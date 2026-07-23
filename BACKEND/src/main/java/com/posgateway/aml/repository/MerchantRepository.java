@@ -8,8 +8,10 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Pageable;
 
 /**
  * Repository for Merchant entity
@@ -22,6 +24,9 @@ public interface MerchantRepository extends JpaRepository<Merchant, Long>, JpaSp
      */
     Optional<Merchant> findByCountryAndRegistrationNumber(String country, String registrationNumber);
 
+    Optional<Merchant> findByPspPspIdAndCountryAndRegistrationNumber(
+            Long pspId, String country, String registrationNumber);
+
     /**
      * Find merchants needing rescreening (next_screening_due <= today)
      * Excludes already REJECTED or TERMINATED merchants
@@ -29,6 +34,11 @@ public interface MerchantRepository extends JpaRepository<Merchant, Long>, JpaSp
     @Query("SELECT m FROM Merchant m WHERE m.status NOT IN ('REJECTED', 'TERMINATED') " +
             "AND (m.nextScreeningDue IS NULL OR m.nextScreeningDue <= :today)")
     List<Merchant> findMerchantsNeedingRescreening(@Param("today") LocalDate today);
+
+    @Query("SELECT m FROM Merchant m WHERE m.status NOT IN ('REJECTED', 'TERMINATED', 'BLOCKED') " +
+            "AND (m.nextCorporateIntelligenceDue IS NULL OR m.nextCorporateIntelligenceDue <= :now) " +
+            "ORDER BY COALESCE(m.nextCorporateIntelligenceDue, m.createdAt) ASC")
+    List<Merchant> findDueForCorporateIntelligence(@Param("now") LocalDateTime now, Pageable pageable);
 
     /**
      * Find merchants by status
@@ -75,6 +85,16 @@ public interface MerchantRepository extends JpaRepository<Merchant, Long>, JpaSp
      * Find merchants by MCC and country
      */
     List<Merchant> findByMccAndCountry(String mcc, String country);
+
+    // -----------------------------------------------------------------------
+    // Merchant-linkage / reincarnation detection (shared plaintext identifiers)
+    // -----------------------------------------------------------------------
+
+    List<Merchant> findByRegistrationNumber(String registrationNumber);
+
+    List<Merchant> findByContactEmail(String contactEmail);
+
+    List<Merchant> findByWebsite(String website);
 
     /**
      * Batch status counts for a PSP — returns [{status, count}] rows.
@@ -205,4 +225,30 @@ public interface MerchantRepository extends JpaRepository<Merchant, Long>, JpaSp
         "LIMIT :limit", nativeQuery = true)
     List<Object[]> findTopRiskMerchantsByPsp(@Param("pspId") Long pspId,
                                               @Param("limit") int limit);
+
+    // -----------------------------------------------------------------------
+    // Screening coverage aggregates (ScreeningCoverageService)
+    // Replace findAll() + in-memory count/min/max over last_screened_at.
+    // -----------------------------------------------------------------------
+
+    /** Count merchants screened at least once (last_screened_at IS NOT NULL). */
+    long countByLastScreenedAtIsNotNull();
+
+    /** Earliest merchant screening timestamp, or null when none screened. */
+    @Query("SELECT MIN(m.lastScreenedAt) FROM Merchant m WHERE m.lastScreenedAt IS NOT NULL")
+    LocalDateTime findEarliestScreenedAt();
+
+    /** Latest merchant screening timestamp, or null when none screened. */
+    @Query("SELECT MAX(m.lastScreenedAt) FROM Merchant m WHERE m.lastScreenedAt IS NOT NULL")
+    LocalDateTime findLatestScreenedAt();
+
+    // -----------------------------------------------------------------------
+    // Peer-group lookup (BehavioralAnalyticsService)
+    // Same-MCC peers excluding the subject merchant, DB-side limited.
+    // -----------------------------------------------------------------------
+
+    @Query("SELECT m FROM Merchant m WHERE m.mcc = :mcc AND m.merchantId <> :excludeId")
+    List<Merchant> findPeersByMcc(@Param("mcc") String mcc,
+                                  @Param("excludeId") Long excludeId,
+                                  Pageable pageable);
 }

@@ -36,6 +36,7 @@ import java.util.Base64;
 public class AesGcmStringConverter implements AttributeConverter<String, String> {
 
     private static final String ENV_VAR = "SECURITY_ENCRYPTION_KEY";
+    private static final String PRODUCTION_ENV_VAR = "ENCRYPTION_KEY";
     private static final String AES = "AES";
     private static final String AES_GCM = "AES/GCM/NoPadding";
     private static final int IV_BYTES   = 12;
@@ -94,8 +95,14 @@ public class AesGcmStringConverter implements AttributeConverter<String, String>
         synchronized (AesGcmStringConverter.class) {
             if (CACHED_KEY != null) return CACHED_KEY;
             String b64 = System.getenv(ENV_VAR);
+            if (b64 == null || b64.isBlank()) {
+                b64 = System.getenv(PRODUCTION_ENV_VAR);
+            }
             if (b64 == null) {
                 b64 = System.getProperty(ENV_VAR);
+            }
+            if (b64 == null || b64.isBlank()) {
+                b64 = System.getProperty("security.encryption.key");
             }
             if (b64 == null || b64.isBlank()) {
                 throw new IllegalStateException(ENV_VAR + " is not set; refusing to encrypt PSP secrets");

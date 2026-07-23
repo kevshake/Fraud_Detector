@@ -1,12 +1,17 @@
 package com.posgateway.aml.service.edd;
 
+import com.posgateway.aml.entity.edd.EddEvidenceEvent;
 import com.posgateway.aml.entity.edd.EnhancedDueDiligenceRequest;
+import com.posgateway.aml.entity.merchant.Merchant;
 import com.posgateway.aml.repository.MerchantRepository;
+import com.posgateway.aml.repository.edd.EddEvidenceEventRepository;
 import com.posgateway.aml.repository.edd.EnhancedDueDiligenceRequestRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Locale;
 
 @Service
 public class EnhancedDueDiligenceService {
@@ -14,124 +19,175 @@ public class EnhancedDueDiligenceService {
     private static final org.slf4j.Logger log =
             org.slf4j.LoggerFactory.getLogger(EnhancedDueDiligenceService.class);
 
-    @SuppressWarnings("unused")
     private final MerchantRepository merchantRepository;
     private final EnhancedDueDiligenceRequestRepository eddRepository;
+    private final EddEvidenceEventRepository eventRepository;
 
     public EnhancedDueDiligenceService(MerchantRepository merchantRepository,
-                                       EnhancedDueDiligenceRequestRepository eddRepository) {
+                                       EnhancedDueDiligenceRequestRepository eddRepository,
+                                       EddEvidenceEventRepository eventRepository) {
         this.merchantRepository = merchantRepository;
         this.eddRepository = eddRepository;
+        this.eventRepository = eventRepository;
+    }
+
+    /**
+     * Auto-initiate EDD if it has not already been started for this merchant. Idempotent:
+     * if an EDD request already exists and is past NOT_STARTED, this is a no-op so a repeated
+     * underwriting run does not reset in-flight EDD progress. Used by the underwriting
+     * orchestrator when the decision is ENHANCED_DUE_DILIGENCE.
+     */
+    @Transactional
+    public void ensureEddInitiated(Long merchantId, String actor) {
+        java.util.Optional<EnhancedDueDiligenceRequest> existing = eddRepository.findByMerchantId(merchantId);
+        if (existing.isPresent()) {
+            String status = existing.get().getStatus();
+            if (status != null && !"NOT_STARTED".equalsIgnoreCase(status)) {
+                return;
+            }
+        }
+        initiateEdd(merchantId, false, actor, "Auto-initiated by underwriting (EDD outcome)");
     }
 
     @Transactional
-    public void initiateEdd(Long merchantId) {
-        log.info("Initiating Enhanced Due Diligence for Merchant {}", merchantId);
+    public EddStatus initiateEdd(Long merchantId, boolean siteVisitRequired, String actor, String notes) {
+        merchantRepository.findById(merchantId)
+                .orElseThrow(() -> new IllegalArgumentException("Merchant not found: " + merchantId));
         EnhancedDueDiligenceRequest req = eddRepository.findByMerchantId(merchantId)
                 .orElseGet(() -> new EnhancedDueDiligenceRequest(merchantId));
-        // Reset verification state on (re-)initiation; preserves the legacy in-memory
-        // semantic where a fresh EddStatus was always put() into the map.
         req.setStatus("IN_PROGRESS");
         req.setSourceOfFundsVerified(false);
         req.setSourceOfWealthVerified(false);
+        req.setSiteVisitRequired(siteVisitRequired);
         req.setSiteVisitCompleted(false);
         req.setSeniorManagementApproval(false);
         req.setFamilyAssociateChecks(false);
         req.setTransactionPurposeReview(false);
         req.setInitiatedAt(LocalDateTime.now());
+        req.setInitiatedBy(actor);
+        req.setLastUpdatedAt(LocalDateTime.now());
+        req.setLastUpdatedBy(actor);
         req.setCompletedAt(null);
-        eddRepository.save(req);
+        req.setCompletedBy(null);
+        req = eddRepository.save(req);
+        appendEvent(req, "INITIATED", null, true, actor, notes);
+        log.info("EDD initiated for merchant {} by {}", merchantId, actor);
+        return toView(req, events(req));
     }
 
     @Transactional
-    public void updateDocumentStatus(Long merchantId, String docType, boolean verified) {
-        EnhancedDueDiligenceRequest req = eddRepository.findByMerchantId(merchantId).orElse(null);
-        if (req == null) {
-            return;
+    public EddStatus updateItemStatus(Long merchantId, String itemCode, boolean completed,
+                                      String actor, String notes) {
+        EnhancedDueDiligenceRequest req = eddRepository.findByMerchantId(merchantId)
+                .orElseThrow(() -> new IllegalArgumentException("EDD not started for merchant: " + merchantId));
+        String normalizedCode = itemCode == null ? "" : itemCode.strip().toUpperCase(Locale.ROOT);
+        boolean previous = itemValue(req, normalizedCode);
+        if (previous && !completed && (notes == null || notes.isBlank())) {
+            throw new IllegalArgumentException("A reason is required when revoking EDD evidence");
         }
-        switch (docType) {
-            case "SOF"             -> req.setSourceOfFundsVerified(verified);
-            case "SOW"             -> req.setSourceOfWealthVerified(verified);
-            case "VISIT"           -> req.setSiteVisitCompleted(verified);
-            case "SENIOR_APPROVAL" -> req.setSeniorManagementApproval(verified);
-            case "FAMILY_CHECK"    -> req.setFamilyAssociateChecks(verified);
-            case "PURPOSE_REVIEW"  -> req.setTransactionPurposeReview(verified);
-            default -> { /* unknown doc type — ignore as before */ }
-        }
-
-        log.info("Updated EDD status for Merchant {}: {} = {}", merchantId, docType, verified);
-        checkCompletion(req);
-        eddRepository.save(req);
+        setItemValue(req, normalizedCode, completed);
+        req.setLastUpdatedAt(LocalDateTime.now());
+        req.setLastUpdatedBy(actor);
+        checkCompletion(req, actor);
+        req = eddRepository.save(req);
+        appendEvent(req, normalizedCode, previous, completed, actor, notes);
+        return toView(req, events(req));
     }
 
     @Transactional(readOnly = true)
     public EddStatus getEddStatus(Long merchantId) {
         return eddRepository.findByMerchantId(merchantId)
-                .map(EnhancedDueDiligenceService::toView)
-                .orElseGet(EddStatus::new);
+                .map(req -> toView(req, events(req)))
+                .orElseGet(() -> EddStatus.notStarted(merchantId));
     }
 
-    private void checkCompletion(EnhancedDueDiligenceRequest req) {
-        boolean basicEdd = req.isSourceOfFundsVerified() && req.isSourceOfWealthVerified();
-        boolean kenyaEdd = req.isSeniorManagementApproval()
+    private boolean itemValue(EnhancedDueDiligenceRequest req, String code) {
+        return switch (code) {
+            case "SOURCE_OF_FUNDS", "SOF" -> req.isSourceOfFundsVerified();
+            case "SOURCE_OF_WEALTH", "SOW" -> req.isSourceOfWealthVerified();
+            case "SITE_VISIT", "VISIT" -> req.isSiteVisitCompleted();
+            case "SENIOR_MANAGEMENT_APPROVAL", "SENIOR_APPROVAL" -> req.isSeniorManagementApproval();
+            case "FAMILY_ASSOCIATE_CHECKS", "FAMILY_CHECK" -> req.isFamilyAssociateChecks();
+            case "TRANSACTION_PURPOSE_REVIEW", "PURPOSE_REVIEW" -> req.isTransactionPurposeReview();
+            default -> throw new IllegalArgumentException("Unsupported EDD item code: " + code);
+        };
+    }
+
+    private void setItemValue(EnhancedDueDiligenceRequest req, String code, boolean value) {
+        switch (code) {
+            case "SOURCE_OF_FUNDS", "SOF" -> req.setSourceOfFundsVerified(value);
+            case "SOURCE_OF_WEALTH", "SOW" -> req.setSourceOfWealthVerified(value);
+            case "SITE_VISIT", "VISIT" -> req.setSiteVisitCompleted(value);
+            case "SENIOR_MANAGEMENT_APPROVAL", "SENIOR_APPROVAL" -> req.setSeniorManagementApproval(value);
+            case "FAMILY_ASSOCIATE_CHECKS", "FAMILY_CHECK" -> req.setFamilyAssociateChecks(value);
+            case "TRANSACTION_PURPOSE_REVIEW", "PURPOSE_REVIEW" -> req.setTransactionPurposeReview(value);
+            default -> throw new IllegalArgumentException("Unsupported EDD item code: " + code);
+        }
+    }
+
+    private void checkCompletion(EnhancedDueDiligenceRequest req, String actor) {
+        boolean completed = req.isSourceOfFundsVerified()
+                && req.isSourceOfWealthVerified()
+                && (!req.isSiteVisitRequired() || req.isSiteVisitCompleted())
+                && req.isSeniorManagementApproval()
                 && req.isFamilyAssociateChecks()
                 && req.isTransactionPurposeReview();
-
-        if (basicEdd && kenyaEdd) {
-            log.info("EDD Completed for Merchant {}", req.getMerchantId());
+        if (completed) {
             req.setStatus("COMPLETED");
             req.setCompletedAt(LocalDateTime.now());
-            // Could trigger workflow to unblock merchant
+            req.setCompletedBy(actor);
+            Merchant merchant = merchantRepository.findById(req.getMerchantId())
+                    .orElseThrow(() -> new IllegalArgumentException("Merchant not found: " + req.getMerchantId()));
+            merchant.setLastEddReviewAt(req.getCompletedAt());
+            merchantRepository.save(merchant);
+        } else {
+            req.setStatus("IN_PROGRESS");
+            req.setCompletedAt(null);
+            req.setCompletedBy(null);
         }
     }
 
-    private static EddStatus toView(EnhancedDueDiligenceRequest req) {
-        EddStatus s = new EddStatus();
-        s.setMerchantId(req.getMerchantId());
-        s.setSourceOfFundsVerified(req.isSourceOfFundsVerified());
-        s.setSourceOfWealthVerified(req.isSourceOfWealthVerified());
-        s.setSiteVisitCompleted(req.isSiteVisitCompleted());
-        s.setSeniorManagementApproval(req.isSeniorManagementApproval());
-        s.setFamilyAssociateChecks(req.isFamilyAssociateChecks());
-        s.setTransactionPurposeReview(req.isTransactionPurposeReview());
-        return s;
+    private void appendEvent(EnhancedDueDiligenceRequest req, String itemCode, Boolean previous,
+                             boolean value, String actor, String notes) {
+        EddEvidenceEvent event = new EddEvidenceEvent();
+        event.setEddRequestId(req.getId());
+        event.setMerchantId(req.getMerchantId());
+        event.setItemCode(itemCode);
+        event.setPreviousValue(previous);
+        event.setNewValue(value);
+        event.setPerformedBy(actor);
+        event.setNotes(notes == null || notes.isBlank() ? null : notes.strip());
+        event.setOccurredAt(LocalDateTime.now());
+        eventRepository.save(event);
     }
 
-    /**
-     * Read-only view DTO retained for legacy callers that consumed
-     * {@code EnhancedDueDiligenceService.EddStatus} from the in-memory shape.
-     */
-    public static class EddStatus {
-        private Long merchantId;
-        private boolean sourceOfFundsVerified;
-        private boolean sourceOfWealthVerified;
-        private boolean siteVisitCompleted;
-        private boolean seniorManagementApproval;
-        private boolean familyAssociateChecks;
-        private boolean transactionPurposeReview;
+    private List<EvidenceEvent> events(EnhancedDueDiligenceRequest req) {
+        return eventRepository.findByEddRequestIdOrderByOccurredAtDesc(req.getId()).stream()
+                .map(event -> new EvidenceEvent(event.getId(), event.getItemCode(), event.getPreviousValue(),
+                        event.getNewValue(), event.getPerformedBy(), event.getNotes(), event.getOccurredAt()))
+                .toList();
+    }
 
-        public EddStatus() {
+    private static EddStatus toView(EnhancedDueDiligenceRequest req, List<EvidenceEvent> events) {
+        return new EddStatus(req.getId(), req.getMerchantId(), req.getStatus(), req.isSourceOfFundsVerified(),
+                req.isSourceOfWealthVerified(), req.isSiteVisitRequired(), req.isSiteVisitCompleted(),
+                req.isSeniorManagementApproval(), req.isFamilyAssociateChecks(), req.isTransactionPurposeReview(),
+                req.getInitiatedAt(), req.getInitiatedBy(), req.getLastUpdatedAt(), req.getLastUpdatedBy(),
+                req.getCompletedAt(), req.getCompletedBy(), events);
+    }
+
+    public record EddStatus(Long id, Long merchantId, String status, boolean sourceOfFundsVerified,
+                            boolean sourceOfWealthVerified, boolean siteVisitRequired, boolean siteVisitCompleted,
+                            boolean seniorManagementApproval, boolean familyAssociateChecks,
+                            boolean transactionPurposeReview, LocalDateTime initiatedAt, String initiatedBy,
+                            LocalDateTime lastUpdatedAt, String lastUpdatedBy, LocalDateTime completedAt,
+                            String completedBy, List<EvidenceEvent> events) {
+        static EddStatus notStarted(Long merchantId) {
+            return new EddStatus(null, merchantId, "NOT_STARTED", false, false, false, false, false, false,
+                    false, null, null, null, null, null, null, List.of());
         }
-
-        public Long getMerchantId() { return merchantId; }
-        public void setMerchantId(Long v) { this.merchantId = v; }
-
-        public boolean isSourceOfFundsVerified() { return sourceOfFundsVerified; }
-        public void setSourceOfFundsVerified(boolean v) { this.sourceOfFundsVerified = v; }
-
-        public boolean isSourceOfWealthVerified() { return sourceOfWealthVerified; }
-        public void setSourceOfWealthVerified(boolean v) { this.sourceOfWealthVerified = v; }
-
-        public boolean isSiteVisitCompleted() { return siteVisitCompleted; }
-        public void setSiteVisitCompleted(boolean v) { this.siteVisitCompleted = v; }
-
-        public boolean isSeniorManagementApproval() { return seniorManagementApproval; }
-        public void setSeniorManagementApproval(boolean v) { this.seniorManagementApproval = v; }
-
-        public boolean isFamilyAssociateChecks() { return familyAssociateChecks; }
-        public void setFamilyAssociateChecks(boolean v) { this.familyAssociateChecks = v; }
-
-        public boolean isTransactionPurposeReview() { return transactionPurposeReview; }
-        public void setTransactionPurposeReview(boolean v) { this.transactionPurposeReview = v; }
     }
+
+    public record EvidenceEvent(Long id, String itemCode, Boolean previousValue, boolean newValue,
+                                String performedBy, String notes, LocalDateTime occurredAt) {}
 }

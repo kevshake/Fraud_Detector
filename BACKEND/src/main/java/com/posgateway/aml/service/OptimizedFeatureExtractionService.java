@@ -8,11 +8,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
@@ -27,15 +29,34 @@ public class OptimizedFeatureExtractionService {
 
     private final TransactionRepository transactionRepository;
     private final ObjectMapper objectMapper;
+    private final com.posgateway.aml.service.enrichment.IpReputationService ipReputationService;
 
     @Value("${throughput.parallel.feature.extraction:true}")
     private boolean parallelEnabled;
 
+    @Value("${aml.features.high-value-amount-cents:1000000}")
+    private long highValueAmountCents = 1_000_000L;
+
     @Autowired
     public OptimizedFeatureExtractionService(TransactionRepository transactionRepository,
-                                           ObjectMapper objectMapper) {
+                                           ObjectMapper objectMapper,
+                                           com.posgateway.aml.service.enrichment.IpReputationService ipReputationService) {
         this.transactionRepository = transactionRepository;
         this.objectMapper = objectMapper;
+        this.ipReputationService = ipReputationService;
+    }
+
+    /**
+     * IP-reputation features (VPN/proxy/datacenter + manipulated source). Deterministic, no network
+     * call — safe for the ultra-high-throughput hot path. Mirrors FeatureExtractionService so both
+     * the ultra and standard pipelines feed the same signals to scoring and the dynamic rules.
+     */
+    private void extractIpReputationFeatures(TransactionEntity transaction, Map<String, Object> features) {
+        var assessment = ipReputationService.assess(transaction.getIpAddress(), null, null);
+        features.put("ip_present", assessment.present());
+        features.put("ip_vpn_or_proxy", assessment.anonymizing());
+        features.put("ip_manipulated", assessment.malformed() || assessment.privateOrReserved());
+        features.put("ip_reputation", assessment.category());
     }
 
     /**
@@ -62,6 +83,9 @@ public class OptimizedFeatureExtractionService {
         // Extract AML features - ~2-5ms
         extractAmlFeatures(transaction, features);
 
+        // IP reputation (VPN/proxy/manipulated) — deterministic, no I/O
+        extractIpReputationFeatures(transaction, features);
+
         return features;
     }
 
@@ -80,13 +104,14 @@ public class OptimizedFeatureExtractionService {
         
         extractEmvFeatures(transaction, features);
         extractAmlFeatures(transaction, features);
+        extractIpReputationFeatures(transaction, features);
     }
 
     /**
      * Extract behavioral features in parallel
      */
     private void extractBehavioralFeaturesParallel(TransactionEntity transaction, Map<String, Object> features) {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = transaction.getTxnTs() != null ? transaction.getTxnTs() : LocalDateTime.now();
         LocalDateTime oneHourAgo = now.minus(1, ChronoUnit.HOURS);
         LocalDateTime twentyFourHoursAgo = now.minus(24, ChronoUnit.HOURS);
         LocalDateTime sevenDaysAgo = now.minus(7, ChronoUnit.DAYS);
@@ -101,7 +126,7 @@ public class OptimizedFeatureExtractionService {
         CompletableFuture<Long> panCountFuture = null;
         CompletableFuture<Long> panAmountFuture = null;
         CompletableFuture<Long> distinctTerminalsFuture = null;
-        CompletableFuture<Double> avgAmountFuture = null;
+        CompletableFuture<List<Long>> historicalAmountsFuture = null;
         CompletableFuture<LocalDateTime> lastTxnFuture = null;
 
         if (merchantId != null) {
@@ -118,10 +143,11 @@ public class OptimizedFeatureExtractionService {
                 transactionRepository.sumAmountByPanInTimeWindow(panHash, sevenDaysAgo, now));
             distinctTerminalsFuture = CompletableFuture.supplyAsync(() ->
                 transactionRepository.countDistinctTerminalsByPan(panHash, thirtyDaysAgo, now));
-            avgAmountFuture = CompletableFuture.supplyAsync(() ->
-                transactionRepository.avgAmountByPanInTimeWindow(panHash, thirtyDaysAgo, now));
+            historicalAmountsFuture = CompletableFuture.supplyAsync(() ->
+                transactionRepository.findRecentAmountsByPanBefore(
+                        panHash, thirtyDaysAgo, now, PageRequest.of(0, 1_000)));
             lastTxnFuture = CompletableFuture.supplyAsync(() ->
-                transactionRepository.findLastTransactionTimeByPan(panHash));
+                transactionRepository.findLastTransactionTimeByPanBefore(panHash, now));
         }
 
         // Wait for all futures and populate features
@@ -143,9 +169,14 @@ public class OptimizedFeatureExtractionService {
             if (distinctTerminalsFuture != null) {
                 features.put("distinct_terminals_last_30d_for_pan", distinctTerminalsFuture.get());
             }
-            if (avgAmountFuture != null) {
-                Double avg = avgAmountFuture.get();
-                features.put("avg_amount_by_pan_30d", avg != null ? avg / 100.0 : 0.0);
+            if (historicalAmountsFuture != null) {
+                AmountStatistics statistics = calculateAmountStatistics(historicalAmountsFuture.get());
+                features.put("avg_amount_by_pan_30d", statistics.meanCents() / 100.0);
+                Long amountCents = transaction.getAmountCents();
+                double zScore = amountCents != null && statistics.standardDeviationCents() > 0
+                        ? (amountCents - statistics.meanCents()) / statistics.standardDeviationCents()
+                        : 0.0;
+                features.put("zscore_amount_vs_pan_history", zScore);
             }
             if (lastTxnFuture != null && transaction.getTxnTs() != null) {
                 LocalDateTime lastTxn = lastTxnFuture.get();
@@ -190,6 +221,9 @@ public class OptimizedFeatureExtractionService {
         features.put("currency", transaction.getCurrency() != null ? transaction.getCurrency() : "USD");
         features.put("merchant_id", transaction.getMerchantId());
         features.put("terminal_id", transaction.getTerminalId());
+        // pspId so RulesExecutionService evaluates THIS PSP's own rule copies (not just the system
+        // defaults) on the ultra/production path — mirrors FeatureExtractionService.
+        features.put("pspId", transaction.getPspId());
         
         String panHash = transaction.getPanHash();
         if (panHash != null && panHash.length() >= 6) {
@@ -204,8 +238,7 @@ public class OptimizedFeatureExtractionService {
     }
 
     private void extractBehavioralFeatures(TransactionEntity transaction, Map<String, Object> features) {
-        // Direct queries for sequential fallback
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = transaction.getTxnTs() != null ? transaction.getTxnTs() : LocalDateTime.now();
         LocalDateTime oneHourAgo = now.minus(1, ChronoUnit.HOURS);
         LocalDateTime twentyFourHoursAgo = now.minus(24, ChronoUnit.HOURS);
         LocalDateTime sevenDaysAgo = now.minus(7, ChronoUnit.DAYS);
@@ -227,10 +260,17 @@ public class OptimizedFeatureExtractionService {
             features.put("pan_txn_amount_sum_7d", amount != null ? amount / 100.0 : 0.0);
             features.put("distinct_terminals_last_30d_for_pan",
                 transactionRepository.countDistinctTerminalsByPan(panHash, thirtyDaysAgo, now));
-            Double avg = transactionRepository.avgAmountByPanInTimeWindow(panHash, thirtyDaysAgo, now);
-            features.put("avg_amount_by_pan_30d", avg != null ? avg / 100.0 : 0.0);
+            AmountStatistics statistics = calculateAmountStatistics(
+                    transactionRepository.findRecentAmountsByPanBefore(
+                            panHash, thirtyDaysAgo, now, PageRequest.of(0, 1_000)));
+            features.put("avg_amount_by_pan_30d", statistics.meanCents() / 100.0);
+            Long amountCents = transaction.getAmountCents();
+            double zScore = amountCents != null && statistics.standardDeviationCents() > 0
+                    ? (amountCents - statistics.meanCents()) / statistics.standardDeviationCents()
+                    : 0.0;
+            features.put("zscore_amount_vs_pan_history", zScore);
             
-            LocalDateTime lastTxn = transactionRepository.findLastTransactionTimeByPan(panHash);
+            LocalDateTime lastTxn = transactionRepository.findLastTransactionTimeByPanBefore(panHash, now);
             if (lastTxn != null && transaction.getTxnTs() != null) {
                 long minutesSince = ChronoUnit.MINUTES.between(lastTxn, transaction.getTxnTs());
                 features.put("time_since_last_txn_for_pan_minutes", minutesSince);
@@ -268,30 +308,73 @@ public class OptimizedFeatureExtractionService {
     }
 
     private void extractAmlFeatures(TransactionEntity transaction, Map<String, Object> features) {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = transaction.getTxnTs() != null ? transaction.getTxnTs() : LocalDateTime.now();
         LocalDateTime thirtyDaysAgo = now.minus(30, ChronoUnit.DAYS);
         LocalDateTime sevenDaysAgo = now.minus(7, ChronoUnit.DAYS);
 
         String panHash = transaction.getPanHash();
         if (panHash != null) {
-            Long amount = transactionRepository.sumAmountByPanInTimeWindow(panHash, thirtyDaysAgo, now);
-            features.put("cumulative_debits_30d", amount != null ? amount / 100.0 : 0.0);
+            Long inboundAmount = transactionRepository.sumInboundAmountByPanInWindow(
+                    panHash, thirtyDaysAgo, now);
+            Long outboundAmount = transactionRepository.sumOutboundAmountByPanInWindow(
+                    panHash, thirtyDaysAgo, now);
+            features.put("cumulative_credits_30d", inboundAmount != null ? inboundAmount / 100.0 : 0.0);
+            features.put("cumulative_debits_30d", outboundAmount != null ? outboundAmount / 100.0 : 0.0);
             features.put("num_high_value_txn_7d",
-                transactionRepository.countByPanInTimeWindow(panHash, sevenDaysAgo, now));
+                transactionRepository.countHighValueByPanInWindow(
+                        panHash, highValueAmountCents, sevenDaysAgo, now));
         }
     }
 
-    private int parseCvmMethod(Object cvmrValue) {
-        if (cvmrValue == null) return 0;
-        try {
-            String cvmrStr = cvmrValue.toString();
-            if (cvmrStr.length() >= 2) {
-                return Integer.parseInt(cvmrStr.substring(0, 2), 16);
-            }
-        } catch (Exception e) {
-            logger.debug("Failed to parse CVM method", e);
+    private AmountStatistics calculateAmountStatistics(List<Long> amounts) {
+        if (amounts == null || amounts.isEmpty()) {
+            return new AmountStatistics(0.0, 0.0);
         }
-        return 0;
+        double mean = amounts.stream().mapToLong(Long::longValue).average().orElse(0.0);
+        double variance = amounts.stream()
+                .mapToDouble(amount -> {
+                    double difference = amount - mean;
+                    return difference * difference;
+                })
+                .average()
+                .orElse(0.0);
+        return new AmountStatistics(mean, Math.sqrt(variance));
+    }
+
+    private record AmountStatistics(double meanCents, double standardDeviationCents) {}
+
+    /**
+     * Parse the CVM method into the SAME categorical encoding as
+     * {@code FeatureExtractionService.parseCvmMethod} (0=unknown, 1=PIN, 2=signature,
+     * 3=no-CVM). Previously this returned the raw first CVMR byte (0-255), so the two
+     * extraction paths emitted different value domains for the same {@code cvm_method}
+     * feature and produced inconsistent scores for identical EMV input.
+     */
+    private int parseCvmMethod(Object cvmrValue) {
+        if (cvmrValue == null) {
+            return 0;
+        }
+        try {
+            String clean = cvmrValue.toString().replaceAll("[^0-9A-Fa-f]", "");
+            if (clean.length() < 2) {
+                return 0;
+            }
+            int firstByte = Integer.parseInt(clean.substring(0, 2), 16);
+            int cvmCode = firstByte & 0x3F; // strip the two "apply-if-fail" flag bits
+            if (cvmCode == 0x1E || cvmCode == 0x02 || cvmCode == 0x04 || cvmCode == 0x1A) {
+                return 1; // PIN
+            }
+            if (cvmCode == 0x3E) {
+                return 2; // Signature
+            }
+            if (cvmCode == 0x00 || cvmCode == 0x3F) {
+                return 3; // No CVM required / performed
+            }
+            return 0; // Unknown
+        } catch (NumberFormatException e) {
+            logger.debug("Failed to parse CVM method from value: {}", cvmrValue, e);
+            return 0;
+        }
     }
 }
 

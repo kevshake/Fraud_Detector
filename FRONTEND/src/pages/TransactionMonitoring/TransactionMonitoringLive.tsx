@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import {
   useMonitoringTransactions,
   useMonitoringDashboardStats,
@@ -35,7 +36,7 @@ export default function TransactionMonitoringLive() {
       {stats && !statsLoading && (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           {Object.entries(stats).map(([key, value]) => (
-            <div key={key} className="rounded-lg border border-white/10 bg-[#0f1a2e] p-4">
+            <div key={key} className="rounded-lg border border-white/10 bg-[var(--surface-2)] p-4">
               <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-glass-muted">
                 {key.replace(/([A-Z])/g, " $1").trim()}
               </p>
@@ -49,7 +50,7 @@ export default function TransactionMonitoringLive() {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         {/* Transactions table */}
-        <div className="overflow-hidden rounded-lg border border-white/10 bg-[#0f1a2e] lg:col-span-2">
+        <div className="overflow-hidden rounded-lg border border-white/10 bg-[var(--surface-2)] lg:col-span-2">
           <div className="border-b border-white/10 px-4 py-3">
             <h4 className="text-sm font-semibold text-white">Monitored Transactions</h4>
           </div>
@@ -61,7 +62,7 @@ export default function TransactionMonitoringLive() {
             ) : (
               <table className="w-full border-collapse">
                 <thead className="sticky top-0 z-10">
-                  <tr className="border-b border-white/10 bg-[#0f1a2e]">
+                  <tr className="border-b border-white/10 bg-[var(--surface-2)]">
                     <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">ID</th>
                     <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">Merchant</th>
                     <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">Amount</th>
@@ -72,8 +73,8 @@ export default function TransactionMonitoringLive() {
                 <tbody className="divide-y divide-white/5">
                   {content.length > 0 ? content.map((txn: any) => (
                     <tr key={txn.txnId || txn.transactionId || txn.id} className="transition-colors hover:bg-white/[0.02]">
-                      <td className="whitespace-nowrap px-4 py-3 text-sm text-white/80">#{txn.txnId || txn.transactionId || txn.id}</td>
-                      <td className="whitespace-nowrap px-4 py-3 text-sm text-white">{txn.merchantId || "-"}</td>
+                      <td className="whitespace-nowrap px-4 py-3 text-sm text-white/80"><Link className="hover:text-gold" to={`/records/TRANSACTION/${txn.txnId || txn.transactionId || txn.id}`}>#{txn.txnId || txn.transactionId || txn.id}</Link></td>
+                      <td className="whitespace-nowrap px-4 py-3 text-sm text-white">{txn.merchantId ? <Link className="hover:text-gold" to={`/records/MERCHANT/${txn.merchantId}`}>{txn.merchantId}</Link> : "-"}</td>
                       <td className="whitespace-nowrap px-4 py-3 text-sm text-white">{txn.amountCents ? `$${(txn.amountCents / 100).toFixed(2)}` : "-"}</td>
                       <td className="whitespace-nowrap px-4 py-3">
                         <TwBadge variant={decisionBadge(txn.decision)}>{txn.decision || "ALLOW"}</TwBadge>
@@ -97,14 +98,14 @@ export default function TransactionMonitoringLive() {
         </div>
 
         {/* Recent Activity */}
-        <div className="rounded-lg border border-white/10 bg-[#0f1a2e] p-4">
+        <div className="rounded-lg border border-white/10 bg-[var(--surface-2)] p-4">
           <h4 className="mb-3 text-sm font-semibold text-white">Recent Activity</h4>
           {activityLoading ? (
             <p className="text-sm text-glass-muted">Loading activity...</p>
           ) : recentActivity && Array.isArray(recentActivity) && recentActivity.length > 0 ? (
             <div className="flex flex-col gap-1.5">
               {recentActivity.slice(0, 10).map((activity: any, idx: number) => (
-                <div key={activity.id || activity.timestamp || idx} className="rounded-lg border border-white/5 bg-[#0f1a2e] p-3">
+                <div key={activity.id || activity.timestamp || idx} className="rounded-lg border border-white/5 bg-[var(--surface-2)] p-3">
                   <p className="text-sm text-white/80">{activity.description || activity.action || "Activity"}</p>
                   <p className="mt-0.5 text-xs text-glass-muted">
                     {activity.timestamp ? new Date(activity.timestamp).toLocaleString() : ""}

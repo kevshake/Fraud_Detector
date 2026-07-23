@@ -57,7 +57,7 @@ public class InternalAuthFilter extends OncePerRequestFilter {
 
         if (path.startsWith("/internal/")) {
             String provided = request.getHeader(HEADER);
-            if (provided == null || !expectedKey.equals(provided)) {
+            if (provided == null || !constantTimeEquals(expectedKey, provided)) {
                 response.setStatus(HttpStatus.UNAUTHORIZED.value());
                 response.setContentType("application/json");
                 response.getWriter().write("{\"error\":\"missing or invalid X-Internal-Auth\"}");
@@ -66,5 +66,15 @@ public class InternalAuthFilter extends OncePerRequestFilter {
         }
 
         chain.doFilter(request, response);
+    }
+
+    /** Constant-time comparison to avoid a timing side-channel on the internal auth key. */
+    private static boolean constantTimeEquals(String a, String b) {
+        if (a == null || b == null) {
+            return false;
+        }
+        return java.security.MessageDigest.isEqual(
+                a.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                b.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 }

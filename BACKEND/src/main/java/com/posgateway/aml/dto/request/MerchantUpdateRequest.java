@@ -26,6 +26,10 @@ public class MerchantUpdateRequest {
 
     private String contactEmail;
     private String contactPhone;
+    @Size(max = 200)
+    private String cbkSettlementAccountNumber;
+    @Size(max = 100)
+    private String cbkEconomicSectorCode;
 
     private List<String> operatingCountries;
 
@@ -157,6 +161,22 @@ public class MerchantUpdateRequest {
 
     public void setContactPhone(String contactPhone) {
         this.contactPhone = contactPhone;
+    }
+
+    public String getCbkSettlementAccountNumber() {
+        return cbkSettlementAccountNumber;
+    }
+
+    public void setCbkSettlementAccountNumber(String cbkSettlementAccountNumber) {
+        this.cbkSettlementAccountNumber = cbkSettlementAccountNumber;
+    }
+
+    public String getCbkEconomicSectorCode() {
+        return cbkEconomicSectorCode;
+    }
+
+    public void setCbkEconomicSectorCode(String cbkEconomicSectorCode) {
+        this.cbkEconomicSectorCode = cbkEconomicSectorCode;
     }
 
     public List<String> getOperatingCountries() {

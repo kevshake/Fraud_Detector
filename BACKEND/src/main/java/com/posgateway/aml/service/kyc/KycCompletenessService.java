@@ -23,7 +23,7 @@ public class KycCompletenessService {
 
     private final MerchantRepository merchantRepository;
     private final MerchantDocumentRepository documentRepository;
-    private final com.posgateway.aml.service.cache.KycDataCacheService kycCacheService; // Aerospike cache
+    private final com.posgateway.aml.service.cache.KycDataCacheService kycCacheService; // Redis cache
 
     // Required document types for KYC completeness
     private static final String[] REQUIRED_DOCUMENT_TYPES = {
@@ -45,10 +45,10 @@ public class KycCompletenessService {
 
     /**
      * Calculate KYC completeness score for a merchant
-     * Uses Aerospike cache for fast lookups
+     * Uses the backend Redis cache. Aerospike remains owned by aml-microservice.
      */
     public CompletenessScore calculateCompletenessScore(Long merchantId) {
-        // Fast Aerospike cache lookup first for overall score
+        // Fast Redis cache lookup first for overall score
         Double cachedScore = kycCacheService.getCachedCompletenessScore(merchantId);
         if (cachedScore != null) {
             logger.debug("KYC completeness from cache for merchant {}: {}%", merchantId, cachedScore * 100);
@@ -103,7 +103,7 @@ public class KycCompletenessService {
         logger.debug("KYC completeness for merchant {}: {}% ({})",
                 merchantId, score.getOverallPercentage(), score.getCompletenessLevel());
 
-        // Cache the overall score in Aerospike for future fast lookups
+        // Cache the overall score in Redis for future fast lookups
         kycCacheService.cacheCompletenessScore(merchantId, score.getOverallScore());
 
         return score;

@@ -17,6 +17,21 @@ public class VerifiRdrProperties {
     /** HMAC signing key shared with Verifi or your PSP/gateway partner. */
     private String webhookSecret = "";
 
+    /** Authentication profile: HS256 for shared-secret JWS, RSA for PS256 over nested JWE. */
+    private String authMode = "HS256";
+
+    /** Visa/Verifi RSA public key or X.509 certificate used to verify PS256 signatures. */
+    private String jwsVerificationPublicKey = "";
+
+    /** Merchant PKCS#8 or PKCS#1 RSA private key used to decrypt nested JWE claims. */
+    private String jweDecryptionPrivateKey = "";
+
+    /** Optional expected signing key identifier from the outer JWS header. */
+    private String jwsKeyId = "";
+
+    /** Optional expected encryption key identifier from the inner JWE header. */
+    private String jweKeyId = "";
+
     /**
      * Public callback URL registered with Verifi (informational; used in startup logs).
      * Example: https://api.example.com/api/v1/integrations/verifi/rdr
@@ -43,6 +58,21 @@ public class VerifiRdrProperties {
 
     public String getWebhookSecret() { return webhookSecret; }
     public void setWebhookSecret(String webhookSecret) { this.webhookSecret = webhookSecret; }
+
+    public String getAuthMode() { return authMode; }
+    public void setAuthMode(String authMode) { this.authMode = authMode; }
+
+    public String getJwsVerificationPublicKey() { return jwsVerificationPublicKey; }
+    public void setJwsVerificationPublicKey(String jwsVerificationPublicKey) { this.jwsVerificationPublicKey = jwsVerificationPublicKey; }
+
+    public String getJweDecryptionPrivateKey() { return jweDecryptionPrivateKey; }
+    public void setJweDecryptionPrivateKey(String jweDecryptionPrivateKey) { this.jweDecryptionPrivateKey = jweDecryptionPrivateKey; }
+
+    public String getJwsKeyId() { return jwsKeyId; }
+    public void setJwsKeyId(String jwsKeyId) { this.jwsKeyId = jwsKeyId; }
+
+    public String getJweKeyId() { return jweKeyId; }
+    public void setJweKeyId(String jweKeyId) { this.jweKeyId = jweKeyId; }
 
     public String getCallbackUrl() { return callbackUrl; }
     public void setCallbackUrl(String callbackUrl) { this.callbackUrl = callbackUrl; }

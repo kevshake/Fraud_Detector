@@ -34,7 +34,7 @@ export default function TransactionMonitoringReports() {
         <StatCard label="Fraud Alerts" value={fraudAlertCount.toLocaleString()} color="text-red-400" />
       </div>
 
-      <div className="rounded-lg border border-white/10 bg-[#0f1a2e] p-4">
+      <div className="rounded-lg border border-white/10 bg-[var(--surface-2)] p-4">
         <h4 className="mb-3 text-sm font-semibold text-white">Summary Statistics</h4>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <div>
@@ -59,7 +59,7 @@ export default function TransactionMonitoringReports() {
 
 function StatCard({ label, value, color = "text-white" }: { label: string; value: string; color?: string }) {
   return (
-    <div className="rounded-lg border border-white/10 bg-[#0f1a2e] p-4">
+    <div className="rounded-lg border border-white/10 bg-[var(--surface-2)] p-4">
       <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-glass-muted">{label}</p>
       <p className={`text-xl font-bold ${color}`}>{value}</p>
     </div>

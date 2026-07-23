@@ -50,11 +50,11 @@ export default function SignupPage() {
         }
     };
 
-    const inputClass = "w-full rounded-lg border border-white/10 bg-[#1a2744] px-3 py-2.5 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-burgundy-700";
+    const inputClass = "w-full rounded-lg border border-white/10 bg-[var(--surface-2)] px-3 py-2.5 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-burgundy-700";
     const labelClass = "text-[11px] font-semibold uppercase tracking-wider text-glass-muted";
 
     return (
-        <div className="flex min-h-screen items-center justify-center bg-[#07142e] px-4">
+        <div className="flex min-h-screen items-center justify-center bg-[var(--ink)] px-4">
             <div className="w-full max-w-md">
                 <div className="mb-6 text-center">
                     <div className="mb-2 flex items-center justify-center gap-2">
@@ -67,7 +67,7 @@ export default function SignupPage() {
                     <p className="text-sm text-glass-muted">Register for a new platform account</p>
                 </div>
 
-                <div className="rounded-xl border border-white/10 bg-[#0f1a2e] p-6 shadow-2xl">
+                <div className="rounded-xl border border-white/10 bg-[var(--surface-2)] p-6 shadow-2xl">
                     <form onSubmit={handleSubmit} className="space-y-4">
                         {error && <div className="rounded-lg border border-red-700/30 bg-red-900/30 px-4 py-3 text-sm text-red-200">{error}</div>}
                         {success && <div className="rounded-lg border border-emerald-700/30 bg-emerald-900/30 px-4 py-3 text-sm text-emerald-200">{success}</div>}

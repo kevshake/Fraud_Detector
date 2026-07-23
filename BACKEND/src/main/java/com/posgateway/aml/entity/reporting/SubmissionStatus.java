@@ -8,7 +8,7 @@ public enum SubmissionStatus {
     PENDING_REVIEW("Pending Review", "Awaiting review"),
     APPROVED("Approved", "Approved for filing"),
     FILED("Filed", "Submitted to regulator"),
-    REJECTED("Rejected", "Rejected by regulator"),
+    REJECTED("Rejected", "Rejected during internal review or by the regulator"),
     AMENDED("Amended", "Amended submission"),
     SUBMISSION_PENDING("Submission Pending",
             "Approved for filing but the regulator client is not yet enabled — will be re-driven");
@@ -34,6 +34,6 @@ public enum SubmissionStatus {
     }
 
     public boolean canFile() {
-        return this == APPROVED;
+        return this == APPROVED || this == SUBMISSION_PENDING;
     }
 }

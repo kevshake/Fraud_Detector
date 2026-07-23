@@ -46,4 +46,12 @@ public interface RegulatorySubmissionRepository extends JpaRepository<Regulatory
     List<RegulatorySubmission> findByAmendedSubmissionId(Long amendedSubmissionId);
 
     long countByPspIdAndStatus(Long pspId, SubmissionStatus status);
+
+    Optional<RegulatorySubmission>
+        findFirstByReportIdAndPspIdAndRegulatorCodeOrderByCreatedAtDesc(
+                Long reportId, Long pspId, String regulatorCode);
+
+    Optional<RegulatorySubmission>
+        findFirstByExecutionIdAndPspIdAndRegulatorCodeAndAmendedSubmissionIsNullOrderByCreatedAtDesc(
+                Long executionId, Long pspId, String regulatorCode);
 }

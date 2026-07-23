@@ -1,0 +1,176 @@
+name: CI
+
+# Runs the whole platform: control plane, PSP edge host, the Rust core, and the dashboard.
+#
+# The `edge-interop` job is the important one. HSE-1 is implemented twice — once in Java (control
+# plane, seal side) and once in Rust (edge, open side) — and the two must stay byte-for-byte
+# compatible or PSP nodes silently stop receiving rules. The Java test regenerates the interop vector
+# from the CURRENT implementation and the Rust suite then opens it, so a wire-format change on either
+# side fails here rather than in the field. Committing a vector without regenerating it would give a
+# false green, which is exactly what this ordering prevents.
+
+on:
+  push:
+    branches: [main, 'feat/**', 'fix/**']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  JAVA_VERSION: '21'
+  JAVA_DISTRIBUTION: 'temurin'
+
+jobs:
+  backend:
+    name: Control plane (BACKEND)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          cache: maven
+      - name: Test
+        working-directory: BACKEND
+        run: mvn -B --no-transfer-progress test
+      - name: Publish test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-surefire-reports
+          path: BACKEND/target/surefire-reports/
+          if-no-files-found: warn
+
+  edge-host:
+    name: PSP edge host
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          cache: maven
+      - name: Test
+        working-directory: edge-host
+        run: mvn -B --no-transfer-progress test
+      - name: Publish test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: edge-host-surefire-reports
+          path: edge-host/target/surefire-reports/
+          if-no-files-found: warn
+
+  edge-interop:
+    name: HSE-1 Java-Rust interop + Rust core
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          cache: maven
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: edge-engine
+
+      # Step 1 — regenerate the interop vector from the CURRENT Java implementation.
+      # EdgeBundleServiceTest seals a real rule-IR bundle and writes edge-engine/test-vectors/.
+      - name: Regenerate the HSE-1 interop vector from Java
+        working-directory: BACKEND
+        run: mvn -B --no-transfer-progress test -Dtest=EdgeBundleServiceTest -DfailIfNoSpecifiedTests=false
+
+      - name: Fail if the vector was not regenerated
+        run: |
+          set -euo pipefail
+          vector=edge-engine/test-vectors/hse1_vector.json
+          test -f "$vector" || { echo "::error::$vector was not produced by the Java test"; exit 1; }
+          # Must have been written by the step above, not merely checked out.
+          if [ -z "$(find "$vector" -newermt '-10 minutes')" ]; then
+            echo "::error::$vector is stale — the Java generator did not rewrite it, so the Rust interop test would validate against a snapshot instead of current Java."
+            exit 1
+          fi
+          echo "vector regenerated: $(wc -c < "$vector") bytes"
+
+      # Step 2 — the Rust edge must open what Java just sealed.
+      - name: Rust workspace tests (incl. interop + no-plaintext proofs)
+        working-directory: edge-engine
+        run: cargo test --workspace --verbose
+
+      - name: Clippy (warnings are errors)
+        working-directory: edge-engine
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Formatting
+        working-directory: edge-engine
+        run: cargo fmt --all --check
+
+  frontend:
+    name: Dashboard (FRONTEND)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: FRONTEND/package-lock.json
+      - name: Install
+        working-directory: FRONTEND
+        run: npm ci
+      - name: Type check
+        working-directory: FRONTEND
+        run: npm run typecheck
+      - name: Lint (zero-warning policy)
+        working-directory: FRONTEND
+        run: npm run lint
+      - name: Build
+        working-directory: FRONTEND
+        run: npm run build
+
+  deploy-scripts:
+    name: Edge installer scripts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Shell syntax
+        working-directory: edge-host/deploy
+        run: bash -n install.sh
+      - name: PowerShell syntax
+        shell: pwsh
+        working-directory: edge-host/deploy
+        run: |
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path ./install.ps1), [ref]$null, [ref]$errors) | Out-Null
+          if ($errors) { $errors | ForEach-Object { Write-Error $_ }; exit 1 }
+          Write-Host 'install.ps1: SYNTAX OK'
+      - name: Compose validity + database isolation
+        working-directory: edge-host/deploy
+        run: |
+          set -euo pipefail
+          cp .env.example .env 2>/dev/null || true
+          docker compose config > /tmp/rendered.yml
+          # The database must never be published to the host — isolation is the access control.
+          if docker compose config --format json \
+             | python3 -c "import json,sys; s=json.load(sys.stdin)['services']; sys.exit(1 if s.get('aerospike',{}).get('ports') else 0)"; then
+            echo "aerospike is network-isolated (no published ports)"
+          else
+            echo "::error::aerospike has published ports — the database would be reachable outside the app"
+            exit 1
+          fi

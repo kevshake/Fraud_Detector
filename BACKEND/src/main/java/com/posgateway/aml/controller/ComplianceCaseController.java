@@ -150,19 +150,11 @@ public class ComplianceCaseController {
         long totalCases;
 
         if (isPspUser && pspId != null) {
-            openCases = complianceCaseRepository.countByPspIdAndStatus(pspId, CaseStatus.NEW); // + ASSIGNED if needed
+            openCases = complianceCaseRepository.countByPspIdAndStatus(pspId, CaseStatus.NEW)
+                    + complianceCaseRepository.countByPspIdAndStatus(pspId, CaseStatus.ASSIGNED)
+                    + complianceCaseRepository.countByPspIdAndStatus(pspId, CaseStatus.IN_PROGRESS);
             inProgressCases = complianceCaseRepository.countByPspIdAndStatus(pspId, CaseStatus.IN_PROGRESS);
-            // Count total for PSP? Repository only has specific counts.
-            // Let's assume total is sum or create countByPspI.
-            // We have countByPspIdAndStatus.
-            // We need countByPspId.
-            totalCases = complianceCaseRepository.countByPspIdAndStatus(pspId, CaseStatus.NEW)
-                    + complianceCaseRepository.countByPspIdAndStatus(pspId, CaseStatus.IN_PROGRESS)
-                    + complianceCaseRepository.countByPspIdAndStatus(pspId, CaseStatus.CLOSED_CLEARED)
-                    + complianceCaseRepository.countByPspIdAndStatus(pspId, CaseStatus.CLOSED_SAR_FILED)
-                    + complianceCaseRepository.countByPspIdAndStatus(pspId, CaseStatus.CLOSED_BLOCKED)
-            // approx total
-            ;
+            totalCases = complianceCaseRepository.countByPspId(pspId);
         } else {
             openCases = complianceCaseRepository.countByStatus(CaseStatus.NEW)
                     + complianceCaseRepository.countByStatus(CaseStatus.ASSIGNED)

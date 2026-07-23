@@ -14,7 +14,8 @@ import java.time.LocalDateTime;
  */
 @Entity
 @Table(name = "high_risk_countries")
-@Data
+@lombok.Getter
+@lombok.Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor

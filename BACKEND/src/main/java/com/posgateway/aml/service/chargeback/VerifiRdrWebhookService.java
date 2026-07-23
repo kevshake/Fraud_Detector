@@ -8,7 +8,6 @@ import com.posgateway.aml.integration.verifi.VerifiRdrProperties;
 import com.posgateway.aml.integration.verifi.VerifiRequestAuthenticator;
 import com.posgateway.aml.repository.AlertRepository;
 import com.posgateway.aml.repository.MerchantRepository;
-import com.posgateway.aml.repository.AerospikeMetricsRepository;
 import com.posgateway.aml.repository.chargeback.ChargebackDisputeRepository;
 import com.posgateway.aml.service.case_management.CaseCreationService;
 import org.slf4j.Logger;
@@ -34,7 +33,6 @@ public class VerifiRdrWebhookService {
     private final ChargebackDisputeRepository disputeRepository;
     private final AlertRepository alertRepository;
     private final MerchantRepository merchantRepository;
-    private final AerospikeMetricsRepository metricsRepository;
     private final CaseCreationService caseCreationService;
     private final ObjectMapper objectMapper;
 
@@ -42,14 +40,12 @@ public class VerifiRdrWebhookService {
                                    ChargebackDisputeRepository disputeRepository,
                                    AlertRepository alertRepository,
                                    MerchantRepository merchantRepository,
-                                   AerospikeMetricsRepository metricsRepository,
                                    CaseCreationService caseCreationService,
                                    ObjectMapper objectMapper) {
         this.properties = properties;
         this.disputeRepository = disputeRepository;
         this.alertRepository = alertRepository;
         this.merchantRepository = merchantRepository;
-        this.metricsRepository = metricsRepository;
         this.caseCreationService = caseCreationService;
         this.objectMapper = objectMapper;
     }
@@ -113,11 +109,6 @@ public class VerifiRdrWebhookService {
                     dispute.getPspId(),
                     notificationType,
                     buildCaseDescription(dispute));
-        }
-
-        if (merchantId != null && dispute.getCaseAmount() != null) {
-            long amountCents = dispute.getCaseAmount().multiply(BigDecimal.valueOf(100)).longValue();
-            metricsRepository.incrementCounters(String.valueOf(merchantId), false, true, amountCents);
         }
 
         return disputeRepository.save(dispute);

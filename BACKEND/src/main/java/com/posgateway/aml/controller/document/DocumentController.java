@@ -9,6 +9,7 @@ import com.posgateway.aml.repository.MerchantDocumentRepository;
 import com.posgateway.aml.repository.MerchantRepository;
 import com.posgateway.aml.service.compliance.AuditService;
 import com.posgateway.aml.service.document.DocumentManagementService;
+import com.posgateway.aml.service.security.PspIsolationService;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -16,6 +17,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.MediaTypeFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -24,7 +26,9 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 @PreAuthorize("isAuthenticated()")
 @RestController
@@ -37,15 +41,18 @@ public class DocumentController {
     private final MerchantDocumentRepository documentRepository;
     private final MerchantRepository merchantRepository;
     private final AuditService auditService;
+    private final PspIsolationService pspIsolationService;
 
     public DocumentController(DocumentManagementService documentService,
                               MerchantDocumentRepository documentRepository,
                               MerchantRepository merchantRepository,
-                              AuditService auditService) {
+                              AuditService auditService,
+                              PspIsolationService pspIsolationService) {
         this.documentService = documentService;
         this.documentRepository = documentRepository;
         this.merchantRepository = merchantRepository;
         this.auditService = auditService;
+        this.pspIsolationService = pspIsolationService;
     }
 
     private com.posgateway.aml.entity.User getCurrentUser() {
@@ -59,17 +66,27 @@ public class DocumentController {
 
 
     @PostMapping("/merchants/{merchantId}/documents")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','COMPLIANCE_OFFICER','MLRO','PSP_ADMIN','PSP_ANALYST','PSP_USER','SCREENING_ANALYST')")
     public ResponseEntity<MerchantDocumentDto> uploadDocument(
             @PathVariable Long merchantId,
             @RequestParam("file") MultipartFile file,
-            @RequestParam("type") String type) throws IOException {
+            @RequestParam("type") String type,
+            @RequestParam(value = "expiryDate", required = false) LocalDate expiryDate) throws IOException {
 
-        MerchantDocument saved = documentService.uploadDocument(merchantId, file, type);
+        Merchant merchant = requireMerchantAccess(merchantId);
+        MerchantDocument saved = documentService.uploadDocument(merchantId, file, type, expiryDate);
+        com.posgateway.aml.entity.User user = requireCurrentUser();
+        auditService.logAction("KYC_DOCUMENT_UPLOADED", merchant.getMerchantId(), user.getUsername(),
+                "KYC document uploaded",
+                Map.of("documentId", saved.getDocumentId(), "documentType", saved.getDocumentType(),
+                        "sha256", saved.getSha256Hash(), "malwareScanStatus", saved.getMalwareScanStatus()));
         return ResponseEntity.ok(MerchantDocumentDto.from(saved));
     }
 
     @GetMapping("/merchants/{merchantId}/documents")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','COMPLIANCE_OFFICER','MLRO','PSP_ADMIN','PSP_ANALYST','PSP_USER','SCREENING_ANALYST','INVESTIGATOR','CASE_MANAGER','AUDITOR','VIEWER')")
     public ResponseEntity<List<MerchantDocumentDto>> getDocuments(@PathVariable Long merchantId) {
+        requireMerchantAccess(merchantId);
         List<MerchantDocumentDto> dtos = documentService.getDocuments(merchantId).stream()
                 .map(MerchantDocumentDto::from)
                 .toList();
@@ -77,11 +94,19 @@ public class DocumentController {
     }
 
     @PutMapping("/documents/{documentId}/verify")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','COMPLIANCE_OFFICER','MLRO','PSP_ADMIN')")
     public ResponseEntity<MerchantDocumentDto> verifyDocument(
             @PathVariable Long documentId,
-            @RequestParam boolean approved) {
+            @RequestParam boolean approved,
+            @RequestParam(value = "notes", required = false) String notes) {
 
-        MerchantDocument verified = documentService.verifyDocument(documentId, approved);
+        MerchantDocument document = requireDocumentAccess(documentId);
+        com.posgateway.aml.entity.User user = requireCurrentUser();
+        MerchantDocument verified = documentService.verifyDocument(documentId, approved, user.getUsername(), notes);
+        auditService.logAction(approved ? "KYC_DOCUMENT_APPROVED" : "KYC_DOCUMENT_REJECTED",
+                document.getMerchantId(), user.getUsername(), notes == null ? "" : notes,
+                Map.of("documentId", documentId, "decision", verified.getStatus(),
+                        "sha256", verified.getSha256Hash() == null ? "" : verified.getSha256Hash()));
         return ResponseEntity.ok(MerchantDocumentDto.from(verified));
     }
 
@@ -106,27 +131,8 @@ public class DocumentController {
     }
 
     private ResponseEntity<InputStreamResource> serveDocument(Long documentId, boolean attachment) throws IOException {
-        com.posgateway.aml.entity.User user = getCurrentUser();
-        if (user == null) {
-            return ResponseEntity.status(401).build();
-        }
-
-        MerchantDocument doc = documentRepository.findById(documentId).orElse(null);
-        if (doc == null) {
-            return ResponseEntity.notFound().build();
-        }
-
-        // PSP-scoped access check: a PSP user must own (via Merchant.psp) the
-        // document's merchant. Users without a PSP (e.g. SUPER_ADMIN) are
-        // treated as global readers.
-        if (user.getPsp() != null) {
-            Merchant merchant = merchantRepository.findById(doc.getMerchantId()).orElse(null);
-            if (merchant == null
-                    || merchant.getPsp() == null
-                    || !merchant.getPsp().getPspId().equals(user.getPsp().getPspId())) {
-                return ResponseEntity.status(403).build();
-            }
-        }
+        com.posgateway.aml.entity.User user = requireCurrentUser();
+        MerchantDocument doc = requireDocumentAccess(documentId);
 
         Path path = Paths.get(doc.getFilePath());
         if (!Files.exists(path) || !Files.isRegularFile(path)) {
@@ -134,8 +140,9 @@ public class DocumentController {
             return ResponseEntity.notFound().build();
         }
 
-        MediaType mediaType = MediaTypeFactory.getMediaType(doc.getFileName())
-                .orElse(MediaType.APPLICATION_OCTET_STREAM);
+        MediaType mediaType = doc.getContentType() == null
+                ? MediaTypeFactory.getMediaType(doc.getFileName()).orElse(MediaType.APPLICATION_OCTET_STREAM)
+                : MediaType.parseMediaType(doc.getContentType());
 
         ContentDisposition disposition = (attachment
                 ? ContentDisposition.attachment()
@@ -171,5 +178,33 @@ public class DocumentController {
                 .contentLength(contentLength)
                 .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
                 .body(resource);
+    }
+
+    private com.posgateway.aml.entity.User requireCurrentUser() {
+        com.posgateway.aml.entity.User user = getCurrentUser();
+        if (user == null) {
+            throw new AccessDeniedException("Authenticated user is required");
+        }
+        return user;
+    }
+
+    private Merchant requireMerchantAccess(Long merchantId) {
+        Merchant merchant = merchantRepository.findById(merchantId)
+                .orElseThrow(() -> new IllegalArgumentException("Merchant not found: " + merchantId));
+        com.posgateway.aml.entity.User user = requireCurrentUser();
+        if (!pspIsolationService.isPlatformAdministrator(user)) {
+            if (user.getPsp() == null || merchant.getPsp() == null
+                    || !user.getPsp().getPspId().equals(merchant.getPsp().getPspId())) {
+                throw new AccessDeniedException("Cannot access documents from another PSP");
+            }
+        }
+        return merchant;
+    }
+
+    private MerchantDocument requireDocumentAccess(Long documentId) {
+        MerchantDocument document = documentRepository.findById(documentId)
+                .orElseThrow(() -> new IllegalArgumentException("Document not found: " + documentId));
+        requireMerchantAccess(document.getMerchantId());
+        return document;
     }
 }

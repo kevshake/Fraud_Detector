@@ -28,8 +28,7 @@ import java.util.Map;
  * - Degree Centrality: Connection counting
  * - Triangle Count: Network density
  * 
- * Results are cached in Aerospike for fast retrieval during transaction
- * scoring.
+ * Results are cached in Redis for fast retrieval during transaction scoring.
  */
 @Service
 @ConditionalOnProperty(name = "neo4j.enabled", havingValue = "true", matchIfMissing = false)

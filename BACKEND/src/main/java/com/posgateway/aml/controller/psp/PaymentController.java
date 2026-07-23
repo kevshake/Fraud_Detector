@@ -60,6 +60,15 @@ public class PaymentController {
     @Value("${billing.bank.swift:EQBLKENA}")
     private String bankSwift;
 
+    /**
+     * Shared secret embedded in the STK-push CallBackURL (e.g. .../callback?token=SECRET).
+     * Only Safaricom receives the registered CallBackURL, so a matching token authenticates
+     * the callback. When blank the callback is UNAUTHENTICATED (a forger who guesses a pending
+     * CheckoutRequestID could mark an invoice PAID) — set this in production.
+     */
+    @Value("${mpesa.callback.secret:}")
+    private String mpesaCallbackSecret;
+
     public PaymentController(InvoiceRepository invoiceRepository,
                              PaymentAttemptRepository paymentAttemptRepository,
                              MpesaService mpesaService) {
@@ -217,11 +226,28 @@ public class PaymentController {
 
     /**
      * Publicly accessible endpoint that Safaricom calls with the STK push result.
-     * Security is handled at the SecurityConfig level (permitAll for this path).
+     * Daraja does not sign callbacks, so authentication is via a shared secret token in the
+     * registered CallBackURL (.../callback?token=SECRET). Only Safaricom receives that URL, so
+     * a matching token proves the caller is Safaricom. A forged POST without the token is
+     * acknowledged but NOT processed, closing the "mark any invoice PAID" hole.
      */
     @PostMapping("/payments/mpesa/callback")
-    public ResponseEntity<Map<String, String>> mpesaCallback(@RequestBody Map<String, Object> callbackBody) {
+    public ResponseEntity<Map<String, String>> mpesaCallback(
+            @RequestBody Map<String, Object> callbackBody,
+            @RequestParam(value = "token", required = false) String token) {
         log.info("Received Daraja callback");
+
+        if (mpesaCallbackSecret != null && !mpesaCallbackSecret.isBlank()) {
+            if (token == null || !constantTimeEquals(mpesaCallbackSecret, token)) {
+                log.warn("Rejected M-Pesa callback: missing/invalid token (possible forgery attempt)");
+                // Benign ack — do NOT process. Safaricom's real callback carries the token.
+                return ResponseEntity.ok(Map.of("ResultCode", "00", "ResultDesc", "Success"));
+            }
+        } else {
+            log.warn("M-Pesa callback is UNAUTHENTICATED (mpesa.callback.secret not set) — "
+                    + "set it and register .../callback?token=SECRET to prevent payment forgery");
+        }
+
         try {
             mpesaService.processCallback(callbackBody);
         } catch (Exception e) {
@@ -230,6 +256,16 @@ public class PaymentController {
         }
         // Daraja expects { "ResultCode": "00", "ResultDesc": "..." }
         return ResponseEntity.ok(Map.of("ResultCode", "00", "ResultDesc", "Success"));
+    }
+
+    /** Constant-time string comparison to avoid a timing side-channel on the callback token. */
+    private static boolean constantTimeEquals(String a, String b) {
+        if (a == null || b == null) {
+            return false;
+        }
+        return java.security.MessageDigest.isEqual(
+                a.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                b.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
     // ─── GET /billing/payments/{invoiceId} ───────────────────────────────────

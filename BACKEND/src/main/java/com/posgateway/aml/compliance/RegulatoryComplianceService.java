@@ -1,303 +1,228 @@
 package com.posgateway.aml.compliance;
 
+import com.posgateway.aml.entity.risk.CountryRiskScore;
+import com.posgateway.aml.repository.risk.CountryRiskRepository;
+import com.posgateway.aml.service.compliance.RegulatoryExchangeRateService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.util.*;
+import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
+import java.util.Locale;
+import java.util.Map;
 
 /**
- * Regulatory Compliance Configuration Service.
- * 
- * Ensures compliance with:
- * - CBK (Central Bank of Kenya) AML/CFT Guidelines
- * - FATF (Financial Action Task Force) Recommendations
- * - Kenya Proceeds of Crime and Anti-Money Laundering Act (POCAMLA)
- * 
- * Key Regulations:
- * - CBK Prudential Guidelines on AML/CFT (CBK/PG/08)
- * - FATF Recommendations 2012 (as amended)
- * - Kenya AML Act 2009 (as amended 2017)
+ * Applies Kenya cash-reporting requirements and risk-based FATF country signals.
+ *
+ * <p>Cash reporting is evaluated against USD 15,000 equivalent using an approved,
+ * fresh exchange rate. Missing conversion evidence never produces a false clean
+ * result. FATF list membership is not treated as a sanctions match or an automatic
+ * country-wide rejection.
  */
 @Service
 public class RegulatoryComplianceService {
 
     private static final Logger logger = LoggerFactory.getLogger(RegulatoryComplianceService.class);
 
-    // =========================================================================
-    // CBK THRESHOLDS (Kenya Shillings - KES)
-    // =========================================================================
+    private final RegulatoryExchangeRateService exchangeRateService;
+    private final CountryRiskRepository countryRiskRepository;
+    private final BigDecimal ctrThresholdUsd;
+    private final BigDecimal structuringFloorRatio;
+    private final boolean pepEnhancedDueDiligence;
 
-    @Value("${compliance.cbk.ctr.threshold.kes:1000000}")
-    private long cbkCtrThresholdKes; // KES 1,000,000 (~$7,500 USD) CTR threshold
-
-    @Value("${compliance.cbk.str.threshold.kes:500000}")
-    private long cbkStrThresholdKes; // KES 500,000 STR review threshold
-
-    @Value("${compliance.cbk.structuring.threshold.kes:900000}")
-    private long cbkStructuringThresholdKes; // Just under CTR for structuring detection
-
-    // =========================================================================
-    // FATF THRESHOLDS (USD)
-    // =========================================================================
-
-    @Value("${compliance.fatf.wire.threshold.usd:3000}")
-    private long fatfWireThresholdUsd; // FATF Rec 16 - Wire transfer threshold
-
-    @Value("${compliance.fatf.pep.enhanced.due.diligence:true}")
-    private boolean fatfPepEnhancedDueDiligence;
-
-    // =========================================================================
-    // HIGH-RISK JURISDICTIONS (FATF Grey/Black Lists)
-    // =========================================================================
-
-    // FATF Black List (Call for Action) - As of 2024
-    private static final Set<String> FATF_BLACKLIST = Set.of(
-            "KP", // North Korea
-            "IR", // Iran
-            "MM" // Myanmar
-    );
-
-    // FATF Grey List (Increased Monitoring) - As of 2024
-    private static final Set<String> FATF_GREYLIST = Set.of(
-            "BG", "BF", "CM", "HR", "CD", "HT", "KE", "ML", "MZ",
-            "NG", "PH", "SN", "ZA", "SS", "SY", "TZ", "TR", "UG",
-            "AE", "VN", "YE");
-
-    // CBK High-Risk Countries (includes FATF + regional concerns)
-    private static final Set<String> CBK_HIGH_RISK = Set.of(
-            "KP", "IR", "MM", "SY", "YE", "SS", "SO", "LY", "AF");
-
-    // =========================================================================
-    // COMPLIANCE CHECKS
-    // =========================================================================
-
-    /**
-     * Check if transaction requires CTR (Currency Transaction Report).
-     * CBK: KES 1,000,000+ or equivalent
-     */
-    public boolean requiresCtr(BigDecimal amountKes) {
-        boolean required = amountKes.compareTo(BigDecimal.valueOf(cbkCtrThresholdKes)) >= 0;
-        if (required) {
-            logger.info("CTR required: Amount KES {} exceeds CBK threshold of KES {}",
-                    amountKes, cbkCtrThresholdKes);
-        }
-        return required;
+    public RegulatoryComplianceService(
+            RegulatoryExchangeRateService exchangeRateService,
+            CountryRiskRepository countryRiskRepository,
+            @Value("${compliance.kenya.ctr.threshold-usd:15000}") BigDecimal ctrThresholdUsd,
+            @Value("${compliance.kenya.structuring.floor-ratio:0.80}") BigDecimal structuringFloorRatio,
+            @Value("${compliance.fatf.pep.enhanced-due-diligence:true}") boolean pepEnhancedDueDiligence) {
+        this.exchangeRateService = exchangeRateService;
+        this.countryRiskRepository = countryRiskRepository;
+        this.ctrThresholdUsd = ctrThresholdUsd;
+        this.structuringFloorRatio = structuringFloorRatio;
+        this.pepEnhancedDueDiligence = pepEnhancedDueDiligence;
     }
 
-    /**
-     * Check if transaction triggers STR (Suspicious Transaction Report) review.
-     */
-    public boolean requiresStrReview(BigDecimal amountKes, String countryCode,
-            int velocityCount, double mlScore) {
-        List<String> reasons = new ArrayList<>();
-
-        // Amount-based
-        if (amountKes.compareTo(BigDecimal.valueOf(cbkStrThresholdKes)) >= 0) {
-            reasons.add("High value transaction");
-        }
-
-        // Structuring detection (multiple transactions just under CTR)
-        if (amountKes.compareTo(BigDecimal.valueOf(cbkStructuringThresholdKes)) >= 0 &&
-                amountKes.compareTo(BigDecimal.valueOf(cbkCtrThresholdKes)) < 0 &&
-                velocityCount >= 2) {
-            reasons.add("Potential structuring detected");
-        }
-
-        // High-risk jurisdiction
-        if (isHighRiskJurisdiction(countryCode)) {
-            reasons.add("High-risk jurisdiction: " + countryCode);
-        }
-
-        // High ML risk score
-        if (mlScore > 0.7) {
-            reasons.add("High ML risk score: " + String.format("%.2f", mlScore));
-        }
-
-        if (!reasons.isEmpty()) {
-            logger.info("STR review triggered for: {}", String.join(", ", reasons));
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * Check if country is on FATF blacklist (immediate block).
-     */
-    public boolean isFatfBlacklisted(String countryCode) {
-        return FATF_BLACKLIST.contains(countryCode.toUpperCase());
-    }
-
-    /**
-     * Check if country is on FATF greylist (enhanced due diligence).
-     */
-    public boolean isFatfGreylisted(String countryCode) {
-        return FATF_GREYLIST.contains(countryCode.toUpperCase());
-    }
-
-    /**
-     * Check if country is high-risk per CBK guidelines.
-     */
-    public boolean isCbkHighRisk(String countryCode) {
-        return CBK_HIGH_RISK.contains(countryCode.toUpperCase());
-    }
-
-    /**
-     * Check if any high-risk jurisdiction flag applies.
-     */
-    public boolean isHighRiskJurisdiction(String countryCode) {
-        if (countryCode == null)
-            return false;
-        String code = countryCode.toUpperCase();
-        return FATF_BLACKLIST.contains(code) ||
-                FATF_GREYLIST.contains(code) ||
-                CBK_HIGH_RISK.contains(code);
-    }
-
-    /**
-     * Get compliance decision for a transaction.
-     */
-    public ComplianceDecision evaluateCompliance(BigDecimal amountKes, String currency,
-            String countryCode, boolean isPep,
-            int velocityCount, double mlScore) {
+    public ComplianceDecision evaluateCompliance(
+            BigDecimal amount,
+            String currency,
+            String countryCode,
+            boolean pep,
+            long cashTransactionCount24h,
+            double mlScore,
+            boolean cashTransaction,
+            LocalDateTime transactionTime) {
         ComplianceDecision decision = new ComplianceDecision();
+        LocalDateTime evaluatedAt = LocalDateTime.now();
+        decision.putEvidence("cashTransaction", cashTransaction);
+        decision.putEvidence("ctrThresholdUsd", ctrThresholdUsd);
+        decision.putEvidence("evaluatedAt", evaluatedAt);
 
-        // 1. FATF Blacklist - Immediate block
-        if (isFatfBlacklisted(countryCode)) {
-            decision.setDecision("BLOCK");
-            decision.addReason("FATF_BLACKLIST", "Transaction involves FATF blacklisted country: " + countryCode);
-            decision.setStrRequired(true);
-            return decision;
+        if (!cashTransaction) {
+            decision.putEvidence("ctrEvaluationStatus", "NOT_CASH");
+        } else {
+            evaluateCashReporting(
+                    decision,
+                    amount,
+                    currency,
+                    cashTransactionCount24h,
+                    transactionTime != null ? transactionTime : evaluatedAt);
         }
 
-        // 2. CBK High-Risk - Block
-        if (isCbkHighRisk(countryCode)) {
-            decision.setDecision("BLOCK");
-            decision.addReason("CBK_HIGH_RISK", "Transaction involves CBK high-risk country: " + countryCode);
-            decision.setStrRequired(true);
-            return decision;
-        }
+        evaluateCountryRisk(decision, countryCode);
 
-        // 3. CTR Threshold
-        if (requiresCtr(amountKes)) {
-            decision.setCtrRequired(true);
-            decision.addReason("CTR_THRESHOLD", "Amount exceeds CBK CTR threshold");
-        }
-
-        // 4. FATF Greylist - Enhanced Due Diligence
-        if (isFatfGreylisted(countryCode)) {
+        if (pep && pepEnhancedDueDiligence) {
             decision.setEnhancedDueDiligence(true);
-            decision.addReason("FATF_GREYLIST", "Enhanced due diligence required for FATF greylist country");
+            decision.setDecision("REVIEW");
+            decision.addReason("PEP_EDD", "PEP relationship requires enhanced due diligence");
         }
 
-        // 5. PEP Check
-        if (isPep && fatfPepEnhancedDueDiligence) {
-            decision.setEnhancedDueDiligence(true);
-            decision.addReason("PEP_EDD", "PEP transaction requires enhanced due diligence per FATF Rec 12");
-        }
-
-        // 6. Structuring Detection
-        if (amountKes.compareTo(BigDecimal.valueOf(cbkStructuringThresholdKes)) >= 0 &&
-                amountKes.compareTo(BigDecimal.valueOf(cbkCtrThresholdKes)) < 0 &&
-                velocityCount >= 2) {
-            decision.setStrRequired(true);
-            decision.setDecision("HOLD");
-            decision.addReason("STRUCTURING", "Potential structuring: multiple transactions just under CTR threshold");
-        }
-
-        // 7. ML Score Threshold
         if (mlScore > 0.9) {
             decision.setDecision("BLOCK");
-            decision.addReason("ML_HIGH_RISK", "ML risk score exceeds 0.9 threshold");
+            decision.addReason("ML_HIGH_RISK", "ML risk score exceeds the configured high-risk threshold");
         } else if (mlScore > 0.7) {
             decision.setDecision("HOLD");
             decision.setStrRequired(true);
             decision.addReason("ML_MEDIUM_RISK", "ML risk score requires manual review");
         }
 
-        // Default to ALLOW if no issues
-        if (decision.getDecision() == null) {
-            decision.setDecision("ALLOW");
-        }
-
+        if (decision.getDecision() == null) decision.setDecision("ALLOW");
         return decision;
     }
 
-    /**
-     * Get configured CBK CTR threshold.
-     */
-    public long getCbkCtrThresholdKes() {
-        return cbkCtrThresholdKes;
+    public ComplianceDecision evaluateCompliance(BigDecimal amount, String currency,
+                                                 String countryCode, boolean pep,
+                                                 int velocityCount, double mlScore) {
+        return evaluateCompliance(
+                amount, currency, countryCode, pep, velocityCount, mlScore, false, LocalDateTime.now());
     }
 
-    /**
-     * Get FATF wire transfer threshold.
-     */
-    public long getFatfWireThresholdUsd() {
-        return fatfWireThresholdUsd;
+    private void evaluateCashReporting(ComplianceDecision decision, BigDecimal amount,
+                                       String currency, long cashTransactionCount24h,
+                                       LocalDateTime transactionTime) {
+        RegulatoryExchangeRateService.ConversionResult conversion =
+                exchangeRateService.convertToUsd(amount, currency, transactionTime);
+        if (!conversion.available()) {
+            decision.setDecision("HOLD");
+            decision.addReason(
+                    "CTR_FX_UNAVAILABLE",
+                    "Cash-reporting conversion evidence is unavailable: " + conversion.unavailableReason());
+            decision.putEvidence("ctrEvaluationStatus", "FX_UNAVAILABLE");
+            decision.putEvidence("fxUnavailableReason", conversion.unavailableReason());
+            return;
+        }
+
+        BigDecimal amountUsd = conversion.amountUsd();
+        decision.putEvidence("amountUsd", amountUsd);
+        decision.putEvidence("rateToUsd", conversion.rateToUsd());
+        decision.putEvidence("rateSource", conversion.source());
+        decision.putEvidence("rateEffectiveAt", conversion.effectiveAt());
+
+        if (amountUsd.compareTo(ctrThresholdUsd) >= 0) {
+            decision.setCtrRequired(true);
+            decision.addReason(
+                    "KENYA_CASH_TRANSACTION_REPORT",
+                    "Cash transaction meets the USD 15,000 equivalent reporting threshold");
+            decision.putEvidence("ctrEvaluationStatus", "REPORTABLE");
+            logger.info("Cash transaction marked reportable: amountUsd={}, thresholdUsd={}",
+                    amountUsd, ctrThresholdUsd);
+            return;
+        }
+
+        decision.putEvidence("ctrEvaluationStatus", "BELOW_THRESHOLD");
+        BigDecimal structuringFloor = ctrThresholdUsd.multiply(structuringFloorRatio);
+        decision.putEvidence("structuringFloorUsd", structuringFloor);
+        decision.putEvidence("cashTransactionCount24h", cashTransactionCount24h);
+        if (amountUsd.compareTo(structuringFloor) >= 0 && cashTransactionCount24h >= 2) {
+            decision.setStrRequired(true);
+            decision.setDecision("HOLD");
+            decision.addReason(
+                    "CASH_STRUCTURING_24H",
+                    "Repeated cash transactions fall immediately below the reporting threshold");
+        }
     }
 
-    /**
-     * Compliance Decision Result.
-     */
+    private void evaluateCountryRisk(ComplianceDecision decision, String countryCode) {
+        if (countryCode == null || countryCode.isBlank()) return;
+        String code = countryCode.trim().toUpperCase(Locale.ROOT);
+        if (code.length() != 2) return;
+
+        CountryRiskScore score;
+        try {
+            score = countryRiskRepository.findByCountryCode(code).orElse(null);
+        } catch (RuntimeException lookupFailure) {
+            decision.setDecision("HOLD");
+            decision.addReason(
+                    "COUNTRY_RISK_UNAVAILABLE",
+                    "Country-risk reference data could not be evaluated");
+            return;
+        }
+        if (score == null) return;
+
+        decision.putEvidence("countryRiskCode", code);
+        decision.putEvidence("countryRiskScore", score.getRiskScore());
+        decision.putEvidence("fatfStatus", score.getFatfStatus());
+        decision.putEvidence("countryRiskSource", score.getSource());
+
+        if ("BLACKLIST".equalsIgnoreCase(score.getFatfStatus())) {
+            decision.setEnhancedDueDiligence(true);
+            decision.setDecision("HOLD");
+            decision.addReason(
+                    "FATF_CALL_FOR_ACTION",
+                    "FATF call-for-action jurisdiction requires policy-based EDD or countermeasure review");
+        } else if ("GREYLIST".equalsIgnoreCase(score.getFatfStatus())) {
+            decision.addReason(
+                    "FATF_INCREASED_MONITORING",
+                    "FATF increased-monitoring status is a risk signal and not an automatic rejection");
+        }
+    }
+
+    public BigDecimal getCtrThresholdUsd() {
+        return ctrThresholdUsd;
+    }
+
     public static class ComplianceDecision {
         private String decision;
-        private boolean ctrRequired = false;
-        private boolean strRequired = false;
-        private boolean enhancedDueDiligence = false;
+        private boolean ctrRequired;
+        private boolean strRequired;
+        private boolean enhancedDueDiligence;
         private final Map<String, String> reasons = new LinkedHashMap<>();
+        private final Map<String, Object> evidence = new LinkedHashMap<>();
 
-        public String getDecision() {
-            return decision;
+        public String getDecision() { return decision; }
+
+        public void setDecision(String candidate) {
+            if (candidate == null) return;
+            if (rank(candidate) > rank(decision)) decision = candidate.toUpperCase(Locale.ROOT);
         }
 
-        public void setDecision(String decision) {
-            // Only upgrade decisions (ALLOW < HOLD < BLOCK)
-            if (this.decision == null ||
-                    ("HOLD".equals(decision) && "ALLOW".equals(this.decision)) ||
-                    "BLOCK".equals(decision)) {
-                this.decision = decision;
-            }
+        public boolean isCtrRequired() { return ctrRequired; }
+        public void setCtrRequired(boolean ctrRequired) { this.ctrRequired = ctrRequired; }
+        public boolean isStrRequired() { return strRequired; }
+        public void setStrRequired(boolean strRequired) { this.strRequired = strRequired; }
+        public boolean isEnhancedDueDiligence() { return enhancedDueDiligence; }
+        public void setEnhancedDueDiligence(boolean enhancedDueDiligence) {
+            this.enhancedDueDiligence = enhancedDueDiligence;
+        }
+        public Map<String, String> getReasons() { return reasons; }
+        public void addReason(String code, String description) { reasons.put(code, description); }
+        public Map<String, Object> getEvidence() { return evidence; }
+        public void putEvidence(String name, Object value) {
+            if (value != null) evidence.put(name, value);
         }
 
-        public boolean isCtrRequired() {
-            return ctrRequired;
-        }
-
-        public void setCtrRequired(boolean ctrRequired) {
-            this.ctrRequired = ctrRequired;
-        }
-
-        public boolean isStrRequired() {
-            return strRequired;
-        }
-
-        public void setStrRequired(boolean strRequired) {
-            this.strRequired = strRequired;
-        }
-
-        public boolean isEnhancedDueDiligence() {
-            return enhancedDueDiligence;
-        }
-
-        public void setEnhancedDueDiligence(boolean edd) {
-            this.enhancedDueDiligence = edd;
-        }
-
-        public Map<String, String> getReasons() {
-            return reasons;
-        }
-
-        public void addReason(String code, String description) {
-            reasons.put(code, description);
-        }
-
-        @Override
-        public String toString() {
-            return String.format("ComplianceDecision[decision=%s, CTR=%s, STR=%s, EDD=%s, reasons=%d]",
-                    decision, ctrRequired, strRequired, enhancedDueDiligence, reasons.size());
+        private static int rank(String value) {
+            if (value == null) return -1;
+            return switch (value.toUpperCase(Locale.ROOT)) {
+                case "ALLOW" -> 0;
+                case "REVIEW" -> 1;
+                case "HOLD" -> 2;
+                case "BLOCK" -> 3;
+                default -> -1;
+            };
         }
     }
 }

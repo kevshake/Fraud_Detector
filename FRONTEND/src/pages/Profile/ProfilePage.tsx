@@ -59,7 +59,7 @@ export default function ProfilePage() {
   return (
     <HokekaPageShell title="My Profile" subtitle="Personal information, security, and permissions" noCard>
       {/* Profile Header */}
-      <div className="mb-4 rounded-lg border border-white/10 bg-[#0f1a2e] p-6">
+      <div className="mb-4 rounded-lg border border-white/10 bg-[var(--surface-2)] p-6">
         <div className="flex items-center gap-4">
           <div className="flex h-20 w-20 items-center justify-center rounded-full bg-burgundy-700 text-2xl font-bold text-white">
             {getInitials()}
@@ -81,7 +81,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Tabs */}
-      <div className="rounded-lg border border-white/10 bg-[#0f1a2e]">
+      <div className="rounded-lg border border-white/10 bg-[var(--surface-2)]">
         <div className="flex border-b border-white/10">
           {tabs.map((tab, idx) => {
             const Icon = tab.icon;
@@ -113,26 +113,26 @@ export default function ProfilePage() {
             <div>
               <label className="text-[11px] font-semibold uppercase tracking-wider text-glass-muted">Username</label>
               <input value={user?.username || ""} disabled
-                className="mt-1 w-full rounded-lg border border-white/10 bg-[#1a2744] px-3 py-2 text-sm text-white/50 focus:outline-none" />
+                className="mt-1 w-full rounded-lg border border-white/10 bg-[var(--surface-3)] px-3 py-2 text-sm text-white/50 focus:outline-none" />
               <p className="mt-1 text-xs text-glass-muted">Username cannot be changed</p>
             </div>
             <div>
               <label className="text-[11px] font-semibold uppercase tracking-wider text-glass-muted">Email</label>
               <input type="email" value={profileData.email}
                 onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
-                className="mt-1 w-full rounded-lg border border-white/10 bg-[#1a2744] px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-burgundy-700" />
+                className="mt-1 w-full rounded-lg border border-white/10 bg-[var(--surface-3)] px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-burgundy-700" />
             </div>
             <div>
               <label className="text-[11px] font-semibold uppercase tracking-wider text-glass-muted">First Name</label>
               <input value={profileData.firstName}
                 onChange={(e) => setProfileData({ ...profileData, firstName: e.target.value })}
-                className="mt-1 w-full rounded-lg border border-white/10 bg-[#1a2744] px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-burgundy-700" />
+                className="mt-1 w-full rounded-lg border border-white/10 bg-[var(--surface-3)] px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-burgundy-700" />
             </div>
             <div>
               <label className="text-[11px] font-semibold uppercase tracking-wider text-glass-muted">Last Name</label>
               <input value={profileData.lastName}
                 onChange={(e) => setProfileData({ ...profileData, lastName: e.target.value })}
-                className="mt-1 w-full rounded-lg border border-white/10 bg-[#1a2744] px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-burgundy-700" />
+                className="mt-1 w-full rounded-lg border border-white/10 bg-[var(--surface-3)] px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-burgundy-700" />
             </div>
           </div>
           <hr className="my-4 border-white/10" />
@@ -158,7 +158,7 @@ export default function ProfilePage() {
               <div className="relative mt-1">
                 <input type={showPassword ? "text" : "password"} value={passwordData.currentPassword}
                   onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
-                  className="w-full rounded-lg border border-white/10 bg-[#1a2744] px-3 py-2 pr-10 text-sm text-white focus:outline-none focus:ring-1 focus:ring-burgundy-700" />
+                  className="w-full rounded-lg border border-white/10 bg-[var(--surface-3)] px-3 py-2 pr-10 text-sm text-white focus:outline-none focus:ring-1 focus:ring-burgundy-700" />
                 <button onClick={() => setShowPassword(!showPassword)} className="absolute right-2 top-1/2 -translate-y-1/2 text-glass-muted">
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
@@ -169,7 +169,7 @@ export default function ProfilePage() {
               <div className="relative mt-1">
                 <input type={showNewPassword ? "text" : "password"} value={passwordData.newPassword}
                   onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                  className="w-full rounded-lg border border-white/10 bg-[#1a2744] px-3 py-2 pr-10 text-sm text-white focus:outline-none focus:ring-1 focus:ring-burgundy-700" />
+                  className="w-full rounded-lg border border-white/10 bg-[var(--surface-3)] px-3 py-2 pr-10 text-sm text-white focus:outline-none focus:ring-1 focus:ring-burgundy-700" />
                 <button onClick={() => setShowNewPassword(!showNewPassword)} className="absolute right-2 top-1/2 -translate-y-1/2 text-glass-muted">
                   {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
@@ -210,7 +210,7 @@ export default function ProfilePage() {
             <div className="overflow-hidden rounded-lg border border-white/10">
               <table className="w-full border-collapse">
                 <thead>
-                  <tr className="border-b border-white/10 bg-[#1a2744]">
+                  <tr className="border-b border-white/10 bg-[var(--surface-3)]">
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">Permission</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted">Status</th>
                   </tr>

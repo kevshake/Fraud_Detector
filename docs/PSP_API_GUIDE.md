@@ -354,19 +354,28 @@ Authorization: Bearer eyJ...
 Content-Type: application/json
 
 {
-  "amount": 12500.00,
+  "amountCents": 1250000,
   "currency": "KES",
-  "merchantId": "MRC-00123",
+  "merchantId": "123",
   "terminalId": "TERM-456",
-  "panHash": "a1b2c3d4e5f6...",
+  "pan": "4111111111111111",
   "ipAddress": "41.204.187.12",
-  "deviceFingerprint": "FP-a1b2c3d4",
-  "customerId": "CUST-78901",
   "countryCode": "KE",
-  "mcc": "5411",
-  "transactionTimestamp": "2026-06-29T14:30:00Z"
+  "direction": "OUTBOUND",
+  "channelType": "ECOMMERCE",
+  "cashTransaction": false,
+  "customerAccountReference": "PSP-TOKEN-CUST-78901",
+  "customerEmail": "customer@example.com",
+  "acquirerResponse": "00"
 }
 ```
+
+`merchantId` is the numeric platform merchant ID represented as a string.
+`amountCents` is an integer in the currency's minor unit. Send raw PAN only over
+TLS; the backend hashes it immediately and never persists the raw value.
+`customerAccountReference` must be a PSP-issued token or opaque reference, not
+a raw bank account number. It and `customerEmail` are required source evidence
+for CBK failed/rejected-transaction reporting; email is encrypted at rest.
 
 **Response:**
 
@@ -400,8 +409,8 @@ Content-Type: application/json
 
 {
   "transactions": [
-    { "amount": 12500.00, "merchantId": "MRC-001", ... },
-    { "amount": 500.00, "merchantId": "MRC-002", ... }
+    { "amountCents": 1250000, "currency": "KES", "merchantId": "101", ... },
+    { "amountCents": 50000, "currency": "KES", "merchantId": "102", ... }
   ]
 }
 ```

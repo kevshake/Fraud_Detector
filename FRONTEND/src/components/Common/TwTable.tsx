@@ -1,3 +1,4 @@
+import { Inbox } from 'lucide-react'
 import { type ReactNode } from 'react'
 import { cn } from '../../lib/utils'
 
@@ -37,44 +38,33 @@ export default function TwTable<T>({
 
   if (!rows.length) {
     return (
-      <div className="flex items-center justify-center py-16">
-        <p className="text-sm text-glass-muted">{emptyMessage}</p>
+      <div className="hokeka-empty-state mx-1 my-2">
+        <div className="hokeka-empty-state__icon" aria-hidden>
+          <Inbox size={22} strokeWidth={1.75} />
+        </div>
+        <p className="hokeka-empty-state__title">Nothing here yet</p>
+        <p className="hokeka-empty-state__body">{emptyMessage}</p>
       </div>
     )
   }
 
   return (
-    <div className="overflow-auto" style={{ maxHeight }}>
-      <table className="w-full border-collapse">
+    <div className="hokeka-table-wrap" style={{ maxHeight }}>
+      <table className="hokeka-table">
         <thead className="sticky top-0 z-10">
-          <tr className="border-b border-white/10 bg-[#0f1a2e]">
+          <tr>
             {columns.map((col) => (
-              <th
-                key={col.key}
-                className={cn(
-                  'whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-glass-muted',
-                  col.className,
-                )}
-              >
+              <th key={col.key} className={cn(col.className)}>
                 {col.label}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-white/5">
+        <tbody>
           {rows.map((row) => (
-            <tr
-              key={keyExtractor(row)}
-              className="transition-colors hover:bg-white/[0.02]"
-            >
+            <tr key={keyExtractor(row)}>
               {columns.map((col) => (
-                <td
-                  key={col.key}
-                  className={cn(
-                    'whitespace-nowrap px-4 py-3 text-sm text-white',
-                    col.className,
-                  )}
-                >
+                <td key={col.key} className={cn(col.className)}>
                   {col.render(row)}
                 </td>
               ))}

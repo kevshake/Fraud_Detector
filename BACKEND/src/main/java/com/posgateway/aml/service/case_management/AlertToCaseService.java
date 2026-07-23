@@ -90,7 +90,7 @@ public class AlertToCaseService {
 
         // Determine merchant and PSP
         Long merchantId = alert.getMerchantId();
-        Long pspId = resolvePspId(merchantId);
+        Long pspId = alert.getPspId() != null ? alert.getPspId() : resolvePspId(merchantId);
 
         // Determine priority from alert score
         CasePriority priority = resolvePriority(alert.getScore());

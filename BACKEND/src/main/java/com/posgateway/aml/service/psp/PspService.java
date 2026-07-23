@@ -23,13 +23,16 @@ public class PspService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
+    private final com.posgateway.aml.service.rules.RuleProvisioningService ruleProvisioningService;
 
     public PspService(PspRepository pspRepository, UserRepository userRepository, RoleRepository roleRepository,
-            PasswordEncoder passwordEncoder) {
+            PasswordEncoder passwordEncoder,
+            com.posgateway.aml.service.rules.RuleProvisioningService ruleProvisioningService) {
         this.pspRepository = pspRepository;
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
+        this.ruleProvisioningService = ruleProvisioningService;
     }
     // User can uncomment or
     // inject if available
@@ -73,7 +76,18 @@ public class PspService {
                 .status("PENDING")
                 .build();
 
-        return pspRepository.save(psp);
+        Psp saved = pspRepository.save(psp);
+
+        // Seed the PSP's profile with editable copies of the default rule catalog. Best-effort:
+        // a hiccup here must not fail onboarding — the idempotent backfill (and re-provisioning)
+        // will fill any gap.
+        try {
+            ruleProvisioningService.copyDefaultRulesToPsp(saved.getPspId());
+        } catch (Exception e) {
+            log.warn("Default-rule provisioning for PSP {} deferred: {}", saved.getPspId(), e.getMessage());
+        }
+
+        return saved;
     }
 
     @Transactional

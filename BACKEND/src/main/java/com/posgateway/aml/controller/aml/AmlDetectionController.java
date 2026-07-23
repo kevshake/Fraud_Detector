@@ -55,5 +55,25 @@ public class AmlDetectionController {
         if (endDate == null) endDate = LocalDateTime.now();
         return ResponseEntity.ok(amlDetectionService.detectRoundDollar(merchantId, startDate, endDate));
     }
+
+    @GetMapping("/funnel-accounts/{merchantId}")
+    public ResponseEntity<List<AmlScenarioDetectionService.FunnelAccountDetection>> detectFunnelAccounts(
+            @PathVariable String merchantId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate) {
+        if (startDate == null) startDate = LocalDateTime.now().minusMonths(1);
+        if (endDate == null) endDate = LocalDateTime.now();
+        return ResponseEntity.ok(amlDetectionService.detectFunnelAccounts(merchantId, startDate, endDate));
+    }
+
+    @GetMapping("/trade-based-ml/{merchantId}")
+    public ResponseEntity<List<AmlScenarioDetectionService.TradeBasedMlDetection>> detectTradeBasedMl(
+            @PathVariable String merchantId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate) {
+        if (startDate == null) startDate = LocalDateTime.now().minusMonths(1);
+        if (endDate == null) endDate = LocalDateTime.now();
+        return ResponseEntity.ok(amlDetectionService.detectTradeBasedMl(merchantId, startDate, endDate));
+    }
 }
 

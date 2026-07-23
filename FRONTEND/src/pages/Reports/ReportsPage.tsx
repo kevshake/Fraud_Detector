@@ -40,7 +40,7 @@ export default function ReportsPage() {
                     { title: "SAR Summary Report", desc: "Summary of all SAR reports by status", type: "sars", data: stats?.sarsByStatus },
                     { title: "Audit Activity Report", desc: "Audit events in the last 24 hours", type: "audit", data: null as Record<string, number> | null },
                   ].map((card) => (
-                    <div key={card.type} className="rounded-lg border border-white/10 bg-[#0f1a2e] p-4">
+                    <div key={card.type} className="rounded-lg border border-white/10 bg-[var(--surface-2)] p-4">
                       <h4 className="mb-1 text-base font-semibold text-white">{card.title}</h4>
                       <p className="mb-3 text-xs text-glass-muted">{card.desc}</p>
                       {card.data && Object.entries(card.data).map(([status, count]) => (
@@ -62,7 +62,7 @@ export default function ReportsPage() {
         ))}
       </div>
 
-      <div className="mt-4 rounded-lg border border-white/10 bg-[#0f1a2e] p-4">
+      <div className="mt-4 rounded-lg border border-white/10 bg-[var(--surface-2)] p-4">
         <h4 className="mb-3 text-base font-semibold text-white">Daily Trends</h4>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>

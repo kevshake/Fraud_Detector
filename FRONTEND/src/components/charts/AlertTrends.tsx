@@ -1,365 +1,72 @@
-import { ArrowRight } from 'lucide-react'
-
-
-
-import { Link } from 'react-router-dom'
-
-
-
 import {
-
-
-
   CartesianGrid,
-
-
-
   Line,
-
-
-
   LineChart,
-
-
-
   ResponsiveContainer,
-
-
-
   Tooltip,
-
-
-
   XAxis,
-
-
-
   YAxis,
-
-
-
 } from 'recharts'
-
-
-
-import GlassCard from '../Common/GlassCard'
-
-
-
+import DashboardPanel from '../dashboard/DashboardPanel'
+import DashboardWidgetHeader from '../dashboard/DashboardWidgetHeader'
+import { DashboardEmpty, DashboardError, DashboardLoading } from '../dashboard/DashboardState'
 import { useAlertTrends } from '../../hooks/useDashboard'
 
-
-
-
-
-
-
-const GRID_STROKE = 'rgba(123, 35, 50, 0.22)'
-
-
-
-const TICK_FILL = 'rgba(255, 255, 255, 0.42)'
-
-
-
-const LINE_COLOR = '#EF4444'
-
-
-
-
-
-
-
+/** Answers: Is alert volume rising or falling over the last week? */
 export default function AlertTrends() {
-
-
-
   const { data, isLoading, error } = useAlertTrends(7)
 
-
-
-
-
-
-
   const labels = data?.labels ?? []
-
-
-
   const series = data?.data ?? []
-
-
-
   const chartData = labels.map((l, i) => ({ label: l, value: series[i] ?? 0 }))
-
-
-
   const hasData = chartData.some((d) => d.value > 0)
 
-
-
-
-
-
-
   return (
+    <DashboardPanel aria-labelledby="db-alert-trends" className="min-h-[200px]">
+      <DashboardWidgetHeader
+        id="db-alert-trends"
+        title="Alert volume trend"
+        description="Daily new alerts · last 7 days"
+        actionLabel="Analytics"
+        actionTo="/analytics"
+      />
 
-
-
-    <GlassCard padding="sm" glowVariant="red" className="flex h-full min-h-0 flex-col !p-3">
-
-
-
-      <div className="mb-1.5 flex items-start justify-between">
-
-
-
-        <div>
-
-
-
-          <h3 className="text-xs font-semibold text-white">Alert Trends</h3>
-
-
-
-          <p className="text-[9px] text-glass-muted">Last 7 days</p>
-
-
-
-        </div>
-
-
-
-        <Link
-
-
-
-          to="/analytics"
-
-
-
-          className="flex items-center gap-1 text-[10px] font-medium text-gold hover:underline"
-
-
-
-        >
-
-
-
-          View report <ArrowRight size={12} />
-
-
-
-        </Link>
-
-
-
-      </div>
-
-
-
-
-
-
-
-      {isLoading ? (
-
-
-
-        <div className="min-h-0 flex-1 animate-pulse rounded bg-glass-skeleton" />
-
-
-
+      {isLoading && !data ? (
+        <DashboardLoading rows={4} className="flex-1" />
       ) : error ? (
-
-
-
-        <p className="text-xs text-danger">Could not load</p>
-
-
-
+        <DashboardError message="Alert trend series unavailable." />
       ) : !hasData ? (
-
-
-
-        <div className="flex min-h-0 flex-1 items-center justify-center text-[10px] text-glass-muted">
-
-
-
-          No trend data
-
-
-
-        </div>
-
-
-
+        <DashboardEmpty message="No alerts recorded in this window." />
       ) : (
-
-
-
-        <div className="chart-neon-red min-h-0 w-full flex-1">
-
-
-
+        <div className="min-h-[120px] w-full flex-1">
           <ResponsiveContainer width="100%" height="100%">
-
-
-
-            <LineChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: -22 }}>
-
-
-
-              <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
-
-
-
-              <XAxis
-
-
-
-                dataKey="label"
-
-
-
-                tick={{ fontSize: 10, fill: TICK_FILL }}
-
-
-
-                axisLine={false}
-
-
-
-                tickLine={false}
-
-
-
-              />
-
-
-
-              <YAxis
-
-
-
-                tick={{ fontSize: 10, fill: TICK_FILL }}
-
-
-
-                axisLine={false}
-
-
-
-                tickLine={false}
-
-
-
-              />
-
-
-
+            <LineChart data={chartData} margin={{ top: 4, right: 6, bottom: 0, left: -18 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
               <Tooltip
-
-
-
                 contentStyle={{
-
-
-
-                  borderRadius: 8,
-
-
-
-                  border: '1px solid rgba(123, 35, 50, 0.45)',
-
-
-
-                  background: 'rgba(10, 8, 10, 0.95)',
-
-
-
-                  fontSize: 11,
-
-
-
-                  color: '#fff',
-
-
-
-                  boxShadow: '0 0 16px rgba(220, 38, 38, 0.15)',
-
-
-
+                  borderRadius: 6,
+                  border: '1px solid #e4e7ec',
+                  background: '#fff',
+                  fontSize: 12,
+                  color: '#101828',
+                  boxShadow: '0 1px 2px rgba(16,24,40,0.06)',
                 }}
-
-
-
               />
-
-
-
               <Line
-
-
-
                 type="monotone"
-
-
-
                 dataKey="value"
-
-
-
-                stroke={LINE_COLOR}
-
-
-
+                stroke="#d92d20"
                 strokeWidth={2}
-
-
-
-                dot={{ r: 3, fill: LINE_COLOR, strokeWidth: 0 }}
-
-
-
-                activeDot={{ r: 5, fill: LINE_COLOR, stroke: '#fff', strokeWidth: 1 }}
-
-
-
+                dot={{ r: 2.5, fill: '#d92d20', strokeWidth: 0 }}
+                activeDot={{ r: 4 }}
                 isAnimationActive={false}
-
-
-
               />
-
-
-
             </LineChart>
-
-
-
           </ResponsiveContainer>
-
-
-
         </div>
-
-
-
       )}
-
-
-
-    </GlassCard>
-
-
-
+    </DashboardPanel>
   )
-
-
-
 }
-
-
-
-

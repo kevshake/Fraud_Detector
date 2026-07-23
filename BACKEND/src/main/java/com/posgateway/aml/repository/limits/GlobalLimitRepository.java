@@ -9,7 +9,10 @@ import java.util.Optional;
 
 @Repository
 public interface GlobalLimitRepository extends JpaRepository<GlobalLimit, Long> {
-    Optional<GlobalLimit> findByName(String name);
+    Optional<GlobalLimit> findByNameAndPspId(String name, Long pspId);
+    Optional<GlobalLimit> findByNameAndPspIdIsNull(String name);
+    List<GlobalLimit> findByPspId(Long pspId);
+    List<GlobalLimit> findByPspIdIsNull();
     List<GlobalLimit> findByStatus(String status);
     List<GlobalLimit> findByLimitType(String limitType);
 }

@@ -91,10 +91,11 @@ public class ComplianceCase {
     private CaseQueue queue;
 
     // NEW: Case relationships
-    // @JsonIgnore: these lazy collections are server-managed and are NOT consumed off the
-    // case entity by any client (evidence/timeline/notes/alerts are served by dedicated
-    // endpoints). Serializing them forced a per-case lazy load — an N+1 that fanned out to
-    // 5 extra SELECTs for every case in a page. Java access (getAlerts(), etc.) is unaffected.
+    // @JsonIgnore: relatedCases/evidence/notes/decisions are server-managed and not consumed off
+    // the case entity by any client (they're served by dedicated endpoints / timeline). Serializing
+    // them forced a per-case lazy load — an N+1 that fanned out extra SELECTs for every case in a
+    // page. Java access (getEvidence(), etc.) is unaffected. `alerts` is intentionally NOT ignored
+    // (see below) — the UI reads its length from the case-detail response.
     @ManyToMany
     @JoinTable(name = "case_relationships", joinColumns = @JoinColumn(name = "case_id"), inverseJoinColumns = @JoinColumn(name = "related_case_id"))
     @Audited
@@ -122,9 +123,11 @@ public class ComplianceCase {
 
     private LocalDateTime resolvedAt;
 
-    // NEW: Alerts triggering this case
+    // NEW: Alerts triggering this case.
+    // NOT @JsonIgnore-d: the case-detail response (getCaseById) is the only source the UI has for a
+    // case's alert count (InsightsPanel reads caseDetail.alerts.length — there is no dedicated
+    // case-alerts endpoint). @JsonIdentityInfo on the class still prevents any serialization cycle.
     @OneToMany(mappedBy = "complianceCase", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonIgnore
     private List<CaseAlert> alerts;
 
     // NEW: Decisions made on this case

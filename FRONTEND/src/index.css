@@ -5,13 +5,13 @@
 }
 
 :root {
-  font-family: 'Inter', 'Outfit', system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
+  font-family: 'DM Sans', 'Inter', system-ui, sans-serif;
+  line-height: 1.6;
   font-weight: 400;
 
-  color-scheme: light;
-  color: #2C3E50;
-  background-color: #F5F7FA;
+  color-scheme: dark;
+  color: #f5f2eb;
+  background-color: #080909;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -23,7 +23,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background-color: #F5F7FA;
+  background-color: #080909;
 }
 
 #root {

@@ -21,7 +21,7 @@ import { CBK_ENDPOINT_LABELS } from "../../../types/cbk";
 import type { CbkEndpointType } from "../../../types/cbk";
 import { useAuth } from "../../../contexts/AuthContext";
 
-const ACCENT = "#8B4049";
+const ACCENT = "var(--gold)";
 const ALL_ENDPOINTS = Object.keys(CBK_ENDPOINT_LABELS) as CbkEndpointType[];
 
 const PLATFORM_ADMIN_ROLES = new Set(["SUPER_ADMIN", "ADMIN"]);
@@ -93,7 +93,7 @@ export default function CbkReportingTab({ pspId, psp }: CbkReportingTabProps) {
   };
 
   const liveEffective = !!cbkCfg.data?.liveEffective;
-  const envBadgeColor = liveEffective ? "#b00020" : "#1976d2";
+  const envBadgeColor = liveEffective ? "var(--gold)" : "var(--info)";
   const envBadgeLabel = liveEffective ? "LIVE" : "PREPROD / TEST";
 
   return (
@@ -176,12 +176,12 @@ export default function CbkReportingTab({ pspId, psp }: CbkReportingTabProps) {
           sx={{
             p: 2,
             mb: 3,
-            border: "2px solid #b00020",
+            border: "2px solid var(--gold)",
             borderRadius: 2,
             backgroundColor: "rgba(176, 0, 32, 0.03)",
           }}
         >
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, color: "#b00020", mb: 0.5 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 700, color: "var(--gold)", mb: 0.5 }}>
             Platform Admin — Environment Promotion
           </Typography>
           <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
@@ -233,7 +233,7 @@ export default function CbkReportingTab({ pspId, psp }: CbkReportingTabProps) {
           variant="contained"
           onClick={handleSave}
           disabled={update.isPending}
-          sx={{ backgroundColor: ACCENT, textTransform: "none", "&:hover": { backgroundColor: "#6b313a" } }}
+          sx={{ backgroundColor: ACCENT, textTransform: "none", "&:hover": { backgroundColor: "var(--surface-3)" } }}
         >
           {update.isPending ? <CircularProgress size={18} sx={{ color: "white" }} /> : "Save CBK Config"}
         </Button>
@@ -257,7 +257,7 @@ export default function CbkReportingTab({ pspId, psp }: CbkReportingTabProps) {
               label={CBK_ENDPOINT_LABELS[ep]}
               size="small"
               sx={{
-                backgroundColor: form.cbkReportingEnabled ? "rgba(139,64,73,0.1)" : "rgba(0,0,0,0.05)",
+                backgroundColor: form.cbkReportingEnabled ? "color-mix(in srgb, var(--gold) 10%, transparent)" : "var(--surface-3)",
                 color: form.cbkReportingEnabled ? ACCENT : "text.secondary",
                 fontSize: "0.72rem",
               }}

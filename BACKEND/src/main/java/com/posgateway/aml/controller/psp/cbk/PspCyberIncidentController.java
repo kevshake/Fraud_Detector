@@ -100,7 +100,9 @@ public class PspCyberIncidentController {
                 .amountInvolved(dto.getAmountInvolved())
                 .amountLost(dto.getAmountLost())
                 .currency(dto.getCurrency())
-                .createdBy(dto.getCreatedBy())
+                // Author is the authenticated principal, never a client-supplied value, so the
+                // regulatory record's audit attribution cannot be forged (W49-1).
+                .createdBy(user.getId())
                 .build();
         return ResponseEntity.ok(repository.save(e));
     }

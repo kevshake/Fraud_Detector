@@ -45,8 +45,29 @@ public class Alert {
     @Column(name = "merchant_id")
     private Long merchantId;
 
+    @Column(name = "psp_id")
+    private Long pspId;
+
+    @Column(name = "multi_asset_customer_id")
+    private Long multiAssetCustomerId;
+
+    @Column(name = "source_type")
+    private String sourceType;
+
+    @Column(name = "source_reference")
+    private String sourceReference;
+
     @Column(name = "severity")
     private String severity; // INFO, WARN, CRITICAL
+
+    @Column(name = "sar_required", nullable = false)
+    private boolean sarRequired;
+
+    @Column(name = "ctr_required", nullable = false)
+    private boolean ctrRequired;
+
+    @Column(name = "triggered_rules", columnDefinition = "TEXT")
+    private String triggeredRules;
 
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
@@ -151,6 +172,15 @@ public class Alert {
         this.merchantId = merchantId;
     }
 
+    public Long getPspId() { return pspId; }
+    public void setPspId(Long pspId) { this.pspId = pspId; }
+    public Long getMultiAssetCustomerId() { return multiAssetCustomerId; }
+    public void setMultiAssetCustomerId(Long multiAssetCustomerId) { this.multiAssetCustomerId = multiAssetCustomerId; }
+    public String getSourceType() { return sourceType; }
+    public void setSourceType(String sourceType) { this.sourceType = sourceType; }
+    public String getSourceReference() { return sourceReference; }
+    public void setSourceReference(String sourceReference) { this.sourceReference = sourceReference; }
+
     public String getSeverity() {
         return severity;
     }
@@ -158,6 +188,13 @@ public class Alert {
     public void setSeverity(String severity) {
         this.severity = severity;
     }
+
+    public boolean isSarRequired() { return sarRequired; }
+    public void setSarRequired(boolean sarRequired) { this.sarRequired = sarRequired; }
+    public boolean isCtrRequired() { return ctrRequired; }
+    public void setCtrRequired(boolean ctrRequired) { this.ctrRequired = ctrRequired; }
+    public String getTriggeredRules() { return triggeredRules; }
+    public void setTriggeredRules(String triggeredRules) { this.triggeredRules = triggeredRules; }
 
     public AlertDisposition getDisposition() {
         return disposition;

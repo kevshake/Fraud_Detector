@@ -17,6 +17,8 @@ import java.util.List;
 @Repository
 public interface AlertRepository extends JpaRepository<Alert, Long>, JpaSpecificationExecutor<Alert> {
 
+    boolean existsByPspIdAndSourceTypeAndSourceReference(Long pspId, String sourceType, String sourceReference);
+
     /**
      * Find alerts by status
      */
@@ -76,8 +78,8 @@ public interface AlertRepository extends JpaRepository<Alert, Long>, JpaSpecific
      * Returns alerts for merchants belonging to the specified PSP
      */
     @Query(value = "SELECT DISTINCT a.* FROM alerts a " +
-            "INNER JOIN merchants m ON a.merchant_id = m.merchant_id " +
-            "WHERE m.psp_id = :pspId AND a.status = 'open' " +
+            "LEFT JOIN merchants m ON a.merchant_id = m.merchant_id " +
+            "WHERE (a.psp_id = :pspId OR m.psp_id = :pspId) AND a.status = 'open' " +
             "ORDER BY a.created_at DESC LIMIT :limit", nativeQuery = true)
     List<Alert> findRecentOpenAlertsByPspId(@Param("pspId") Long pspId, @Param("limit") int limit);
 
@@ -86,8 +88,8 @@ public interface AlertRepository extends JpaRepository<Alert, Long>, JpaSpecific
      * Returns alerts for merchants belonging to the specified PSP with the given status
      */
     @Query(value = "SELECT DISTINCT a.* FROM alerts a " +
-            "INNER JOIN merchants m ON a.merchant_id = m.merchant_id " +
-            "WHERE m.psp_id = :pspId AND a.status = :status " +
+            "LEFT JOIN merchants m ON a.merchant_id = m.merchant_id " +
+            "WHERE (a.psp_id = :pspId OR m.psp_id = :pspId) AND a.status = :status " +
             "ORDER BY a.created_at DESC", nativeQuery = true)
     List<Alert> findByStatusAndPspId(@Param("status") String status, @Param("pspId") Long pspId);
 
@@ -96,14 +98,14 @@ public interface AlertRepository extends JpaRepository<Alert, Long>, JpaSpecific
      * Returns all alerts for merchants belonging to the specified PSP
      */
     @Query(value = "SELECT DISTINCT a.* FROM alerts a " +
-            "INNER JOIN merchants m ON a.merchant_id = m.merchant_id " +
-            "WHERE m.psp_id = :pspId " +
+            "LEFT JOIN merchants m ON a.merchant_id = m.merchant_id " +
+            "WHERE (a.psp_id = :pspId OR m.psp_id = :pspId) " +
             "ORDER BY a.created_at DESC", nativeQuery = true)
     List<Alert> findAllByPspId(@Param("pspId") Long pspId);
 
     @Query(value = "SELECT COUNT(DISTINCT a.alert_id) FROM alerts a " +
-                   "JOIN merchants m ON m.merchant_id = a.merchant_id " +
-                   "WHERE m.psp_id = :pspId AND a.status = 'open'",
+                   "LEFT JOIN merchants m ON m.merchant_id = a.merchant_id " +
+                   "WHERE (a.psp_id = :pspId OR m.psp_id = :pspId) AND a.status = 'open'",
            nativeQuery = true)
     long countOpenByPspId(@Param("pspId") Long pspId);
 
@@ -131,8 +133,8 @@ public interface AlertRepository extends JpaRepository<Alert, Long>, JpaSpecific
      * Used by the /transactions/stats endpoint for fraudAlertCount.
      */
     @Query(value = "SELECT COUNT(DISTINCT a.alert_id) FROM alerts a " +
-                   "INNER JOIN transactions t ON a.txn_id = t.txn_id " +
-                   "WHERE (:pspId IS NULL OR t.psp_id = :pspId) " +
+            "LEFT JOIN transactions t ON a.txn_id = t.txn_id " +
+            "WHERE (:pspId IS NULL OR a.psp_id = :pspId OR t.psp_id = :pspId) " +
                    "AND a.severity = 'CRITICAL' " +
                    "AND a.created_at >= :start AND a.created_at < :end",
            nativeQuery = true)
@@ -149,8 +151,8 @@ public interface AlertRepository extends JpaRepository<Alert, Long>, JpaSpecific
                               @Param("end") LocalDateTime end);
 
     @Query(value = "SELECT COUNT(DISTINCT a.alert_id) FROM alerts a " +
-                   "JOIN merchants m ON m.merchant_id = a.merchant_id " +
-                   "WHERE m.psp_id = :pspId AND a.created_at >= :start AND a.created_at < :end",
+                   "LEFT JOIN merchants m ON m.merchant_id = a.merchant_id " +
+                   "WHERE (a.psp_id = :pspId OR m.psp_id = :pspId) AND a.created_at >= :start AND a.created_at < :end",
            nativeQuery = true)
     long countCreatedInPeriodByPsp(@Param("pspId") Long pspId,
                                    @Param("start") LocalDateTime start,
@@ -166,12 +168,11 @@ public interface AlertRepository extends JpaRepository<Alert, Long>, JpaSpecific
 
     @Query(value = "SELECT DATE(a.created_at) AS d, COUNT(DISTINCT a.alert_id) AS cnt " +
                    "FROM alerts a " +
-                   "JOIN merchants m ON m.merchant_id = a.merchant_id " +
-                   "WHERE m.psp_id = :pspId " +
+                   "LEFT JOIN merchants m ON m.merchant_id = a.merchant_id " +
+                   "WHERE (a.psp_id = :pspId OR m.psp_id = :pspId) " +
                    "  AND a.created_at >= :start AND a.created_at < :end " +
                    "GROUP BY DATE(a.created_at) ORDER BY d", nativeQuery = true)
     List<Object[]> getDailyAlertCountsByPsp(@Param("pspId") Long pspId,
                                              @Param("start") LocalDateTime start,
                                              @Param("end") LocalDateTime end);
 }
-

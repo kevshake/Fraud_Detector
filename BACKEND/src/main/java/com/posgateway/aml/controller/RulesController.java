@@ -11,6 +11,7 @@ import com.posgateway.aml.service.ai.AiRuleGeneratorService;
 import com.posgateway.aml.service.rules.DroolsRulesService;
 import com.posgateway.aml.service.rules.DynamicRuleConverter;
 import com.posgateway.aml.service.rules.RuleEffectivenessService;
+import com.posgateway.aml.service.rules.RuleGovernanceService;
 import com.posgateway.aml.service.security.PspIsolationService;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +24,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.time.LocalDateTime;
 
 
 
@@ -39,6 +41,7 @@ public class RulesController {
     private final PspIsolationService pspIsolationService;
     private final UserRepository userRepository;
     private final RuleEffectivenessService effectivenessService;
+    private final RuleGovernanceService governanceService;
 
 
     @Autowired
@@ -49,7 +52,8 @@ public class RulesController {
             DynamicRuleConverter converter,
             PspIsolationService pspIsolationService,
             UserRepository userRepository,
-            RuleEffectivenessService effectivenessService) {
+            RuleEffectivenessService effectivenessService,
+            RuleGovernanceService governanceService) {
         this.ruleRepository = ruleRepository;
         this.aiService = aiService;
         this.droolsService = droolsService;
@@ -57,6 +61,7 @@ public class RulesController {
         this.pspIsolationService = pspIsolationService;
         this.userRepository = userRepository;
         this.effectivenessService = effectivenessService;
+        this.governanceService = governanceService;
     }
 
     /**
@@ -107,6 +112,7 @@ public class RulesController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN') or hasAuthority('MANAGE_RULES')")
     public ResponseEntity<RuleDefinition> createRule(@RequestBody RuleDefinition rule) {
         User currentUser = getCurrentUser();
         if (currentUser == null) {
@@ -124,22 +130,13 @@ public class RulesController {
         // Set defaults
         if (rule.getPriority() == null) rule.setPriority(1);
         
-        // Set creator and PSP ID
-        rule.setCreatedBy(currentUser.getId());
+        Long pspId;
         if (pspIsolationService.isPlatformAdministrator(currentUser)) {
-            // Super admin creates rules with null pspId
-            rule.setPspId(null);
+            pspId = null;
         } else {
-            // PSP user creates rules with their PSP ID
-            Long pspId = pspIsolationService.getCurrentUserPspId();
-            rule.setPspId(pspId);
+            pspId = pspIsolationService.getCurrentUserPspId();
         }
-        
-        RuleDefinition saved = ruleRepository.save(rule);
-        
-        // Auto-reload rules engine
-        droolsService.reloadRules();
-        
+        RuleDefinition saved = governanceService.proposeCreate(rule, currentUser, pspId, "Create rule");
         return ResponseEntity.ok(saved);
     }
 
@@ -162,18 +159,21 @@ public class RulesController {
      */
     @GetMapping("/{id}")
     public ResponseEntity<RuleDefinition> getRuleById(@PathVariable Long id) {
-        return ruleRepository.findById(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+        RuleDefinition rule = ruleRepository.findById(id).orElse(null);
+        if (rule == null) return ResponseEntity.notFound().build();
+        if (!canAccess(rule, getCurrentUser())) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        return ResponseEntity.ok(rule);
     }
 
     @PostMapping("/reload")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN') or hasAuthority('MANAGE_RULES')")
     public ResponseEntity<String> reloadRulesEngine() {
         droolsService.reloadRules();
         return ResponseEntity.ok("Rules engine reloaded successfully.");
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN') or hasAuthority('MANAGE_RULES')")
     public ResponseEntity<RuleDefinition> updateRule(@PathVariable Long id, @RequestBody RuleDefinition rule) {
         User currentUser = getCurrentUser();
         if (currentUser == null) {
@@ -204,30 +204,7 @@ public class RulesController {
         // System-managed rules: lock identity (name + external_code) so the
         // catalog stays referenceable from compliance docs. Everything else —
         // parameters, threshold, description, action, enabled — is editable.
-        boolean isSystem = existing.isSystemManaged();
-
-        if (!isSystem && rule.getName() != null) existing.setName(rule.getName());
-        if (rule.getDescription() != null) existing.setDescription(rule.getDescription());
-        if (rule.getRuleJson() != null) existing.setRuleJson(rule.getRuleJson());
-        if (rule.getDrlContent() != null) existing.setDrlContent(rule.getDrlContent());
-        if (rule.getPriority() != null) existing.setPriority(rule.getPriority());
-        if (rule.getRuleType() != null) existing.setRuleType(rule.getRuleType());
-        if (rule.getRuleExpression() != null) existing.setRuleExpression(rule.getRuleExpression());
-        if (rule.getScore() != null) existing.setScore(rule.getScore());
-        if (rule.getAction() != null) existing.setAction(rule.getAction());
-        if (rule.getCategory() != null && !isSystem) existing.setCategory(rule.getCategory());
-        if (rule.getRuleSubtype() != null && !isSystem) existing.setRuleSubtype(rule.getRuleSubtype());
-        if (rule.getAppliesTo() != null && !isSystem) existing.setAppliesTo(rule.getAppliesTo());
-        if (rule.getTypology() != null) existing.setTypology(rule.getTypology());
-        if (rule.getChecksFor() != null) existing.setChecksFor(rule.getChecksFor());
-        if (rule.getParameters() != null) existing.setParameters(rule.getParameters());
-        existing.setEnabled(rule.isEnabled());
-        existing.setUpdatedBy(currentUser.getId());
-
-        RuleDefinition saved = ruleRepository.save(existing);
-        droolsService.reloadRules();
-        
-        return ResponseEntity.ok(saved);
+        return ResponseEntity.ok(governanceService.proposeUpdate(existing, rule, currentUser, "Update rule"));
     }
 
     /**
@@ -235,6 +212,7 @@ public class RulesController {
      * POST /api/v1/rules/{id}/enable
      */
     @PostMapping("/{id}/enable")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN') or hasAuthority('MANAGE_RULES')")
     public ResponseEntity<RuleDefinition> enableRule(@PathVariable Long id) {
         User currentUser = getCurrentUser();
         if (currentUser == null) {
@@ -258,11 +236,7 @@ public class RulesController {
             }
         }
 
-        existing.setEnabled(true);
-        existing.setUpdatedBy(currentUser.getId());
-        RuleDefinition saved = ruleRepository.save(existing);
-        droolsService.reloadRules();
-        return ResponseEntity.ok(saved);
+        return ResponseEntity.ok(governanceService.proposeEnabled(existing, true, currentUser));
     }
 
     /**
@@ -270,6 +244,7 @@ public class RulesController {
      * POST /api/v1/rules/{id}/disable
      */
     @PostMapping("/{id}/disable")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN') or hasAuthority('MANAGE_RULES')")
     public ResponseEntity<RuleDefinition> disableRule(@PathVariable Long id) {
         User currentUser = getCurrentUser();
         if (currentUser == null) {
@@ -293,11 +268,7 @@ public class RulesController {
             }
         }
 
-        existing.setEnabled(false);
-        existing.setUpdatedBy(currentUser.getId());
-        RuleDefinition saved = ruleRepository.save(existing);
-        droolsService.reloadRules();
-        return ResponseEntity.ok(saved);
+        return ResponseEntity.ok(governanceService.proposeEnabled(existing, false, currentUser));
     }
 
     /**
@@ -308,6 +279,7 @@ public class RulesController {
     public ResponseEntity<Map<String, Object>> getRuleEffectiveness(@PathVariable Long id) {
         RuleDefinition rule = ruleRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Rule not found"));
+        if (!canAccess(rule, getCurrentUser())) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
 
         // Real aggregation against rule_execution_logs (V119). Disposition is back-filled
         // by AlertController#resolveAlert and AlertDispositionService#disposeAlert so the
@@ -328,6 +300,7 @@ public class RulesController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN') or hasAuthority('MANAGE_RULES')")
     public ResponseEntity<Void> deleteRule(@PathVariable Long id) {
         User currentUser = getCurrentUser();
         if (currentUser == null) {
@@ -343,6 +316,15 @@ public class RulesController {
         if (existing.isSystemManaged()) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .header("X-Reason", "system-managed-rule")
+                    .build();
+        }
+
+        // A PSP's copy of a default rule (derived_from_rule_id set) is part of the fixed initial
+        // rule set — it can be edited or disabled but not deleted. Only PSP-created custom rules
+        // are deletable.
+        if (existing.getDerivedFromRuleId() != null) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .header("X-Reason", "default-rule-copy")
                     .build();
         }
 
@@ -362,9 +344,55 @@ public class RulesController {
             }
         }
 
-        ruleRepository.deleteById(id);
-        droolsService.reloadRules();
-        return ResponseEntity.ok().build();
+        governanceService.proposeRetirement(existing, currentUser, "Retire rule");
+        return ResponseEntity.accepted().build();
     }
+
+    @GetMapping("/governance/pending")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN') or hasAuthority('MANAGE_RULES')")
+    public List<RuleGovernanceService.RuleVersionView> pendingChanges() {
+        return governanceService.pendingFor(getCurrentUser());
+    }
+
+    @GetMapping("/{id}/versions")
+    public List<RuleGovernanceService.RuleVersionView> versionHistory(@PathVariable Long id) {
+        RuleDefinition rule = ruleRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Rule not found"));
+        if (!canAccess(rule, getCurrentUser())) throw new SecurityException("Rule belongs to a different PSP");
+        return governanceService.history(id, getCurrentUser());
+    }
+
+    @PostMapping("/governance/versions/{versionId}/approve")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN') or hasAuthority('MANAGE_RULES')")
+    public RuleGovernanceService.RuleVersionView approveVersion(@PathVariable Long versionId,
+            @RequestBody ReviewRuleVersionRequest request) {
+        return governanceService.approve(versionId, getCurrentUser(), request.effectiveFrom(), request.reason());
+    }
+
+    @PostMapping("/governance/versions/{versionId}/reject")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN') or hasAuthority('MANAGE_RULES')")
+    public RuleGovernanceService.RuleVersionView rejectVersion(@PathVariable Long versionId,
+            @RequestBody ReviewRuleVersionRequest request) {
+        return governanceService.reject(versionId, getCurrentUser(), request.reason());
+    }
+
+    @PostMapping("/{id}/rollback")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN') or hasAuthority('MANAGE_RULES')")
+    public RuleDefinition proposeRollback(@PathVariable Long id, @RequestBody RollbackRuleRequest request) {
+        RuleDefinition rule = ruleRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Rule not found"));
+        if (!canAccess(rule, getCurrentUser())) throw new SecurityException("Rule belongs to a different PSP");
+        return governanceService.proposeRollback(rule, request.targetVersionId(), getCurrentUser(), request.reason());
+    }
+
+    private boolean canAccess(RuleDefinition rule, User user) {
+        if (user == null) return false;
+        if (pspIsolationService.isPlatformAdministrator(user)) return true;
+        Long pspId = pspIsolationService.getCurrentUserPspId();
+        return rule.getPspId() == null || (pspId != null && pspId.equals(rule.getPspId()));
+    }
+
+    public record ReviewRuleVersionRequest(String reason, LocalDateTime effectiveFrom) {}
+    public record RollbackRuleRequest(Long targetVersionId, String reason) {}
 }
 

@@ -28,6 +28,8 @@ import {
   type CbkPeriod,
   type CbkSubmissionStatus,
 } from "../../../features/api/cbkReportQueries";
+import { Link } from "react-router-dom";
+import { CBK_ENDPOINT_LABELS, type CbkEndpointType } from "../../../types/cbk";
 
 const STATUS_CONFIG: Record<CbkSubmissionStatus, { label: string; color: "success" | "warning" | "error"; icon: typeof CheckCircle }> = {
   submitted: { label: "Submitted", color: "success", icon: CheckCircle },
@@ -37,12 +39,29 @@ const STATUS_CONFIG: Record<CbkSubmissionStatus, { label: string; color: "succes
 
 const PERIOD_OPTIONS: { value: CbkPeriod; label: string }[] = [
   { value: "daily", label: "Daily" },
-  { value: "weekly", label: "Weekly" },
   { value: "monthly", label: "Monthly" },
-  { value: "quarterly", label: "Quarterly" },
-  { value: "semi-annual", label: "Semi-Annual" },
   { value: "annual", label: "Annual" },
 ];
+
+const ENDPOINT_CADENCE: Record<CbkEndpointType, CbkPeriod> = {
+  SENIOR_MANAGEMENT: "annual",
+  DIRECTORS: "annual",
+  TRUSTEES: "annual",
+  SHAREHOLDERS: "annual",
+  CUSTOMER_COMPLAINTS: "monthly",
+  PRODUCTS_INFO: "monthly",
+  CARD_BRANDS: "monthly",
+  TRANSACTION_DETAILS: "monthly",
+  TRANSACTION_TARIFFS: "monthly",
+  CYBER_INCIDENT: "daily",
+  FRAUD_INCIDENTS: "daily",
+  SYSTEM_STABILITY: "daily",
+  SYSTEM_ACTIVITY: "daily",
+  TRUST_ACCOUNT: "daily",
+  BILLING_TEMPLATE: "daily",
+  MERCHANT_TRANSACTIONS: "daily",
+  FAILED_TRANSACTIONS: "daily",
+};
 
 function today(): string {
   return new Date().toISOString().split("T")[0];
@@ -59,6 +78,7 @@ interface CbkSubmissionPanelProps {
 }
 
 export default function CbkSubmissionPanel({ onSubmitSuccess }: CbkSubmissionPanelProps) {
+  const [endpointType, setEndpointType] = useState<CbkEndpointType>("CARD_BRANDS");
   const [period, setPeriod] = useState<CbkPeriod>("monthly");
   const [from, setFrom] = useState(monthStart());
   const [to, setTo] = useState(today());
@@ -73,12 +93,14 @@ export default function CbkSubmissionPanel({ onSubmitSuccess }: CbkSubmissionPan
     setSubmitSuccess(null);
     try {
       const result = await submitMutation.mutateAsync({
-        reportId: "cbk-returns",
+        endpointType,
         period,
         from,
         to,
       });
-      setSubmitSuccess(`Submitted. Reference: ${result.referenceNumber}`);
+      setSubmitSuccess(
+        `${result.message}${result.referenceNumber ? ` Reference: ${result.referenceNumber}` : ""}`
+      );
       onSubmitSuccess?.();
       refetch();
     } catch (e) {
@@ -88,12 +110,30 @@ export default function CbkSubmissionPanel({ onSubmitSuccess }: CbkSubmissionPan
 
   return (
     <Box>
-      <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1.5, color: "#2c3e50" }}>
+      <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1.5, color: "var(--ink)" }}>
         CBK Submission Status
       </Typography>
 
       {/* Filters */}
       <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", mb: 2 }}>
+        <TextField
+          select
+          label="CBK endpoint"
+          value={endpointType}
+          onChange={(e) => {
+            const next = e.target.value as CbkEndpointType;
+            setEndpointType(next);
+            setPeriod(ENDPOINT_CADENCE[next]);
+          }}
+          size="small"
+          sx={{ minWidth: 260 }}
+        >
+          {(Object.keys(CBK_ENDPOINT_LABELS) as CbkEndpointType[]).map((value) => (
+            <MenuItem key={value} value={value}>
+              {CBK_ENDPOINT_LABELS[value]}
+            </MenuItem>
+          ))}
+        </TextField>
         <TextField
           select
           label="Period"
@@ -130,41 +170,40 @@ export default function CbkSubmissionPanel({ onSubmitSuccess }: CbkSubmissionPan
           onClick={handleSubmit}
           disabled={submitMutation.isPending || !from || !to}
           sx={{
-            backgroundColor: "#800020",
-            "&:hover": { backgroundColor: "#600018" },
-            textTransform: "none",
+                        textTransform: "none",
           }}
         >
-          Submit to CBK
+          Run CBK submission
         </Button>
       </Box>
 
       {submitSuccess && (
-        <Alert severity="success" sx={{ mb: 2, borderRadius: "8px" }} onClose={() => setSubmitSuccess(null)}>
+        <Alert severity="success" sx={{ mb: 2, borderRadius: "var(--radius)" }} onClose={() => setSubmitSuccess(null)}>
           {submitSuccess}
         </Alert>
       )}
       {submitError && (
-        <Alert severity="error" sx={{ mb: 2, borderRadius: "8px" }} onClose={() => setSubmitError(null)}>
+        <Alert severity="error" sx={{ mb: 2, borderRadius: "var(--radius)" }} onClose={() => setSubmitError(null)}>
           {submitError}
         </Alert>
       )}
       {error && (
-        <Alert severity="warning" sx={{ mb: 2, borderRadius: "8px" }}>
+        <Alert severity="warning" sx={{ mb: 2, borderRadius: "var(--radius)" }}>
           Could not load submission history: {error.message}
         </Alert>
       )}
 
       {/* Submission Status Table */}
-      <Paper sx={{ borderRadius: "12px", overflow: "hidden" }}>
+      <Paper sx={{ borderRadius: "var(--radius)", overflow: "hidden" }}>
         <TableContainer>
           <Table size="small">
             <TableHead>
-              <TableRow sx={{ backgroundColor: "rgba(128, 0, 32, 0.06)" }}>
+              <TableRow sx={{ backgroundColor: "var(--surface-3)" }}>
                 <TableCell sx={{ fontWeight: 700 }}>Report</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Period</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Date Range</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>Records</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Reference</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Submitted At</TableCell>
               </TableRow>
@@ -172,14 +211,14 @@ export default function CbkSubmissionPanel({ onSubmitSuccess }: CbkSubmissionPan
             <TableBody>
               {isLoading && (
                 <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
-                    <CircularProgress size={20} sx={{ color: "#800020" }} />
+                  <TableCell colSpan={7} align="center" sx={{ py: 3 }}>
+                    <CircularProgress size={20} sx={{ color: "var(--gold)" }} />
                   </TableCell>
                 </TableRow>
               )}
               {!isLoading && (!data || data.content.length === 0) && (
                 <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 3, color: "text.secondary" }}>
+                  <TableCell colSpan={7} align="center" sx={{ py: 3, color: "text.secondary" }}>
                     No submissions found for the selected period.
                   </TableCell>
                 </TableRow>
@@ -189,7 +228,7 @@ export default function CbkSubmissionPanel({ onSubmitSuccess }: CbkSubmissionPan
                 const StatusIcon = cfg.icon;
                 return (
                   <TableRow key={row.id} hover>
-                    <TableCell>{row.reportType}</TableCell>
+                    <TableCell><Link to={`/records/CBK_SUBMISSION/${row.id}`}>{row.reportType}</Link></TableCell>
                     <TableCell sx={{ textTransform: "capitalize" }}>{row.period}</TableCell>
                     <TableCell>
                       {row.from} – {row.to}
@@ -203,6 +242,7 @@ export default function CbkSubmissionPanel({ onSubmitSuccess }: CbkSubmissionPan
                         sx={{ fontWeight: 600 }}
                       />
                     </TableCell>
+                    <TableCell>{row.recordCount ?? "-"}</TableCell>
                     <TableCell>
                       <Typography variant="caption" sx={{ fontFamily: "monospace" }}>
                         {row.referenceNumber || "—"}

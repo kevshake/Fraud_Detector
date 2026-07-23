@@ -1,6 +1,5 @@
 package com.posgateway.aml.service.reporting;
 
-import com.posgateway.aml.repository.AerospikeMetricsRepository;
 import com.posgateway.aml.service.risk.SchemeSimulatorService;
 import org.springframework.stereotype.Component;
 
@@ -19,15 +18,11 @@ import java.util.Map;
 @Component
 public class SchemeMonitoringReportGenerator implements ReportGenerator {
 
-    @SuppressWarnings("unused")
-    private final AerospikeMetricsRepository metricsRepository;
     private final SchemeSimulatorService schemeSimulatorService;
     private final com.posgateway.aml.repository.MerchantRepository merchantRepository;
 
-    public SchemeMonitoringReportGenerator(AerospikeMetricsRepository metricsRepository,
-            SchemeSimulatorService schemeSimulatorService,
+    public SchemeMonitoringReportGenerator(SchemeSimulatorService schemeSimulatorService,
             com.posgateway.aml.repository.MerchantRepository merchantRepository) {
-        this.metricsRepository = metricsRepository;
         this.schemeSimulatorService = schemeSimulatorService;
         this.merchantRepository = merchantRepository;
     }

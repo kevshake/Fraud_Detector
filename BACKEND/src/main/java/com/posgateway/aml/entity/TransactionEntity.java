@@ -1,6 +1,7 @@
 package com.posgateway.aml.entity;
 
 import jakarta.persistence.*;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -82,7 +83,40 @@ public class TransactionEntity {
     private String riskLevel; // LOW, MEDIUM, HIGH, CRITICAL
 
     @Column(name = "decision", length = 20)
-    private String decision; // APPROVED, MANUAL_REVIEW, DECLINED
+    private String decision; // ALLOW, ALERT, HOLD, BLOCK (legacy values normalized on read)
+
+    @Column(name = "sar_required", nullable = false)
+    private boolean sarRequired;
+
+    @Column(name = "ctr_required", nullable = false)
+    private boolean ctrRequired;
+
+    @Column(name = "cash_transaction", nullable = false)
+    private boolean cashTransaction;
+
+    @Column(name = "ctr_evaluation_status", length = 32)
+    private String ctrEvaluationStatus;
+
+    @Column(name = "ctr_usd_equivalent", precision = 19, scale = 4)
+    private BigDecimal ctrUsdEquivalent;
+
+    @Column(name = "ctr_threshold_usd", precision = 19, scale = 4)
+    private BigDecimal ctrThresholdUsd;
+
+    @Column(name = "ctr_rate_source", length = 160)
+    private String ctrRateSource;
+
+    @Column(name = "ctr_rate_effective_at")
+    private LocalDateTime ctrRateEffectiveAt;
+
+    @Column(name = "ctr_evaluated_at")
+    private LocalDateTime ctrEvaluatedAt;
+
+    @Column(name = "rule_decision", length = 20)
+    private String ruleDecision;
+
+    @Column(name = "triggered_rules", columnDefinition = "TEXT")
+    private String triggeredRules;
 
     // CBK classification columns (V128 migration)
     @Column(name = "card_brand", length = 16)
@@ -99,6 +133,14 @@ public class TransactionEntity {
 
     @Column(name = "bill_classification_code", length = 16)
     private String billClassificationCode; // CBK taxonomy code
+
+    @Column(name = "customer_account_reference", length = 255)
+    private String customerAccountReference;
+
+    @com.fasterxml.jackson.databind.annotation.JsonSerialize(using = com.posgateway.aml.config.security.PiiMaskingSerializer.class)
+    @Convert(converter = com.posgateway.aml.entity.converter.VersionedAesGcmStringConverter.class)
+    @Column(name = "customer_email", columnDefinition = "TEXT")
+    private String customerEmail;
 
     @PrePersist
     protected void onCreate() {
@@ -277,6 +319,29 @@ public class TransactionEntity {
         this.decision = decision;
     }
 
+    public boolean isSarRequired() { return sarRequired; }
+    public void setSarRequired(boolean sarRequired) { this.sarRequired = sarRequired; }
+    public boolean isCtrRequired() { return ctrRequired; }
+    public void setCtrRequired(boolean ctrRequired) { this.ctrRequired = ctrRequired; }
+    public boolean isCashTransaction() { return cashTransaction; }
+    public void setCashTransaction(boolean cashTransaction) { this.cashTransaction = cashTransaction; }
+    public String getCtrEvaluationStatus() { return ctrEvaluationStatus; }
+    public void setCtrEvaluationStatus(String ctrEvaluationStatus) { this.ctrEvaluationStatus = ctrEvaluationStatus; }
+    public BigDecimal getCtrUsdEquivalent() { return ctrUsdEquivalent; }
+    public void setCtrUsdEquivalent(BigDecimal ctrUsdEquivalent) { this.ctrUsdEquivalent = ctrUsdEquivalent; }
+    public BigDecimal getCtrThresholdUsd() { return ctrThresholdUsd; }
+    public void setCtrThresholdUsd(BigDecimal ctrThresholdUsd) { this.ctrThresholdUsd = ctrThresholdUsd; }
+    public String getCtrRateSource() { return ctrRateSource; }
+    public void setCtrRateSource(String ctrRateSource) { this.ctrRateSource = ctrRateSource; }
+    public LocalDateTime getCtrRateEffectiveAt() { return ctrRateEffectiveAt; }
+    public void setCtrRateEffectiveAt(LocalDateTime ctrRateEffectiveAt) { this.ctrRateEffectiveAt = ctrRateEffectiveAt; }
+    public LocalDateTime getCtrEvaluatedAt() { return ctrEvaluatedAt; }
+    public void setCtrEvaluatedAt(LocalDateTime ctrEvaluatedAt) { this.ctrEvaluatedAt = ctrEvaluatedAt; }
+    public String getRuleDecision() { return ruleDecision; }
+    public void setRuleDecision(String ruleDecision) { this.ruleDecision = ruleDecision; }
+    public String getTriggeredRules() { return triggeredRules; }
+    public void setTriggeredRules(String triggeredRules) { this.triggeredRules = triggeredRules; }
+
     public String getCardBrand() {
         return cardBrand;
     }
@@ -315,5 +380,25 @@ public class TransactionEntity {
 
     public void setBillClassificationCode(String billClassificationCode) {
         this.billClassificationCode = billClassificationCode;
+    }
+
+    public String getCustomerAccountReference() {
+        return customerAccountReference;
+    }
+
+    public void setCustomerAccountReference(String customerAccountReference) {
+        this.customerAccountReference = normalizeNullable(customerAccountReference);
+    }
+
+    public String getCustomerEmail() {
+        return customerEmail;
+    }
+
+    public void setCustomerEmail(String customerEmail) {
+        this.customerEmail = normalizeNullable(customerEmail);
+    }
+
+    private String normalizeNullable(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 }

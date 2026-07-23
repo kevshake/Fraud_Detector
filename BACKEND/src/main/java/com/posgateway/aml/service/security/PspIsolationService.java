@@ -4,6 +4,7 @@ import com.posgateway.aml.entity.User;
 import com.posgateway.aml.entity.compliance.ComplianceCase;
 import com.posgateway.aml.entity.TransactionEntity;
 import com.posgateway.aml.entity.merchant.Merchant;
+import com.posgateway.aml.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.core.Authentication;
@@ -24,6 +25,11 @@ import org.springframework.stereotype.Service;
 public class PspIsolationService {
 
     private static final Logger logger = LoggerFactory.getLogger(PspIsolationService.class);
+    private final UserRepository userRepository;
+
+    public PspIsolationService(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
 
     /**
      * Get the current authenticated user's PSP ID.
@@ -36,13 +42,15 @@ public class PspIsolationService {
     public Long getCurrentUserPspId() {
         User user = getCurrentUser();
         if (user == null) {
-            return 0L; // Default to Super Admin PSP ID
+            throw new SecurityException("User not authenticated");
         }
         
-        // All users must have a PSP assigned (PSP ID 0 for Super Admin)
         if (user.getPsp() == null) {
-            logger.warn("User {} has no PSP assigned - defaulting to Super Admin PSP ID 0", user.getUsername());
-            return 0L; // Default to Super Admin PSP ID
+            if (isPlatformAdministrator(user)) {
+                return 0L;
+            }
+            logger.error("Non-platform user {} has no PSP assigned", user.getUsername());
+            throw new SecurityException("User has no PSP assigned");
         }
         
         return user.getPsp().getPspId();
@@ -260,10 +268,14 @@ public class PspIsolationService {
             return null;
         }
         
-        if (auth.getPrincipal() instanceof User) {
-            return (User) auth.getPrincipal();
+        if (auth.getPrincipal() instanceof User user) {
+            return user;
         }
-        
-        return null;
+
+        String username = auth.getPrincipal() instanceof org.springframework.security.core.userdetails.UserDetails details
+                ? details.getUsername()
+                : auth.getName();
+        if (username == null || username.isBlank()) return null;
+        return userRepository.findByUsername(username).orElse(null);
     }
 }

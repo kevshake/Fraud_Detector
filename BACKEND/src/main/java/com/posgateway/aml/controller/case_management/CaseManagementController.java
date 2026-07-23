@@ -14,6 +14,7 @@ import com.posgateway.aml.service.case_management.CaseSlaService;
 import com.posgateway.aml.service.case_management.CaseTimelineService;
 import com.posgateway.aml.service.analytics.ComplianceDashboardService;
 import com.posgateway.aml.service.analytics.OperationalMetricsService;
+import com.posgateway.aml.service.security.PspIsolationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -23,7 +24,8 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -52,6 +54,7 @@ public class CaseManagementController {
     private final ComplianceDashboardService dashboardService;
     private final OperationalMetricsService metricsService;
     private final ComplianceCaseRepository caseRepository;
+    private final PspIsolationService pspIsolationService;
 
     @Autowired
     public CaseManagementController(CaseActivityService caseActivityService,
@@ -62,7 +65,8 @@ public class CaseManagementController {
                                    CaseTimelineService caseTimelineService,
                                    ComplianceDashboardService dashboardService,
                                    OperationalMetricsService metricsService,
-                                   ComplianceCaseRepository caseRepository) {
+                                   ComplianceCaseRepository caseRepository,
+                                   PspIsolationService pspIsolationService) {
         this.caseActivityService = caseActivityService;
         this.caseAssignmentService = caseAssignmentService;
         this.caseSlaService = caseSlaService;
@@ -72,6 +76,7 @@ public class CaseManagementController {
         this.dashboardService = dashboardService;
         this.metricsService = metricsService;
         this.caseRepository = caseRepository;
+        this.pspIsolationService = pspIsolationService;
     }
 
     // Timeline endpoint moved to CaseWorkflowController (has @PreAuthorize + permissionService.canView).
@@ -96,6 +101,10 @@ public class CaseManagementController {
             @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Page size", example = "20")
             @RequestParam(defaultValue = "20") int size) {
+        // Tenant isolation: the activity feed is per-case; scope to the caller's PSP.
+        ComplianceCase complianceCase = caseRepository.findById(caseId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Case not found"));
+        pspIsolationService.validatePspAccess(complianceCase.getPspId());
         return ResponseEntity.ok(caseActivityService.getActivityFeed(
                 caseId,
                 org.springframework.data.domain.PageRequest.of(page, size)
@@ -110,10 +119,16 @@ public class CaseManagementController {
                                                              @RequestParam String role) {
         ComplianceCase complianceCase = caseRepository.findById(caseId)
                 .orElseThrow(() -> new IllegalArgumentException("Case not found"));
+        pspIsolationService.validatePspAccess(complianceCase.getPspId());
         
         com.posgateway.aml.model.UserRole userRole = com.posgateway.aml.model.UserRole.valueOf(role);
         var assignedUser = caseAssignmentService.assignCaseByWorkload(complianceCase, userRole);
         
+        if (assignedUser == null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "No eligible active user is available in this PSP for role " + userRole.name());
+        }
+
         return ResponseEntity.ok(Map.of(
                 "success", true,
                 "assignedTo", assignedUser.getUsername(),
@@ -126,13 +141,18 @@ public class CaseManagementController {
      */
     @PostMapping("/{caseId}/escalate")
     public ResponseEntity<Map<String, Object>> escalateCase(@PathVariable Long caseId,
-                                                            @RequestBody EscalationRequest request,
-                                                            @AuthenticationPrincipal org.springframework.security.core.userdetails.User user) {
-        Long userId = Long.parseLong(user.getUsername()); // Assuming username is user ID
+                                                            @RequestBody EscalationRequest request) {
+        ComplianceCase complianceCase = caseRepository.findById(caseId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Case not found"));
+        pspIsolationService.validatePspAccess(complianceCase.getPspId());
+        com.posgateway.aml.entity.User currentUser = pspIsolationService.getCurrentUser();
+        if (currentUser == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not authenticated");
+        }
         caseEscalationService.escalateCase(
                 caseId,
                 request.getReason(),
-                userId
+                currentUser.getId()
         );
         
         return ResponseEntity.ok(Map.of(
@@ -148,7 +168,9 @@ public class CaseManagementController {
     public ResponseEntity<Map<String, Object>> getSlaStatus(@PathVariable Long caseId) {
         ComplianceCase complianceCase = caseRepository.findById(caseId)
                 .orElseThrow(() -> new IllegalArgumentException("Case not found"));
-        
+        // Tenant isolation: scope SLA read to the caller's PSP.
+        pspIsolationService.validatePspAccess(complianceCase.getPspId());
+
         CaseSlaService.CaseSlaStatus slaStatus = caseSlaService.checkSlaStatus(complianceCase);
         
         Map<String, Object> response = new java.util.HashMap<>();

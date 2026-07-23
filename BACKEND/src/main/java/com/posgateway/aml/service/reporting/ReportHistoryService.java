@@ -199,7 +199,14 @@ public class ReportHistoryService {
         
         String fileExtension = getFileExtension(filePath);
         if (format != null && !format.isEmpty()) {
-            fileExtension = format.toLowerCase();
+            String requestedExtension = switch (format.toLowerCase()) {
+                case "excel", "xls", "xlsx" -> "xlsx";
+                default -> format.toLowerCase();
+            };
+            if (!requestedExtension.equals(fileExtension)) {
+                throw new IllegalArgumentException("Report was generated as " + fileExtension
+                        + "; requested format was " + requestedExtension);
+            }
         }
         fileName = fileName + "." + fileExtension;
         
@@ -327,42 +334,24 @@ public class ReportHistoryService {
         
         ExecutionStatistics stats = new ExecutionStatistics();
         
-        // This would require custom repository queries for efficient aggregation
-        // For now, using a simplified approach
-        Page<ReportExecution> executions;
-        Pageable pageable = PageRequest.of(0, Integer.MAX_VALUE);
-        
-        if (effectivePspId != null) {
-            executions = reportExecutionRepository.findByPspId(effectivePspId, pageable);
-        } else {
-            executions = reportExecutionRepository.findAll(pageable);
-        }
-        
-        List<ReportExecution> filtered = executions.getContent().stream()
-            .filter(e -> (from == null || !e.getCreatedAt().isBefore(from)))
-            .filter(e -> (to == null || !e.getCreatedAt().isAfter(to)))
-            .toList();
-        
-        stats.setTotalExecutions(filtered.size());
-        stats.setCompletedCount((int) filtered.stream().filter(e -> e.getStatus() == ExecutionStatus.COMPLETED).count());
-        stats.setFailedCount((int) filtered.stream().filter(e -> e.getStatus() == ExecutionStatus.FAILED).count());
-        stats.setPendingCount((int) filtered.stream().filter(e -> e.getStatus() == ExecutionStatus.PENDING).count());
-        stats.setRunningCount((int) filtered.stream().filter(e -> e.getStatus() == ExecutionStatus.RUNNING).count());
-        
-        double avgTime = filtered.stream()
-            .filter(e -> e.getExecutionTimeMs() != null)
-            .mapToInt(ReportExecution::getExecutionTimeMs)
-            .average()
-            .orElse(0.0);
-        stats.setAverageExecutionTimeMs((int) avgTime);
-        
-        long totalRecords = filtered.stream()
-            .filter(e -> e.getTotalRecords() != null)
-            .mapToLong(ReportExecution::getTotalRecords)
-            .sum();
-        stats.setTotalRecordsProcessed(totalRecords);
+        Object[] summary = reportExecutionRepository.summarizeExecutions(
+                effectivePspId, from, to);
+        stats.setTotalExecutions(number(summary, 0).intValue());
+        stats.setCompletedCount(number(summary, 1).intValue());
+        stats.setFailedCount(number(summary, 2).intValue());
+        stats.setPendingCount(number(summary, 3).intValue());
+        stats.setRunningCount(number(summary, 4).intValue());
+        stats.setAverageExecutionTimeMs(number(summary, 5).intValue());
+        stats.setTotalRecordsProcessed(number(summary, 6).longValue());
         
         return stats;
+    }
+
+    private Number number(Object[] summary, int index) {
+        if (summary == null || index >= summary.length || summary[index] == null) {
+            return 0;
+        }
+        return summary[index] instanceof Number value ? value : 0;
     }
 
     /**
@@ -391,7 +380,7 @@ public class ReportHistoryService {
         dto.setStatus(execution.getStatus());
         dto.setProgressPercent(execution.getProgressPercent());
         dto.setTotalRecords(execution.getTotalRecords());
-        dto.setFilePath(execution.getFilePath());
+        dto.setFilePath(null);
         dto.setFileFormats(execution.getFileFormats());
         dto.setFileSizes(execution.getFileSizes());
         dto.setStartedAt(execution.getStartedAt());

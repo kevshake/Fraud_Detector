@@ -9,7 +9,7 @@ import java.time.OffsetDateTime;
  * (created in V130). The natural primary key is the BIN prefix
  * (6-8 digit string); longer prefixes win on lookup.
  *
- * <p>Per the no-mock rule the seed only carries rule-based brand mappings;
+ * <p>The seed only carries rule-based brand mappings;
  * issuer / issuer_country are NULL until populated by a real BIN provider.
  */
 @Entity

@@ -19,10 +19,10 @@ import org.springframework.web.util.ContentCachingResponseWrapper;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
-import java.util.AbstractMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
 /**
@@ -43,24 +43,54 @@ public class UsageTrackingFilter extends OncePerRequestFilter {
     /** URL prefix that the filter watches. */
     private static final String BASE_PREFIX = "/api/v1";
 
-    /** URL-to-service-type mapping. First match wins; compiled at init for speed. */
-    private static final Map<Pattern, String> URL_SERVICE_MAP = new ConcurrentHashMap<>();
+    /**
+     * A billable service: the canonical service type (which MUST match a seeded
+     * {@code billing_rates.service_type}) and the HTTP methods that count as
+     * billable usage. Only the work-performing verb is charged, so dashboard/list
+     * GET requests are never billed.
+     */
+    private record ServiceMapping(String serviceType, Set<String> billableMethods) {}
+
+    /**
+     * Ordered URL→service mapping. First PATH match wins, so more specific
+     * patterns are registered first (e.g. {@code /sanctions/screen/person}
+     * before the generic {@code /sanctions/screen}). A {@link LinkedHashMap}
+     * guarantees deterministic first-match iteration.
+     *
+     * <p>Every service type here corresponds to a rate seeded in
+     * {@code billing_rates} (V149 + V167), so {@code calculateUsageCost} resolves
+     * a non-zero cost for each metered request — keeping the usage→cost→invoice
+     * pipeline live end-to-end.
+     */
+    private static final Map<Pattern, ServiceMapping> URL_SERVICE_MAP = new LinkedHashMap<>();
+
+    private static void map(String regex, String serviceType, String... methods) {
+        URL_SERVICE_MAP.put(Pattern.compile(regex), new ServiceMapping(serviceType, Set.of(methods)));
+    }
 
     static {
-        // Transaction processing — the primary revenue driver
-        URL_SERVICE_MAP.put(Pattern.compile("^/api/v1/transactions/ingest.*"), "TRANSACTION_PROCESSING");
-        URL_SERVICE_MAP.put(Pattern.compile("^/api/v1/sanctions/screen.*"), "SANCTIONS_SCREENING");
-        URL_SERVICE_MAP.put(Pattern.compile("^/api/v1/screening/.*"), "SCREENING");
-        URL_SERVICE_MAP.put(Pattern.compile("^/api/v1/aml/check.*"), "AML_CHECK");
-        URL_SERVICE_MAP.put(Pattern.compile("^/api/v1/risk-assessment/assess.*"), "RISK_ASSESSMENT");
-        URL_SERVICE_MAP.put(Pattern.compile("^/api/v1/reports/(generate|preview|chart).*"), "REPORT_GENERATION");
-        URL_SERVICE_MAP.put(Pattern.compile("^/api/v1/cases/.*"), "CASE_MANAGEMENT");
-        URL_SERVICE_MAP.put(Pattern.compile("^/api/v1/alerts/.*"), "ALERT_MANAGEMENT");
-        URL_SERVICE_MAP.put(Pattern.compile("^/api/v1/merchants/onboard.*"), "MERCHANT_ONBOARDING");
-        URL_SERVICE_MAP.put(Pattern.compile("^/api/v1/merchants$"), "MERCHANT_MANAGEMENT");
-        URL_SERVICE_MAP.put(Pattern.compile("^/api/v1/compliance/sar.*"), "SAR_FILING");
-        URL_SERVICE_MAP.put(Pattern.compile("^/api/v1/compliance/cbk.*"), "CBK_REPORTING");
-        URL_SERVICE_MAP.put(Pattern.compile("^/api/v1/billing/.*"), "BILLING_OPERATIONS");
+        // Sanctions screening — most specific first (person/organization before the generic screen).
+        map("^/api/v1/sanctions/screen/person.*",       "SANCTIONS_SCREENING_PERSON",       "POST");
+        map("^/api/v1/sanctions/screen/organization.*", "SANCTIONS_SCREENING_ORGANIZATION", "POST");
+        map("^/api/v1/sanctions/screen.*",              "SANCTIONS_SCREENING_PERSON",       "POST");
+        // AML checks / anomaly detection / batch screening.
+        map("^/api/v1/aml/check.*",                     "AML_SCREENING", "POST");
+        map("^/api/v1/aml/detection.*",                 "AML_SCREENING", "POST");
+        map("^/api/v1/screening/.*",                    "AML_SCREENING", "POST");
+        // Transaction monitoring — charged per ingested transaction.
+        map("^/api/v1/transactions/ingest.*",           "TRANSACTION_MONITORING", "POST");
+        // Risk assessment.
+        map("^/api/v1/risk-assessment/assess.*",        "RISK_ASSESSMENT", "POST");
+        // Report generation (the generate action only; preview/chart are non-billable reads).
+        map("^/api/v1/reports/generate.*",              "REPORT_GENERATION", "POST");
+        // KYC / merchant onboarding verification.
+        map("^/api/v1/merchants/onboard.*",             "KYC_VERIFICATION", "POST");
+        // Compliance case creation (create verb only; reads are not billed).
+        map("^/api/v1/cases.*",                         "COMPLIANCE_CASE_CREATION", "POST");
+        // SAR filing.
+        map("^/api/v1/compliance/sar.*",                "SAR_FILING", "POST");
+        // CBK regulatory submissions (create or replay).
+        map("^/api/v1/compliance/cbk.*",                "CBK_REPORTING", "POST", "PUT");
     }
 
     /** Paths we never track (health checks, docs, static assets). */
@@ -115,9 +145,9 @@ public class UsageTrackingFilter extends OncePerRequestFilter {
             String method = req.getMethod();
             int status = resp.getStatus();
 
-            // Determine service type from path
-            String serviceType = resolveServiceType(path);
-            if (serviceType == null) return; // unmapped path — not a billable service
+            // Determine service type from path + method (only work-performing verbs bill)
+            String serviceType = resolveServiceType(path, method);
+            if (serviceType == null) return; // unmapped path or non-billable method
 
             // PSP ID from security context
             Long pspId = null;
@@ -150,10 +180,17 @@ public class UsageTrackingFilter extends OncePerRequestFilter {
         }
     }
 
-    static String resolveServiceType(String path) {
-        for (Map.Entry<Pattern, String> entry : URL_SERVICE_MAP.entrySet()) {
+    /**
+     * Resolves the canonical billing service type for a request, or {@code null}
+     * if the path is unmapped or the HTTP method is not a billable verb for the
+     * matched service. First PATH match wins; once a path matches, a non-billable
+     * method yields {@code null} (we do not fall through to a less specific pattern).
+     */
+    static String resolveServiceType(String path, String method) {
+        for (Map.Entry<Pattern, ServiceMapping> entry : URL_SERVICE_MAP.entrySet()) {
             if (entry.getKey().matcher(path).matches()) {
-                return entry.getValue();
+                ServiceMapping mapping = entry.getValue();
+                return mapping.billableMethods().contains(method) ? mapping.serviceType() : null;
             }
         }
         return null;

@@ -4,6 +4,7 @@
  */
 
 import { useState, type ReactNode } from "react";
+import { Link } from "react-router-dom";
 import {
   Box,
   Paper,
@@ -33,6 +34,7 @@ import {
   CheckCircle as SuccessIcon,
   Error as ErrorIcon,
   HourglassEmpty as PendingIcon,
+  AccountTree as TraceIcon,
 } from "@mui/icons-material";
 import type {
   ReportInstance,
@@ -59,11 +61,11 @@ const STATUS_ICONS: Record<ReportStatus, typeof SuccessIcon> = {
 };
 
 const STATUS_COLORS: Record<ReportStatus, { bg: string; text: string }> = {
-  draft: { bg: "rgba(158, 158, 158, 0.1)", text: "#757575" },
-  scheduled: { bg: "rgba(25, 118, 210, 0.1)", text: "#1976D2" },
-  generating: { bg: "rgba(255, 152, 0, 0.1)", text: "#F57C00" },
-  completed: { bg: "rgba(46, 125, 50, 0.1)", text: "#2E7D32" },
-  failed: { bg: "rgba(211, 47, 47, 0.1)", text: "#C62828" },
+  draft: { bg: "rgba(158, 158, 158, 0.1)", text: "var(--muted)" },
+  scheduled: { bg: "var(--info-soft)", text: "var(--info)" },
+  generating: { bg: "rgba(255, 152, 0, 0.1)", text: "var(--warning)" },
+  completed: { bg: "var(--success-soft)", text: "var(--success)" },
+  failed: { bg: "var(--danger-soft)", text: "var(--danger)" },
 };
 
 const FORMAT_ICONS: Record<ExportFormat, typeof PdfIcon> = {
@@ -143,7 +145,7 @@ export default function ReportHistory({
         }}
       >
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          <Typography variant="h6" sx={{ fontWeight: 600, color: "#2c3e50" }}>
+          <Typography variant="h6" sx={{ fontWeight: 600, color: "var(--ink)" }}>
             Report History
           </Typography>
           {!loading && (
@@ -151,8 +153,8 @@ export default function ReportHistory({
               label={`${instances.length} reports`}
               size="small"
               sx={{
-                backgroundColor: "rgba(128, 0, 32, 0.1)",
-                color: "#800020",
+                backgroundColor: "var(--brand-soft)",
+                color: "var(--gold)",
               }}
             />
           )}
@@ -169,9 +171,9 @@ export default function ReportHistory({
           onClick={onRefresh}
           disabled={loading}
           sx={{
-            color: "#800020",
-            "&: hover": {
-              backgroundColor: "rgba(128, 0, 32, 0.05)",
+            color: "var(--gold)",
+            "&:hover": {
+              backgroundColor: "var(--surface-2)",
             },
           }}
         >
@@ -182,21 +184,23 @@ export default function ReportHistory({
       <TableContainer
         component={Paper}
         sx={{
-          borderRadius: "16px",
-          boxShadow: "0 4px 20px rgba(0, 0, 0, 0.05)",
+          borderRadius: "var(--radius)",
+          backgroundColor: "var(--surface-2)",
+          border: "1px solid var(--line)",
+          boxShadow: "none",
           overflow: "hidden",
         }}
       >
         <Table size="small">
           <TableHead>
-            <TableRow sx={{ backgroundColor: "#fafafa" }}>
-              <TableCell sx={{ fontWeight: 600, color: "#2c3e50" }}>Report</TableCell>
-              <TableCell sx={{ fontWeight: 600, color: "#2c3e50" }}>Status</TableCell>
-              <TableCell sx={{ fontWeight: 600, color: "#2c3e50" }}>Format</TableCell>
-              <TableCell sx={{ fontWeight: 600, color: "#2c3e50" }}>Created</TableCell>
-              <TableCell sx={{ fontWeight: 600, color: "#2c3e50" }}>Size</TableCell>
-              <TableCell sx={{ fontWeight: 600, color: "#2c3e50" }}>Created By</TableCell>
-              <TableCell align="right" sx={{ fontWeight: 600, color: "#2c3e50" }}>
+            <TableRow>
+              <TableCell>Report</TableCell>
+              <TableCell>Status</TableCell>
+              <TableCell>Format</TableCell>
+              <TableCell>Created</TableCell>
+              <TableCell>Size</TableCell>
+              <TableCell>Created By</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 600, color: "var(--ink)" }}>
                 Actions
               </TableCell>
             </TableRow>
@@ -230,8 +234,8 @@ export default function ReportHistory({
                   <TableRow
                     key={instance.id}
                     sx={{
-                      "&: hover": {
-                        backgroundColor: "rgba(128, 0, 32, 0.02)",
+                      "&:hover": {
+                        backgroundColor: "var(--surface-2)",
                       },
                     }}
                   >
@@ -239,7 +243,7 @@ export default function ReportHistory({
                       <Box>
                         <Typography
                           variant="body2"
-                          sx={{ fontWeight: 500, color: "#2c3e50" }}
+                          sx={{ fontWeight: 500, color: "var(--ink)" }}
                         >
                           {instance.reportName}
                         </Typography>
@@ -305,6 +309,11 @@ export default function ReportHistory({
 
                     <TableCell align="right">
                       <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 0.5 }}>
+                        <Tooltip title="View record trail" arrow>
+                          <IconButton component={Link} to={`/records/REPORT_EXECUTION/${instance.id}`} size="small" sx={{ color: "var(--gold)", "&:hover": { backgroundColor: "var(--brand-soft)" } }}>
+                            <TraceIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
                         {instance.status === "completed" && instance.fileUrl && (
                           <Tooltip title="Download" arrow>
                             <span>
@@ -313,14 +322,14 @@ export default function ReportHistory({
                                 onClick={() => handleDownload(instance)}
                                 disabled={isDownloading || isDeleting}
                                 sx={{
-                                  color: "#800020",
-                                  "&: hover": {
-                                    backgroundColor: "rgba(128, 0, 32, 0.1)",
+                                  color: "var(--gold)",
+                                  "&:hover": {
+                                    backgroundColor: "var(--brand-soft)",
                                   },
                                 }}
                               >
                                 {isDownloading ? (
-                                  <CircularProgress size={16} sx={{ color: "#800020" }} />
+                                  <CircularProgress size={16} sx={{ color: "var(--gold)" }} />
                                 ) : (
                                   <DownloadIcon fontSize="small" />
                                 )}
@@ -336,14 +345,14 @@ export default function ReportHistory({
                               disabled={isDeleting || isDownloading}
                               sx={{
                                 color: "text.secondary",
-                                "&: hover": {
-                                  color: "#d32f2f",
-                                  backgroundColor: "rgba(211, 47, 47, 0.1)",
+                                "&:hover": {
+                                  color: "var(--danger)",
+                                  backgroundColor: "var(--danger-soft)",
                                 },
                               }}
                             >
                               {isDeleting ? (
-                                <CircularProgress size={16} sx={{ color: "#d32f2f" }} />
+                                <CircularProgress size={16} sx={{ color: "var(--danger)" }} />
                               ) : (
                                 <DeleteIcon fontSize="small" />
                               )}
@@ -369,11 +378,12 @@ export default function ReportHistory({
             color="primary"
             sx={{
               "& .MuiPaginationItem-root": {
-                borderRadius: "8px",
+                borderRadius: "var(--radius)",
               },
               "& .Mui-selected": {
-                backgroundColor: "#800020 !important",
-                color: "#fff !important",
+                backgroundColor: "var(--brand-soft) !important",
+                color: "var(--gold) !important",
+                border: "1px solid color-mix(in srgb, var(--gold) 35%, transparent)",
               },
             }}
           />

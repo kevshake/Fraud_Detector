@@ -91,10 +91,8 @@ public class CaseNetworkService {
             graph.addEdge(createCaseEntityEdge(rootCase, entity));
         });
 
-        // Find related SARs
-        List<SuspiciousActivityReport> sars = sarRepository.findAll().stream()
-                .filter(sar -> sar.getComplianceCase() != null && sar.getComplianceCase().getId().equals(caseId))
-                .collect(Collectors.toList());
+        // Find related SARs (DB-scoped to this case; was a full-table scan + per-SAR lazy load — W49-4)
+        List<SuspiciousActivityReport> sars = sarRepository.findByComplianceCase_Id(caseId);
         sars.forEach(sar -> {
             graph.addNode(createSarNode(sar));
             graph.addEdge(createCaseSarEdge(rootCase, sar));

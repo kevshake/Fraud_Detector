@@ -25,6 +25,9 @@ public class TransactionFeatures {
     @Column(name = "feature_json", columnDefinition = "JSONB")
     private String featureJson; // JSON string representation of features
 
+    @Column(name = "risk_details", columnDefinition = "JSONB")
+    private String riskDetails;
+
     @Column(name = "score")
     private Double score;
 
@@ -76,6 +79,14 @@ public class TransactionFeatures {
 
     public void setFeatureJson(String featureJson) {
         this.featureJson = featureJson;
+    }
+
+    public String getRiskDetails() {
+        return riskDetails;
+    }
+
+    public void setRiskDetails(String riskDetails) {
+        this.riskDetails = riskDetails;
     }
 
     public Double getScore() {

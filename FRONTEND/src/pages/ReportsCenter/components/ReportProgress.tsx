@@ -3,8 +3,7 @@
  * Shows progress bar for long-running reports
  */
 
-import { Box, LinearProgress, Typography, Paper, Chip, useTheme } from "@mui/material";
-import { alpha } from "@mui/material/styles";
+import { Box, LinearProgress, Typography, Paper, Chip } from "@mui/material";
 import {
   HourglassEmpty as PendingIcon,
   CheckCircle as SuccessIcon,
@@ -13,6 +12,7 @@ import {
   type SvgIconComponent,
 } from "@mui/icons-material";
 import type { ReportGenerationProgress } from "../../../features/api/reportQueries";
+import { semantic, withAlpha } from "../../../theme/tokens";
 
 interface ReportProgressProps {
   progress?: ReportGenerationProgress;
@@ -28,14 +28,17 @@ const STATUS_ICONS: Record<StatusType, SvgIconComponent> = {
   failed: ErrorIcon,
 };
 
-const useStatusColors = (): Record<StatusType, { bg: string; text: string; bar: string }> => {
-  const theme = useTheme();
-  return {
-    pending: { bg: alpha(theme.palette.warning.main, 0.1), text: theme.palette.warning.dark, bar: theme.palette.warning.dark },
-    processing: { bg: alpha(theme.palette.info.main, 0.1), text: theme.palette.info.main, bar: theme.palette.info.main },
-    completed: { bg: alpha(theme.palette.success.main, 0.1), text: theme.palette.success.main, bar: theme.palette.success.main },
-    failed: { bg: alpha(theme.palette.error.main, 0.1), text: theme.palette.error.dark, bar: theme.palette.error.dark },
-  };
+/*
+ * Opaque status grounds from the design tokens. This previously used
+ * `palette.*.dark` for the text, which are the fills meant for LIGHT grounds and
+ * measure below AA here, over an alpha tint that composited against whatever was
+ * behind it. Each pair below is measured: >= 4.72:1.
+ */
+const STATUS_COLORS: Record<StatusType, { bg: string; text: string; bar: string }> = {
+  pending: { bg: semantic.warningSoft, text: semantic.warning, bar: semantic.warning },
+  processing: { bg: semantic.infoSoft, text: semantic.info, bar: semantic.info },
+  completed: { bg: semantic.successSoft, text: semantic.success, bar: semantic.success },
+  failed: { bg: semantic.errorSoft, text: semantic.error, bar: semantic.error },
 };
 
 const STATUS_MESSAGES: Record<StatusType, string> = {
@@ -46,7 +49,6 @@ const STATUS_MESSAGES: Record<StatusType, string> = {
 };
 
 export default function ReportProgress({ progress, showDetails = true }: ReportProgressProps) {
-  const STATUS_COLORS = useStatusColors();
   if (!progress) return null;
 
   const status = progress.status as StatusType;
@@ -65,9 +67,9 @@ export default function ReportProgress({ progress, showDetails = true }: ReportP
       elevation={0}
       sx={{
         p: 2,
-        borderRadius: "12px",
+        borderRadius: "var(--radius)",
         backgroundColor: colors.bg,
-        border: `1px solid ${colors.text}20`,
+        border: `1px solid ${withAlpha(colors.text, 0.13)}`,
       }}
     >
       <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1.5 }}>
@@ -83,8 +85,9 @@ export default function ReportProgress({ progress, showDetails = true }: ReportP
               height: 20,
               fontSize: "0.7rem",
               ml: "auto",
-              backgroundColor: colors.text,
-              color: "#fff",
+              backgroundColor: colors.bg,
+              color: colors.text,
+              border: `1px solid ${withAlpha(colors.text, 0.35)}`,
             }}
           />
         )}
@@ -97,11 +100,11 @@ export default function ReportProgress({ progress, showDetails = true }: ReportP
             value={progress.progress}
             sx={{
               height: 8,
-              borderRadius: 4,
-              backgroundColor: `${colors.text}20`,
+              borderRadius: 999,
+              backgroundColor: withAlpha(colors.text, 0.18),
               "& .MuiLinearProgress-bar": {
                 backgroundColor: colors.bar,
-                borderRadius: 4,
+                borderRadius: 999,
               },
             }}
           />

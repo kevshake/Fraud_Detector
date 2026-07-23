@@ -4,8 +4,10 @@ import com.posgateway.aml.entity.User;
 import com.posgateway.aml.entity.compliance.ComplianceCase;
 import com.posgateway.aml.model.CasePriority;
 import com.posgateway.aml.model.CaseStatus;
+import com.posgateway.aml.repository.ComplianceCaseRepository;
 import com.posgateway.aml.repository.UserRepository;
 import com.posgateway.aml.service.CaseWorkflowService;
+import com.posgateway.aml.service.security.PspIsolationService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
@@ -22,10 +24,26 @@ public class ComplianceCaseWorkflowController {
 
     private final CaseWorkflowService caseWorkflowService;
     private final UserRepository userRepository;
+    private final ComplianceCaseRepository complianceCaseRepository;
+    private final PspIsolationService pspIsolationService;
 
-    public ComplianceCaseWorkflowController(CaseWorkflowService caseWorkflowService, UserRepository userRepository) {
+    public ComplianceCaseWorkflowController(CaseWorkflowService caseWorkflowService, UserRepository userRepository,
+            ComplianceCaseRepository complianceCaseRepository, PspIsolationService pspIsolationService) {
         this.caseWorkflowService = caseWorkflowService;
         this.userRepository = userRepository;
+        this.complianceCaseRepository = complianceCaseRepository;
+        this.pspIsolationService = pspIsolationService;
+    }
+
+    /**
+     * Load the case and validate tenant access BEFORE any mutation. Previously the PSP check
+     * ran after the @Transactional service call had already committed, so a cross-tenant
+     * mutation persisted even though the caller got a 403.
+     */
+    private void guardCaseAccess(Long caseId) {
+        ComplianceCase c = complianceCaseRepository.findById(caseId)
+                .orElseThrow(() -> new IllegalArgumentException("Case not found: " + caseId));
+        pspIsolationService.validateCaseAccess(c);
     }
 
     @PostMapping("/create")
@@ -47,14 +65,11 @@ public class ComplianceCaseWorkflowController {
     public ResponseEntity<ComplianceCase> assignCase(@RequestBody AssignCaseRequest request) {
         User assigner = getAuthenticatedUser();
         if (assigner == null) return ResponseEntity.status(401).build();
+        guardCaseAccess(request.getCaseId());
         ComplianceCase updated = caseWorkflowService.assignCase(
                 request.getCaseId(),
                 request.getAssigneeUserId(),
                 assigner);
-        if (assigner.getPsp() != null && updated.getPspId() != null
-                && !assigner.getPsp().getPspId().equals(updated.getPspId())) {
-            return ResponseEntity.status(403).build();
-        }
         return ResponseEntity.ok(updated);
     }
 
@@ -62,14 +77,11 @@ public class ComplianceCaseWorkflowController {
     public ResponseEntity<ComplianceCase> updateStatus(@RequestBody UpdateStatusRequest request) {
         User user = getAuthenticatedUser();
         if (user == null) return ResponseEntity.status(401).build();
+        guardCaseAccess(request.getCaseId());
         ComplianceCase updated = caseWorkflowService.updateStatus(
                 request.getCaseId(),
                 CaseStatus.valueOf(request.getStatus()),
                 user);
-        if (user.getPsp() != null && updated.getPspId() != null
-                && !user.getPsp().getPspId().equals(updated.getPspId())) {
-            return ResponseEntity.status(403).build();
-        }
         return ResponseEntity.ok(updated);
     }
 
@@ -77,15 +89,12 @@ public class ComplianceCaseWorkflowController {
     public ResponseEntity<ComplianceCase> escalate(@RequestBody EscalateCaseRequest request) {
         User user = getAuthenticatedUser();
         if (user == null) return ResponseEntity.status(401).build();
+        guardCaseAccess(request.getCaseId());
         ComplianceCase updated = caseWorkflowService.escalateCase(
                 request.getCaseId(),
                 request.getEscalatedToUserId(),
                 request.getReason(),
                 user);
-        if (user.getPsp() != null && updated.getPspId() != null
-                && !user.getPsp().getPspId().equals(updated.getPspId())) {
-            return ResponseEntity.status(403).build();
-        }
         return ResponseEntity.ok(updated);
     }
 

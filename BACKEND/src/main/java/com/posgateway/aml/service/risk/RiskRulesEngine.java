@@ -4,6 +4,7 @@ package com.posgateway.aml.service.risk;
 
 import com.posgateway.aml.entity.merchant.Merchant;
 import com.posgateway.aml.model.Transaction;
+import com.posgateway.aml.repository.risk.HighRiskCountryRepository;
 import com.posgateway.aml.service.risk.rules.RiskRuleDefinitions;
 import org.jeasy.rules.api.Facts;
 import org.jeasy.rules.api.Rules;
@@ -20,9 +21,12 @@ public class RiskRulesEngine {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(RiskRulesEngine.class);
 
     private final RiskRuleDefinitions ruleDefinitions;
+    private final HighRiskCountryRepository highRiskCountryRepository;
 
-    public RiskRulesEngine(RiskRuleDefinitions ruleDefinitions) {
+    public RiskRulesEngine(RiskRuleDefinitions ruleDefinitions,
+                           HighRiskCountryRepository highRiskCountryRepository) {
         this.ruleDefinitions = ruleDefinitions;
+        this.highRiskCountryRepository = highRiskCountryRepository;
     }
 
 
@@ -47,6 +51,17 @@ public class RiskRulesEngine {
         // Output list to collect triggered rule names/reasons
         List<String> triggeredRules = new ArrayList<>();
         facts.put("triggeredRules", triggeredRules);
+        if (facts.get("isHighRiskCountry") == null && transaction.getCountryCode() != null) {
+            try {
+                facts.put("isHighRiskCountry", highRiskCountryRepository.existsByCountryCode(
+                        transaction.getCountryCode().toUpperCase()));
+            } catch (RuntimeException lookupFailure) {
+                facts.put("isHighRiskCountry", false);
+                triggeredRules.add("COUNTRY_RISK_LOOKUP_UNAVAILABLE");
+                log.error("High-risk country lookup unavailable for transaction {}",
+                        transaction.getTransactionId(), lookupFailure);
+            }
+        }
 
         Rules rules = ruleDefinitions.getRules();
         rulesEngine.fire(rules, facts);

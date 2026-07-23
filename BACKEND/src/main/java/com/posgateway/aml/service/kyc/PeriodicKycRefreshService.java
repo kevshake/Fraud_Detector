@@ -94,8 +94,9 @@ public class PeriodicKycRefreshService {
             riskLevel = "MEDIUM"; // Default
         }
 
-        // Get last KYC refresh date (use registration date or last screening as proxy)
-        LocalDate lastRefreshDate = merchant.getRegistrationDate();
+        LocalDate lastRefreshDate = merchant.getLastCddReviewAt() != null
+                ? merchant.getLastCddReviewAt().toLocalDate()
+                : merchant.getRegistrationDate();
         if (lastRefreshDate == null) {
             // Never refreshed, should refresh
             return true;
@@ -140,9 +141,9 @@ public class PeriodicKycRefreshService {
         // Re-calculate completeness
         completenessService.calculateCompletenessScore(merchant.getMerchantId());
 
-        // Update last refresh date (would need to add this field)
-        // merchant.setLastKycRefreshDate(LocalDate.now());
-        // merchantRepository.save(merchant);
+        merchant.setLastCddReviewAt(java.time.LocalDateTime.now());
+        merchant.setUpdatedAt(java.time.LocalDateTime.now());
+        merchantRepository.save(merchant);
 
         logger.debug("KYC refresh completed for merchant {}", merchant.getMerchantId());
     }

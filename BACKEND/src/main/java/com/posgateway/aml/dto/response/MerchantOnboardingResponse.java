@@ -48,6 +48,8 @@ public class MerchantOnboardingResponse {
     private String businessType;
     private Double krs;
     private Double cra;
+    private String cbkEconomicSectorCode;
+    private Boolean cbkSettlementAccountConfigured;
 
     public MerchantOnboardingResponse() {
     }
@@ -59,7 +61,8 @@ public class MerchantOnboardingResponse {
             LocalDateTime screenedAt, String screeningProvider, Double screeningCost, String country,
             String kycStatus, String contractStatus, java.math.BigDecimal dailyLimit,
             java.math.BigDecimal currentUsage, String mccDescription, String tradingName,
-            String contactEmail, String mcc, String businessType, Double krs, Double cra) {
+            String contactEmail, String mcc, String businessType, Double krs, Double cra,
+            String cbkEconomicSectorCode, Boolean cbkSettlementAccountConfigured) {
         this.merchantId = merchantId;
         this.legalName = legalName;
         this.status = status;
@@ -88,6 +91,8 @@ public class MerchantOnboardingResponse {
         this.businessType = businessType;
         this.krs = krs;
         this.cra = cra;
+        this.cbkEconomicSectorCode = cbkEconomicSectorCode;
+        this.cbkSettlementAccountConfigured = cbkSettlementAccountConfigured;
     }
 
     public Long getMerchantId() {
@@ -314,6 +319,22 @@ public class MerchantOnboardingResponse {
         this.cra = cra;
     }
 
+    public String getCbkEconomicSectorCode() {
+        return cbkEconomicSectorCode;
+    }
+
+    public void setCbkEconomicSectorCode(String cbkEconomicSectorCode) {
+        this.cbkEconomicSectorCode = cbkEconomicSectorCode;
+    }
+
+    public Boolean getCbkSettlementAccountConfigured() {
+        return cbkSettlementAccountConfigured;
+    }
+
+    public void setCbkSettlementAccountConfigured(Boolean cbkSettlementAccountConfigured) {
+        this.cbkSettlementAccountConfigured = cbkSettlementAccountConfigured;
+    }
+
     public static MerchantOnboardingResponseBuilder builder() {
         return new MerchantOnboardingResponseBuilder();
     }
@@ -347,6 +368,8 @@ public class MerchantOnboardingResponse {
         private String businessType;
         private Double krs;
         private Double cra;
+        private String cbkEconomicSectorCode;
+        private Boolean cbkSettlementAccountConfigured;
 
         MerchantOnboardingResponseBuilder() {
         }
@@ -492,12 +515,24 @@ public class MerchantOnboardingResponse {
             return this;
         }
 
+        public MerchantOnboardingResponseBuilder cbkEconomicSectorCode(String cbkEconomicSectorCode) {
+            this.cbkEconomicSectorCode = cbkEconomicSectorCode;
+            return this;
+        }
+
+        public MerchantOnboardingResponseBuilder cbkSettlementAccountConfigured(
+                Boolean cbkSettlementAccountConfigured) {
+            this.cbkSettlementAccountConfigured = cbkSettlementAccountConfigured;
+            return this;
+        }
+
         public MerchantOnboardingResponse build() {
             return new MerchantOnboardingResponse(merchantId, legalName, status, decision, decisionReason,
                     merchantScreeningResult, beneficialOwnerResults, riskScore, riskLevel, riskFactors,
                     complianceCaseId, caseStatus, casePriority, screenedAt, screeningProvider, screeningCost, country,
                     kycStatus, contractStatus, dailyLimit, currentUsage, mccDescription, tradingName,
-                    contactEmail, mcc, businessType, krs, cra);
+                    contactEmail, mcc, businessType, krs, cra, cbkEconomicSectorCode,
+                    cbkSettlementAccountConfigured);
         }
 
         public String toString() {

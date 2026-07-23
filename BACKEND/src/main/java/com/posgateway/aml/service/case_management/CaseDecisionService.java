@@ -125,11 +125,8 @@ public class CaseDecisionService {
 
         // 5. Publish Kafka Event (if producer is configured/enabled)
         if (caseEventProducer != null) {
-            try {
-                caseEventProducer.publishDecisionEvent(caseId, decisionType, justification, user.getUsername());
-            } catch (Exception e) {
-                logger.error("Failed to publish decision event for case {}", caseId, e);
-            }
+            caseEventProducer.publishDecisionEvent(
+                    caseId, cCase.getPspId(), decisionType, justification, user.getUsername());
         } else {
             logger.debug("Kafka disabled or CaseEventProducer not configured - skipping CASE_DECISION event for case {}",
                     caseId);

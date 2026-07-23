@@ -98,7 +98,7 @@ public class AlertController {
                             cb.equal(merchantRoot.get("merchantId"), root.get("merchantId")),
                             cb.equal(merchantRoot.get("psp").get("pspId"), userPspId)
                         ));
-                return cb.exists(subquery);
+                return cb.or(cb.equal(root.get("pspId"), userPspId), cb.exists(subquery));
             });
             
             // Optional status filter
@@ -134,6 +134,11 @@ public class AlertController {
                         return ResponseEntity.ok(alert);
                     }
                     
+                    // Directly scoped alerts (including multi-asset alerts) do not require a merchant bridge.
+                    if (alert.getPspId() != null && alert.getPspId().equals(userPspId)) {
+                        return ResponseEntity.ok(alert);
+                    }
+
                     // PSP User - validate that alert's merchant belongs to their PSP
                     if (alert.getMerchantId() != null) {
                         return merchantRepository.findById(alert.getMerchantId())
@@ -191,14 +196,9 @@ public class AlertController {
         
         return alertRepository.findById(id)
                 .map(alert -> {
-                    // Validate PSP access for PSP users
-                    if (userPspId != null && userPspId != 0L && alert.getMerchantId() != null) {
-                        boolean hasAccess = merchantRepository.findById(alert.getMerchantId())
-                                .map(merchant -> merchant.getPsp() != null && merchant.getPsp().getPspId().equals(userPspId))
-                                .orElse(false);
-                        if (!hasAccess) {
-                            return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).build();
-                        }
+                    // Validate direct PSP ownership or the merchant-owned legacy alert path.
+                    if (!hasAlertAccess(alert, userPspId)) {
+                        return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).build();
                     }
                     
                     // Set status based on disposition or default to resolved
@@ -292,13 +292,8 @@ public class AlertController {
         Long userPspId = pspIsolationService.getCurrentUserPspId();
         return alertRepository.findById(id)
                 .map(alert -> {
-                    if (userPspId != null && userPspId != 0L && alert.getMerchantId() != null) {
-                        boolean hasAccess = merchantRepository.findById(alert.getMerchantId())
-                                .map(merchant -> merchant.getPsp() != null && merchant.getPsp().getPspId().equals(userPspId))
-                                .orElse(false);
-                        if (!hasAccess) {
-                            return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).build();
-                        }
+                    if (!hasAlertAccess(alert, userPspId)) {
+                        return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).build();
                     }
                     alert.setStatus(request.getStatus());
                     Alert saved = alertRepository.save(alert);
@@ -349,20 +344,33 @@ public class AlertController {
         
         return alertRepository.findById(id)
                 .map(alert -> {
-                    // Validate PSP access for PSP users
-                    if (userPspId != null && userPspId != 0L && alert.getMerchantId() != null) {
-                        boolean hasAccess = merchantRepository.findById(alert.getMerchantId())
-                                .map(merchant -> merchant.getPsp() != null && merchant.getPsp().getPspId().equals(userPspId))
-                                .orElse(false);
-                        if (!hasAccess) {
-                            return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).build();
-                        }
+                    if (!hasAlertAccess(alert, userPspId)) {
+                        return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).build();
                     }
                     
                     alertRepository.deleteById(id);
                     return ResponseEntity.noContent().build();
                 })
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    private boolean hasAlertAccess(Alert alert, Long userPspId) {
+        if (userPspId != null && userPspId == 0L) {
+            return true;
+        }
+        if (userPspId == null) {
+            return false;
+        }
+        if (alert.getPspId() != null) {
+            return alert.getPspId().equals(userPspId);
+        }
+        if (alert.getMerchantId() == null) {
+            return false;
+        }
+        return merchantRepository.findById(alert.getMerchantId())
+                .map(merchant -> merchant.getPsp() != null
+                        && merchant.getPsp().getPspId().equals(userPspId))
+                .orElse(false);
     }
 
     /**

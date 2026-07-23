@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Document Access Cache Service
@@ -28,6 +29,8 @@ public class DocumentAccessCacheService {
 
     private static final String SET_DOCUMENT_ACCESS = "document_access";
     private static final String SET_DOCUMENT_PERMISSIONS = "document_permissions";
+    private static final String DOCUMENT_KEY_INDEX = "document_access_keys:doc:";
+    private static final String USER_KEY_INDEX = "document_access_keys:user:";
 
     private static String key(String set, String id) {
         return set + ":" + id;
@@ -37,6 +40,10 @@ public class DocumentAccessCacheService {
     public void cacheAccessPermission(Long documentId, Long userId, String role, boolean hasAccess) {
         String k = key(SET_DOCUMENT_ACCESS, documentId + ":" + userId + ":" + role);
         redisTemplate.opsForValue().set(k, hasAccess, Duration.ofHours(cacheTtlHours));
+        redisTemplate.opsForSet().add(DOCUMENT_KEY_INDEX + documentId, k);
+        redisTemplate.opsForSet().add(USER_KEY_INDEX + userId, k);
+        redisTemplate.expire(DOCUMENT_KEY_INDEX + documentId, Duration.ofHours(cacheTtlHours));
+        redisTemplate.expire(USER_KEY_INDEX + userId, Duration.ofHours(cacheTtlHours));
         logger.debug("Cached document access permission: docId={}, userId={}, role={}, access={}",
                 documentId, userId, role, hasAccess);
     }
@@ -65,13 +72,22 @@ public class DocumentAccessCacheService {
 
     /** Invalidate document access cache */
     public void invalidateDocumentAccess(Long documentId) {
-        // Note: Redis SCAN-based wildcard delete is intentionally not used here to avoid
-        // scanning the whole keyspace. In production, maintain a list of keys per docId.
+        deleteIndexedKeys(DOCUMENT_KEY_INDEX + documentId);
+        redisTemplate.delete(key(SET_DOCUMENT_PERMISSIONS, String.valueOf(documentId)));
         logger.debug("Document access cache invalidation requested for docId={}", documentId);
     }
 
     /** Invalidate user's document access cache */
     public void invalidateUserAccess(Long userId) {
+        deleteIndexedKeys(USER_KEY_INDEX + userId);
         logger.debug("User document access cache invalidation requested for userId={}", userId);
+    }
+
+    private void deleteIndexedKeys(String indexKey) {
+        Set<Object> keys = redisTemplate.opsForSet().members(indexKey);
+        if (keys != null && !keys.isEmpty()) {
+            redisTemplate.delete(keys.stream().map(String::valueOf).toList());
+        }
+        redisTemplate.delete(indexKey);
     }
 }

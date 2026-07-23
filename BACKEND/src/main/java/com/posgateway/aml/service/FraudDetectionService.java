@@ -11,6 +11,7 @@ import com.posgateway.aml.repository.limits.VelocityRuleRepository;
 import com.posgateway.aml.repository.risk.HighRiskCountryRepository;
 import com.posgateway.aml.service.cache.FeatureCacheService;
 import com.posgateway.aml.service.enrichment.IpGeoService;
+import com.posgateway.aml.service.enrichment.IpReputationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -60,6 +61,9 @@ public class FraudDetectionService {
     private static final int SCORE_DEVICE_NEW         = 15;
     private static final int SCORE_IP_MISSING         = 10;
     private static final int SCORE_IP_BLACKLISTED     = 30;
+    private static final int SCORE_IP_MANIPULATED     = 30;  // private/reserved/malformed → masked source
+    private static final int SCORE_IP_ANONYMIZING     = 35;  // VPN / proxy / Tor / datacenter
+    private static final int SCORE_IP_GEO_MISMATCH    = 20;  // IP country ≠ declared country
     private static final int SCORE_COUNTRY_HIGH       = 20;
     private static final int SCORE_COUNTRY_CRITICAL   = 35;
     private static final int SCORE_GEO_HOPPING        = 15;  // >3 unique countries in 24h
@@ -77,6 +81,7 @@ public class FraudDetectionService {
     private final HighRiskCountryRepository highRiskCountryRepository;
     private final VelocityRuleRepository velocityRuleRepository;
     private final IpGeoService ipGeoService;
+    private final IpReputationService ipReputationService;
     private final com.posgateway.aml.client.aml.AmlMicroserviceClient amlMicroserviceClient;
 
     public FraudDetectionService(FraudProperties fraudProperties,
@@ -85,6 +90,7 @@ public class FraudDetectionService {
                                      HighRiskCountryRepository highRiskCountryRepository,
                                      VelocityRuleRepository velocityRuleRepository,
                                      IpGeoService ipGeoService,
+                                     IpReputationService ipReputationService,
                                      com.posgateway.aml.client.aml.AmlMicroserviceClient amlMicroserviceClient,
                                      @Value("${fraud.fallback-high-risk-countries:KP,IR,MM,SY,YE,SD,LY,SO,CF,SS,VE,AF,IQ,ML,BF}") String fallbackCsv) {
         this.fraudProperties = fraudProperties;
@@ -93,6 +99,7 @@ public class FraudDetectionService {
         this.highRiskCountryRepository = highRiskCountryRepository;
         this.velocityRuleRepository = velocityRuleRepository;
         this.ipGeoService = ipGeoService;
+        this.ipReputationService = ipReputationService;
         this.amlMicroserviceClient = amlMicroserviceClient;
                 this.fallbackHighRiskCountries = parseCsv(fallbackCsv);
             }
@@ -200,27 +207,18 @@ public class FraudDetectionService {
             return null;
         }
 
-        // Private / loopback ranges are not VPN indicators.
-        if (ip.startsWith("10.") || ip.startsWith("127.")
-                || ip.startsWith("::1") || ip.equals("0:0:0:0:0:0:0:1")) {
+        // Unified on IpReputationService (CIDR + java.net classification). Private/loopback ranges
+        // are not VPN indicators; a configured anonymizing range or a malformed IP is.
+        IpReputationService.IpAssessment a = ipReputationService.assess(ip, null, null);
+        if (a.privateOrReserved()) {
             return Boolean.FALSE;
         }
-        if (ip.startsWith("192.168.")) {
-            return Boolean.FALSE;
-        }
-        if (ip.startsWith("172.")) {
-            // RFC-1918: 172.16.0.0/12 — only 172.16–172.31 are private.
-            try {
-                int secondOctet = Integer.parseInt(ip.split("\\.")[1]);
-                if (secondOctet >= 16 && secondOctet <= 31) {
-                    return Boolean.FALSE;
-                }
-            } catch (NumberFormatException | ArrayIndexOutOfBoundsException ignored) {
-                // Malformed IP — treat as suspicious.
-                return Boolean.TRUE;
-            }
+        if (a.anonymizing() || a.malformed()) {
+            return Boolean.TRUE;
         }
 
+        // Fallback: built-in cloud/datacenter prefix list so detection still has coverage even
+        // before ops load threat-intel CIDR ranges.
         for (String prefix : CLOUD_VPN_PREFIXES) {
             if (ip.startsWith(prefix)) {
                 return Boolean.TRUE;
@@ -305,12 +303,32 @@ public class FraudDetectionService {
                 riskFactors.add("Blacklisted IP address: " + ip);
             }
 
-            // Resolve country — prefer the field already on the transaction (set by enrichment
-            // pipeline), fall back to real-time GeoIP lookup
-            String countryCode = transaction.getCountryCode();
-            if (countryCode == null || countryCode.isBlank()) {
-                countryCode = ipGeoService.lookupCountry(ip).orElse(null);
+            // Resolve the declared country and the IP's real (cached) GeoIP country once.
+            String declaredCountry = transaction.getCountryCode();
+            String ipGeoCountry = ipGeoService.lookupCountry(ip).orElse(null);
+
+            // IP manipulation / anonymised-connection detection. malformed/private/anonymizing are
+            // fully local (no network call); geo-mismatch reuses the single lookup above. Applies to
+            // both customer- and PSP-origin IPs.
+            IpReputationService.IpAssessment ipRep =
+                    ipReputationService.assess(ip, declaredCountry, ipGeoCountry);
+            if (ipRep.malformed() || ipRep.privateOrReserved()) {
+                score += SCORE_IP_MANIPULATED;
+                riskFactors.add("Manipulated/masked IP (" + ipRep.category() + "): " + ip);
             }
+            if (ipRep.anonymizing()) {
+                score += SCORE_IP_ANONYMIZING;
+                riskFactors.add("Anonymising connection (VPN/proxy/datacenter): " + ip);
+            }
+            if (ipRep.geoMismatch()) {
+                score += SCORE_IP_GEO_MISMATCH;
+                riskFactors.add("IP location (" + ipGeoCountry + ") differs from declared country ("
+                        + declaredCountry + ")");
+            }
+
+            // For the high-risk-country check prefer the declared country, else the IP's country.
+            String countryCode = (declaredCountry != null && !declaredCountry.isBlank())
+                    ? declaredCountry : ipGeoCountry;
 
             if (countryCode != null) {
                 // High-risk / critical country check (reads from high_risk_countries table)
@@ -366,12 +384,14 @@ public class FraudDetectionService {
         double avgAmountCents = 0.0;
         String accountNumber = transaction.getAccountNumber();
         if (accountNumber != null && !accountNumber.isBlank()) {
-            // Use average from last 30 transactions for this PAN (best proxy available).
+            LocalDateTime baselineEnd = transaction.getTransactionTimestamp() != null
+                    ? transaction.getTransactionTimestamp()
+                    : LocalDateTime.now();
             Double avg = safeQueryDouble(() ->
-                    transactionRepository.avgAmountByPanInTimeWindow(
+                    transactionRepository.avgAmountByPanBefore(
                             accountNumber,
-                            LocalDateTime.now().minusDays(30),
-                            LocalDateTime.now()));
+                            baselineEnd.minusDays(30),
+                            baselineEnd));
             avgAmountCents = avg != null ? avg : 0.0;
         }
 
@@ -419,7 +439,11 @@ public class FraudDetectionService {
         } catch (Exception ignore) { /* logged by client */ }
 
         try {
-            List<VelocityRule> activeRules = velocityRuleRepository.findByStatus("ACTIVE");
+            List<VelocityRule> activeRules = new java.util.ArrayList<>(
+                    velocityRuleRepository.findByStatusAndPspIdIsNull("ACTIVE"));
+            if (transaction.getPspId() != null) {
+                activeRules.addAll(velocityRuleRepository.findByStatusAndPspId("ACTIVE", transaction.getPspId()));
+            }
 
             for (VelocityRule rule : activeRules) {
                 // PSP-scoped rules apply only to their PSP; global rules (pspId null) apply to all
@@ -440,6 +464,8 @@ public class FraudDetectionService {
 
         } catch (Exception e) {
             logger.warn("Velocity risk check failed for txn={}: {}", transaction.getTransactionId(), e.getMessage());
+            riskFactors.add("Velocity controls unavailable; transaction requires manual review");
+            return SCORE_VELOCITY_CRITICAL;
         }
 
         return score;
